@@ -1,0 +1,22 @@
+@'
+node_modules/
+dist/
+build/
+coverage/
+
+.env
+.env.local
+.env.*.local
+!.env.example
+
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log
+'@ | Set-Content -Encoding utf8 .gitignore 
