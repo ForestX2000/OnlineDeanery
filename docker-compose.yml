@@ -1,42 +1,62 @@
 services:
+  rules:
+    image: online-deanery-backend:local
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: ["python", "-m", "uvicorn", "backend.logic:app", "--host", "0.0.0.0", "--port", "8002"]
+    ports:
+      - "8002:8002"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8002/health', timeout=2)"
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  backend:
+    image: online-deanery-backend:local
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      BACKEND2_URL: http://rules:8002/answer
+      ML1_URL: "${ML1_URL:-http://host.docker.internal:8001/ocr}"
+      ML2_URL: "${ML2_URL:-http://host.docker.internal:8003/extract}"
+      CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "8000:8000"
+    depends_on:
+      rules:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/docs', timeout=2)"
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: deanery_frontend
+    environment:
+      VITE_API_URL: http://localhost:8000
     ports:
       - "5173:5173"
     volumes:
       - ./frontend:/app
       - /app/node_modules
-
-  # backend:
-  #   build:
-  #     context: ./backend
-  #     dockerfile: Dockerfile
-  #   container_name: deanery_backend
-  #   ports:
-  #     - "8000:8000"
-  #   volumes:
-  #     - ./backend:/app
-  #   depends_on:
-  #     - db
-  # ml_service:
-  #   build:
-  #     context: ./ml
-  #     dockerfile: Dockerfile
-  #   container_name: deanery_ml
-  #   ports:
-  #     - "5000:5000"
-  #   volumes:
-  #     - ./ml:/app
-
-  db:
-    image: postgres:15-alpine
-    container_name: deanery_db
-    environment:
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: super_password
-      POSTGRES_DB: deanery
-    ports:
-      - "5432:5432"
+    depends_on:
+      backend:
+        condition: service_healthy

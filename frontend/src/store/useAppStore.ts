@@ -1,18 +1,5 @@
 import { create } from "zustand"
-
-export type DocumentType =
-  | "study_certificate"
-  | "academic_leave"
-  | "internship_certificate"
-
-export interface AnalysisResult {
-  extracted_fields: Record<string, string>
-  answer: string
-  sources: {
-    type: string
-    reference: string
-  }[]
-}
+import type { AnalysisResult, DocumentType } from "../../api"
 
 interface AppState {
   step: "upload" | "processing" | "result"
@@ -20,14 +7,16 @@ interface AppState {
   docType: DocumentType | ""
   question: string
   result: AnalysisResult | null
+  error: string | null
 
   setStep: (step: AppState["step"]) => void
   setFormData: (data: {
-    file: File
-    docType: DocumentType
+    file: File | null
+    docType: DocumentType | ""
     question: string
   }) => void
   setResult: (result: AnalysisResult) => void
+  setError: (error: string | null) => void
   reset: () => void
 }
 
@@ -37,12 +26,14 @@ export const useAppStore = create<AppState>((set) => ({
   docType: "",
   question: "",
   result: null,
+  error: null,
 
   setStep: (step) => set({ step }),
 
   setFormData: (data) => set(data),
 
-  setResult: (result) => set({ result, step: "result" }),
+  setResult: (result) => set({ result, step: "result", error: null }),
+  setError: (error) => set({ error }),
 
   reset: () => set({
     step: "upload",
@@ -50,5 +41,6 @@ export const useAppStore = create<AppState>((set) => ({
     docType: "",
     question: "",
     result: null,
+    error: null,
   }),
 }))
