@@ -21,15 +21,24 @@ services:
   #     - ./backend:/app
   #   depends_on:
   #     - db
-  # ml_service:
-  #   build:
-  #     context: ./ml
-  #     dockerfile: Dockerfile
-  #   container_name: deanery_ml
-  #   ports:
-  #     - "5000:5000"
-  #   volumes:
-  #     - ./ml:/app
+
+  ml1:
+    build:
+      context: .
+      dockerfile: ml1/Dockerfile
+    container_name: deanery_ml1
+    ports:
+      - "8001:8001"
+    restart: unless-stopped
+
+  ml2:
+    build:
+      context: .
+      dockerfile: ml2/Dockerfile
+    container_name: deanery_ml2
+    ports:
+      - "8003:8003"
+    restart: unless-stopped
 
   db:
     image: postgres:15-alpine
