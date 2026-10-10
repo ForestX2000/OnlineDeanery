@@ -2,7 +2,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Separator } from "@/components/ui/separator"
-import { FileText, AlertTriangle, CheckCircle2 } from "lucide-react"
+import { FileText, AlertTriangle } from "lucide-react"
+import { DOCUMENT_LABELS } from "../../api"
+import type { DocumentType } from "../../api"
 
 import { useAppStore } from "@/store/useAppStore"
 import { Button } from "@base-ui/react"
@@ -21,7 +23,9 @@ export function DocumentResult() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg text-[#1e293b]">
             <FileText className="h-5 w-5 text-[#087b45]" />
-            Распознанные данные: Справка об обучении
+            Распознанные данные{data.document_type
+              ? `: ${DOCUMENT_LABELS[data.document_type as DocumentType] ?? data.document_type}`
+              : ""}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -44,8 +48,8 @@ export function DocumentResult() {
                         <AlertTriangle className="h-3 w-3" /> не найдено
                       </Badge>
                     ) : (
-                      <span className="text-[#087b45] flex items-center gap-1 font-medium">
-                        <CheckCircle2 className="h-4 w-4" /> {value}
+                      <span className="text-[#1e293b] font-medium">
+                        {value}
                       </span>
                     )}
                   </TableCell>
@@ -53,6 +57,9 @@ export function DocumentResult() {
               ))}
             </TableBody>
           </Table>
+          {Object.keys(data.extracted_fields).length === 0 && (
+            <p className="mt-3 text-sm text-slate-500">Сервер не вернул распознанные поля.</p>
+          )}
         </CardContent>
       </Card>
 
@@ -61,7 +68,7 @@ export function DocumentResult() {
           <CardTitle className="text-lg text-[#1e293b]">Ответ цифрового секретаря</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-[#1e293b] leading-relaxed text-lg">
+          <p className="text-[#1e293b] leading-relaxed text-lg whitespace-pre-wrap">
             {data.answer}
           </p>
 

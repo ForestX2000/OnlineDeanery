@@ -92,6 +92,7 @@ export default function DocumentUploader() {
     event: React.FormEvent<HTMLFormElement>,
   ) => {
     event.preventDefault();
+    if (isLoading) return;
     setError("");
 
     if (!file) {
@@ -129,7 +130,7 @@ export default function DocumentUploader() {
       console.error("Ошибка обработки документа:", err);
       setStep("upload");
       setError(
-        "Не удалось обработать документ. Проверьте подключение к серверу и попробуйте ещё раз.",
+        err instanceof Error ? err.message : "Не удалось обработать документ. Попробуйте ещё раз.",
       );
     } finally {
       setIsLoading(false);

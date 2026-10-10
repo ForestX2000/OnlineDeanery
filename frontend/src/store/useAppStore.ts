@@ -7,6 +7,7 @@ export type DocumentType =
   | "internship_certificate";
 
 export interface AnalysisResult {
+  document_type: string | null;
   extracted_fields: Record<string, string>;
   answer: string;
   sources: {

@@ -2,6 +2,7 @@ import type {
   AnalysisResult,
   DocumentType,
 } from "@/store/useAppStore"
+import { analyzeDocument as requestAnalysis } from "../../api"
 
 interface AnalyzeParams {
   file: File
@@ -9,29 +10,23 @@ interface AnalyzeParams {
   question: string
 }
 
-const documentLabels: Record<DocumentType, string> = {
-  study_certificate: "Справка об обучении",
-  academic_leave: "Заявление на академический отпуск",
-  internship_certificate: "Справка о практике",
-}
-
 export async function analyzeDocument({
   file,
   docType,
   question,
 }: AnalyzeParams): Promise<AnalysisResult> {
-  
-  await new Promise((resolve) => setTimeout(resolve, 1500))
-
+  const result = await requestAnalysis({ file, docType, question })
   return {
-    extracted_fields: {
-      document_type: documentLabels[docType],
-      file_name: file.name,
-      question,
-      student_name: "Тестовые данные",
-    },
-    answer:
-      "Это демонстрационный ответ. Настоящий анализ документа и проверка по нормативным актам появятся после подключения бэкенда.",
-    sources: [],
+    document_type: result.document?.type ?? null,
+    extracted_fields: Object.fromEntries(
+      Object.entries(result.document?.fields ?? {}).map(([key, value]) => [
+        key,
+        value == null || value === "" ? "не найдено"
+          : typeof value === "boolean" ? (value ? "Да" : "Нет")
+          : typeof value === "object" ? JSON.stringify(value) : String(value),
+      ]),
+    ),
+    answer: result.answer,
+    sources: result.sources,
   }
 }
