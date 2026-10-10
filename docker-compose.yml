@@ -60,3 +60,31 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+
+  ml1:
+    build:
+      context: .
+      dockerfile: ml1/Dockerfile
+    container_name: deanery_ml1
+    ports:
+      - "8001:8001"
+    restart: unless-stopped
+
+  ml2:
+    build:
+      context: .
+      dockerfile: ml2/Dockerfile
+    container_name: deanery_ml2
+    ports:
+      - "8003:8003"
+    restart: unless-stopped
+
+  db:
+    image: postgres:15-alpine
+    container_name: deanery_db
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: super_password
+      POSTGRES_DB: deanery
+    ports:
+      - "5432:5432"
