@@ -1,0 +1,42 @@
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: deanery_frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+
+  # backend:
+  #   build:
+  #     context: ./backend
+  #     dockerfile: Dockerfile
+  #   container_name: deanery_backend
+  #   ports:
+  #     - "8000:8000"
+  #   volumes:
+  #     - ./backend:/app
+  #   depends_on:
+  #     - db
+  # ml_service:
+  #   build:
+  #     context: ./ml
+  #     dockerfile: Dockerfile
+  #   container_name: deanery_ml
+  #   ports:
+  #     - "5000:5000"
+  #   volumes:
+  #     - ./ml:/app
+
+  db:
+    image: postgres:15-alpine
+    container_name: deanery_db
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: super_password
+      POSTGRES_DB: deanery
+    ports:
+      - "5432:5432"
