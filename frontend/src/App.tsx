@@ -4,7 +4,7 @@ import { DocumentResult } from "./components/DocumentResult"
 
 function App() {
   // Читаем текущий шаг из глобального состояния
-  const { step } = useAppStore()
+  const { step, file } = useAppStore()
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
@@ -41,7 +41,9 @@ function App() {
             <div className="text-center space-y-2 max-w-md px-4">
               <h2 className="text-xl font-semibold text-slate-800">Цифровой секретарь работает</h2>
               <p className="text-slate-500 leading-relaxed">
-                Распознаём текст на документе, извлекаем поля и сверяем их с Положением вуза...
+                {file
+                  ? "Распознаём текст на документе, извлекаем поля и сверяем их с Положением вуза..."
+                  : "Ищем ответ на ваш вопрос в Положении вуза..."}
               </p>
             </div>
           </div>

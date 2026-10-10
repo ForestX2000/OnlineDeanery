@@ -1,28 +1,111 @@
+import { useRef, useState } from "react"
+import { ApiError, DOCUMENT_LABELS, MAX_QUESTION_LENGTH, sendMessage } from "../../api"
+import type { DocumentType, JsonValue } from "../../api"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Separator } from "@/components/ui/separator"
-import { FileText, AlertTriangle, CheckCircle2 } from "lucide-react"
+import { FileText, AlertTriangle } from "lucide-react"
 
 
 import { useAppStore } from "@/store/useAppStore"
-import { Button } from "@base-ui/react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+
+const FIELD_LABELS = new Map<string, string>([
+  ["student_name", "ФИО студента"],
+  ["name", "ФИО студента"],
+  ["university", "Учебное заведение"],
+  ["program", "Образовательная программа"],
+  ["study_form", "Форма обучения"],
+  ["study_period", "Период обучения"],
+  ["number", "Номер документа"],
+  ["document_number", "Номер документа"],
+  ["internship_period", "Сроки практики"],
+  ["issue_date", "Дата выдачи"],
+  ["signature", "Подпись"],
+  ["stamp", "Печать"],
+  ["group", "Группа"],
+  ["course", "Курс"],
+  ["reason", "Основание"],
+  ["start_date", "Дата начала"],
+  ["end_date", "Дата окончания"],
+  ["application_date", "Дата заявления"],
+  ["organization", "Организация"],
+  ["supervisor", "Руководитель"],
+  ["grade", "Оценка"],
+])
+
+const VERIFICATION_LABELS = new Map<string, string>([
+  ["complete", "Обязательные поля заполнены"],
+  ["incomplete", "Обнаружены замечания"],
+  ["unknown", "Недостаточно данных для проверки"],
+])
+
+function fieldLabel(field: string): string {
+  return FIELD_LABELS.get(field) ?? field.replace(/_/g, " ")
+}
+
+function formatValue(value: JsonValue): string {
+  if (value === null || value === "") return "не найдено"
+  if (typeof value === "boolean") return value ? "Да" : "Нет"
+  if (typeof value === "object") return JSON.stringify(value)
+  return String(value)
+}
+
+function sourceUrl(url?: string | null): string | undefined {
+  if (!url) return
+  try {
+    const parsed = new URL(url)
+    if (["https:", "http:"].includes(parsed.protocol)) return parsed.href
+  } catch { /* Ссылка необязательна: оставляем текст источника. */ }
+}
 
 export function DocumentResult() {
-  const {result, reset}= useAppStore()
+  const { result, reset, setResult } = useAppStore()
+  const [question, setQuestion] = useState("")
+  const [pending, setPending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [expired, setExpired] = useState(false)
+  const submitting = useRef(false)
   const data = result
 
   if(!data) return null
 
+  const document = data.document
+  const verification = data.verification
+  const documentLabel = document?.type
+    ? DOCUMENT_LABELS[document.type as DocumentType] ?? document.type
+    : "Тип не определён"
+
+  const handleFollowUp = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!question.trim() || submitting.current || expired) return
+    submitting.current = true
+    setPending(true)
+    setError(null)
+    try {
+      setResult(await sendMessage(question, data.conversation_id))
+      setQuestion("")
+    } catch (error) {
+      setExpired(error instanceof ApiError && error.status === 404)
+      setError(error instanceof Error ? error.message : "Не удалось получить ответ")
+    } finally {
+      submitting.current = false
+      setPending(false)
+    }
+  }
+
   return (
     <div className="max-w-4xl mx-auto space-y-6 p-4">
       
-      <Card className="border-green-200 bg-green-50/30 relative overflow-hidden">
+      {document && <Card className="border-green-200 bg-green-50/30 relative overflow-hidden">
       <div className="absolute top-0 left-0 right-0 h-1.5 bg-[#00A651]"></div>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
             <FileText className="h-5 w-5 text-blue-600" />
-            Распознанные данные: Справка об обучении
+            Распознанные данные: {documentLabel}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -34,19 +117,19 @@ export function DocumentResult() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {Object.entries(data.extracted_fields).map(([key, value]) => (
+              {Object.entries(document.fields).map(([key, value]) => (
                 <TableRow key={key}>
-                  <TableCell className="font-medium capitalize">
-                    {key.replace(/_/g, " ")}
+                  <TableCell className="font-medium">
+                    {fieldLabel(key)}
                   </TableCell>
                   <TableCell>
-                    {value === "не найдено" ? (
+                    {formatValue(value) === "не найдено" ? (
                       <Badge variant="destructive" className="flex items-center gap-1 w-fit">
                         <AlertTriangle className="h-3 w-3" /> не найдено
                       </Badge>
                     ) : (
-                      <span className="text-green-700 flex items-center gap-1">
-                        <CheckCircle2 className="h-4 w-4" /> {value}
+                      <span className="text-slate-800">
+                        {formatValue(value)}
                       </span>
                     )}
                   </TableCell>
@@ -54,8 +137,15 @@ export function DocumentResult() {
               ))}
             </TableBody>
           </Table>
+          {Object.keys(document.fields).length === 0 && <p className="text-slate-600">Поля документа не найдены.</p>}
+          {verification && <div className="mt-4 space-y-2">
+            <p>Статус проверки: {VERIFICATION_LABELS.get(verification.status) ?? verification.status}</p>
+            {verification.missing_fields.length > 0 && <p className="text-red-700">Не найдены обязательные поля: {verification.missing_fields.map(fieldLabel).join(", ")}</p>}
+            {verification.issues.map((issue, index) => <p key={index} className="text-red-700">{issue}</p>)}
+          </div>}
+          <p className="mt-4 text-sm text-slate-500">Проверка комплектности не означает принятие документа. Окончательное решение принимает деканат.</p>
         </CardContent>
-      </Card>
+      </Card>}
 
       
       <Card className="border-blue-200 bg-blue-50/50">
@@ -63,7 +153,7 @@ export function DocumentResult() {
           <CardTitle className="text-lg text-blue-900">Ответ цифрового секретаря</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-slate-800 leading-relaxed text-lg">
+          <p className="text-slate-800 leading-relaxed text-lg whitespace-pre-wrap">
             {data.answer}
           </p>
           
@@ -77,9 +167,11 @@ export function DocumentResult() {
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {data.sources.map((source, idx) => (
-                    <Badge key={idx} variant="outline" className="bg-white text-blue-700 border-blue-300 cursor-pointer hover:bg-blue-100 transition-colors">
+                    <Badge key={idx} variant="outline" className="bg-white text-blue-700 border-blue-300">
                       {source.type === "положение" ? "📜 " : "📄 "}
-                      {source.reference}
+                      {sourceUrl(source.url)
+                        ? <a href={sourceUrl(source.url)} target="_blank" rel="noopener noreferrer" className="underline">{source.reference}</a>
+                        : source.reference}
                     </Badge>
                   ))}
                 </div>
@@ -88,7 +180,14 @@ export function DocumentResult() {
           )}
         </CardContent>
       </Card>
-      <Button onClick={reset} className="mt-2 text-red-600 hover:text-red-700 hover:bg-red-50" >Проверить другой документ</Button>
+      <form onSubmit={handleFollowUp} className="space-y-3" aria-busy={pending}>
+        <Label htmlFor="follow-up">Уточняющий вопрос</Label>
+        <Input id="follow-up" value={question} onChange={(event) => setQuestion(event.target.value)}
+          required maxLength={MAX_QUESTION_LENGTH} disabled={pending || expired} placeholder="Спросите подробнее по этому обращению" />
+        {error && <p role="alert" className="text-red-700">{error}{expired && " Начните новое обращение и приложите документ заново."}</p>}
+        <Button type="submit" disabled={pending || expired || !question.trim()}>{pending ? "Получаем ответ..." : "Задать вопрос"}</Button>
+      </form>
+      <Button type="button" onClick={reset} disabled={pending} variant="outline">Новое обращение</Button>
 
     </div>
   )

@@ -1,0 +1,389 @@
+{
+  "title": "Описание кейса «Онлайн-деканат»",
+  "source_type": "описание кейса",
+  "scope_note": "Проверка выполнена по стартовому списку полей из презентации кейса, а не по нормативному Положению вуза. Наличие подписи и печати проверяется как требование стартового сценария.",
+  "clauses": [
+    {
+      "id": "Поля справки об обучении",
+      "text": "Для справки об обучении в описании кейса перечислены ФИО студента, название вуза, направление подготовки, форма обучения, период обучения, номер и дата выдачи, подпись и печать (есть/нет).",
+      "topics": [
+        "справка обучение",
+        "поля справки",
+        "комплектность справки",
+        "данные справки"
+      ],
+      "document_types": [
+        "study_certificate"
+      ]
+    },
+    {
+      "id": "Поля заявления на академический отпуск",
+      "text": "Для заявления на академический отпуск в описании кейса перечислены ФИО студента, группа и курс, причина отпуска, дата начала и окончания отпуска, дата заявления и подпись студента (есть/нет).",
+      "topics": [
+        "академический отпуск",
+        "поля заявления",
+        "комплектность заявления",
+        "данные отпуска"
+      ],
+      "document_types": [
+        "academic_leave"
+      ]
+    },
+    {
+      "id": "Поля справки о практике",
+      "text": "Для справки о практике в описании кейса перечислены ФИО студента, организация, сроки практики, руководитель практики, оценка, номер и дата выдачи, подпись и печать (есть/нет).",
+      "topics": [
+        "практика",
+        "поля справки о практике",
+        "комплектность практики"
+      ],
+      "document_types": [
+        "internship_certificate"
+      ]
+    }
+  ],
+  "document_types": {
+    "study_certificate": {
+      "label": "Справка об обучении",
+      "aliases": [
+        "справка об учебе",
+        "справка об образовании"
+      ],
+      "required_fields": [
+        {
+          "name": "student_name",
+          "label": "ФИО студента",
+          "aliases": [
+            "name",
+            "full_name",
+            "fio",
+            "фио",
+            "student_full_name"
+          ],
+          "reference": "Поля справки об обучении",
+          "kind": "text",
+          "must_be_true": false
+        },
+        {
+          "name": "university",
+          "label": "Название вуза",
+          "aliases": [
+            "university_name",
+            "institution",
+            "вуз"
+          ],
+          "reference": "Поля справки об обучении",
+          "kind": "text",
+          "must_be_true": false
+        },
+        {
+          "name": "program",
+          "label": "Направление подготовки",
+          "aliases": [
+            "specialty",
+            "education_program",
+            "study_program"
+          ],
+          "reference": "Поля справки об обучении",
+          "kind": "text",
+          "must_be_true": false
+        },
+        {
+          "name": "study_form",
+          "label": "Форма обучения",
+          "aliases": [
+            "education_form",
+            "form_of_study"
+          ],
+          "reference": "Поля справки об обучении",
+          "kind": "text",
+          "must_be_true": false
+        },
+        {
+          "name": "study_period",
+          "label": "Период обучения",
+          "aliases": [
+            "education_period",
+            "period"
+          ],
+          "reference": "Поля справки об обучении",
+          "kind": "text",
+          "must_be_true": false
+        },
+        {
+          "name": "document_number",
+          "label": "Номер документа",
+          "aliases": [
+            "number",
+            "certificate_number",
+            "номер"
+          ],
+          "reference": "Поля справки об обучении",
+          "kind": "text",
+          "must_be_true": false
+        },
+        {
+          "name": "issue_date",
+          "label": "Дата выдачи",
+          "aliases": [
+            "date_issued",
+            "date_of_issue",
+            "дата выдачи справки"
+          ],
+          "reference": "Поля справки об обучении",
+          "kind": "date",
+          "must_be_true": false
+        },
+        {
+          "name": "signature",
+          "label": "Подпись",
+          "aliases": [
+            "has_signature",
+            "signature_present",
+            "подпись студента"
+          ],
+          "reference": "Поля справки об обучении",
+          "kind": "boolean",
+          "must_be_true": true
+        },
+        {
+          "name": "stamp",
+          "label": "Печать",
+          "aliases": [
+            "seal",
+            "has_stamp",
+            "has_seal",
+            "stamp_present",
+            "печать вуза"
+          ],
+          "reference": "Поля справки об обучении",
+          "kind": "boolean",
+          "must_be_true": true
+        }
+      ]
+    },
+    "academic_leave": {
+      "label": "Заявление на академический отпуск",
+      "aliases": [
+        "академический отпуск",
+        "заявление на академ"
+      ],
+      "required_fields": [
+        {
+          "name": "student_name",
+          "label": "ФИО студента",
+          "aliases": [
+            "name",
+            "full_name",
+            "fio",
+            "фио",
+            "student_full_name"
+          ],
+          "reference": "Поля заявления на академический отпуск",
+          "kind": "text",
+          "must_be_true": false
+        },
+        {
+          "name": "group",
+          "label": "Группа",
+          "aliases": [
+            "student_group",
+            "group_number"
+          ],
+          "reference": "Поля заявления на академический отпуск",
+          "kind": "text",
+          "must_be_true": false
+        },
+        {
+          "name": "course",
+          "label": "Курс",
+          "aliases": [
+            "year",
+            "study_year"
+          ],
+          "reference": "Поля заявления на академический отпуск",
+          "kind": "text",
+          "must_be_true": false
+        },
+        {
+          "name": "reason",
+          "label": "Причина отпуска",
+          "aliases": [
+            "leave_reason",
+            "причина"
+          ],
+          "reference": "Поля заявления на академический отпуск",
+          "kind": "text",
+          "must_be_true": false
+        },
+        {
+          "name": "start_date",
+          "label": "Дата начала отпуска",
+          "aliases": [
+            "leave_start",
+            "leave_start_date",
+            "дата начала"
+          ],
+          "reference": "Поля заявления на академический отпуск",
+          "kind": "date",
+          "must_be_true": false
+        },
+        {
+          "name": "end_date",
+          "label": "Дата окончания отпуска",
+          "aliases": [
+            "leave_end",
+            "leave_end_date",
+            "дата окончания"
+          ],
+          "reference": "Поля заявления на академический отпуск",
+          "kind": "date",
+          "must_be_true": false
+        },
+        {
+          "name": "application_date",
+          "label": "Дата заявления",
+          "aliases": [
+            "date",
+            "дата подачи заявления"
+          ],
+          "reference": "Поля заявления на академический отпуск",
+          "kind": "date",
+          "must_be_true": false
+        },
+        {
+          "name": "signature",
+          "label": "Подпись",
+          "aliases": [
+            "has_signature",
+            "signature_present",
+            "подпись студента"
+          ],
+          "reference": "Поля заявления на академический отпуск",
+          "kind": "boolean",
+          "must_be_true": true
+        }
+      ]
+    },
+    "internship_certificate": {
+      "label": "Справка о практике",
+      "aliases": [
+        "практика",
+        "справка с практики"
+      ],
+      "required_fields": [
+        {
+          "name": "student_name",
+          "label": "ФИО студента",
+          "aliases": [
+            "name",
+            "full_name",
+            "fio",
+            "фио",
+            "student_full_name"
+          ],
+          "reference": "Поля справки о практике",
+          "kind": "text",
+          "must_be_true": false
+        },
+        {
+          "name": "organization",
+          "label": "Организация",
+          "aliases": [
+            "company",
+            "organization_name",
+            "место практики"
+          ],
+          "reference": "Поля справки о практике",
+          "kind": "text",
+          "must_be_true": false
+        },
+        {
+          "name": "internship_period",
+          "label": "Сроки практики",
+          "aliases": [
+            "practice_period",
+            "period",
+            "период практики"
+          ],
+          "reference": "Поля справки о практике",
+          "kind": "text",
+          "must_be_true": false
+        },
+        {
+          "name": "supervisor",
+          "label": "Руководитель практики",
+          "aliases": [
+            "internship_supervisor",
+            "supervisor_name",
+            "руководитель"
+          ],
+          "reference": "Поля справки о практике",
+          "kind": "text",
+          "must_be_true": false
+        },
+        {
+          "name": "grade",
+          "label": "Оценка",
+          "aliases": [
+            "mark",
+            "practice_grade"
+          ],
+          "reference": "Поля справки о практике",
+          "kind": "text",
+          "must_be_true": false
+        },
+        {
+          "name": "document_number",
+          "label": "Номер документа",
+          "aliases": [
+            "number",
+            "certificate_number",
+            "номер"
+          ],
+          "reference": "Поля справки о практике",
+          "kind": "text",
+          "must_be_true": false
+        },
+        {
+          "name": "issue_date",
+          "label": "Дата выдачи",
+          "aliases": [
+            "date_issued",
+            "date_of_issue",
+            "дата выдачи справки"
+          ],
+          "reference": "Поля справки о практике",
+          "kind": "date",
+          "must_be_true": false
+        },
+        {
+          "name": "signature",
+          "label": "Подпись",
+          "aliases": [
+            "has_signature",
+            "signature_present",
+            "подпись студента"
+          ],
+          "reference": "Поля справки о практике",
+          "kind": "boolean",
+          "must_be_true": true
+        },
+        {
+          "name": "stamp",
+          "label": "Печать",
+          "aliases": [
+            "seal",
+            "has_stamp",
+            "has_seal",
+            "stamp_present",
+            "печать вуза"
+          ],
+          "reference": "Поля справки о практике",
+          "kind": "boolean",
+          "must_be_true": true
+        }
+      ]
+    }
+  }
+}
