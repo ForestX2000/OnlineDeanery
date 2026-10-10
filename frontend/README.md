@@ -1,4 +1,17 @@
-# React + TypeScript + Vite
+# Frontend онлайн-деканата
+
+Интеграция и запуск двух backend-сервисов описаны в [docs/api.md](../docs/api.md).
+Клиент запросов находится в `api/`, адрес backend задаётся через `VITE_API_URL`
+(пример в `.env.example`).
+
+```sh
+npm install
+npm run dev
+```
+
+Проверки: `npm test`, `npm run lint`, `npm run build`.
+
+## React + TypeScript + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 

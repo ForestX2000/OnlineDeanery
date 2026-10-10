@@ -1,213 +1,389 @@
-import { useState, useCallback } from "react"
-import { useDropzone } from "react-dropzone"
-import imageCompression from "browser-image-compression"
-import { DocumentType, useAppStore } from "@/store/useAppStore"
 
-import { analyzeDocument } from "@/services/analyzeDocument"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Upload, FileText, X, Loader2 } from "lucide-react"
+import { useCallback, useState } from "react";
+import { useDropzone } from "react-dropzone";
+import { useNavigate } from "react-router-dom";
+import {
+  ArrowRight,
+  CheckCircle2,
+  FileText,
+  FileUp,
+  LoaderCircle,
+  ShieldCheck,
+  Trash2,
+  UploadCloud,
+  AlertCircle,
+} from "lucide-react";
+
+import { useAppStore } from "../store/useAppStore";
+import { analyzeDocument, sendMessage, MAX_QUESTION_LENGTH } from "../../api";
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 const DOC_TYPES = [
-  { value: "study_certificate", label: "Справка об обучении" },
-  { value: "academic_leave", label: "Заявление на академический отпуск" },
-  { value: "internship_certificate", label: "Справка о практике" },
-]
+  {
+    value: "study_certificate",
+    label: "Справка об обучении",
+  },
+  {
+    value: "academic_leave",
+    label: "Заявление на академический отпуск",
+  },
+  {
+    value: "internship_certificate",
+    label: "Справка о практике",
+  },
+] as const;
 
-export function DocumentUploader() {
-  const [file, setFile] = useState<File | null>(null)
-  const [docType, setDocType] = useState("")
-  const [question, setQuestion] = useState("")
-  const [isCompressing, setIsCompressing] = useState(false)
-  
+type DocumentType = (typeof DOC_TYPES)[number]["value"];
 
-  const { setStep, setFormData, setResult  } = useAppStore()
+export default function DocumentUploader() {
+  const navigate = useNavigate();
 
-  
-  const compressImage = async (fileToCompress: File) => {
-    if (!fileToCompress.type.startsWith("image/")) return fileToCompress
-    
-    setIsCompressing(true)
-    const options = {
-      maxSizeMB: 0.5, 
-      maxWidthOrHeight: 1920,
-      useWebWorker: true,
+  const setFormData = useAppStore((state) => state.setFormData);
+  const setResult = useAppStore((state) => state.setResult);
+  const setStep = useAppStore((state) => state.setStep);
+
+  const [file, setFile] = useState<File | null>(null);
+  const [docType, setDocType] = useState<DocumentType | "">("");
+  const [question, setQuestion] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const onDrop = useCallback((files: File[]) => {
+    setError("");
+    if (files.length > 0) setFile(files[0]);
+  }, []);
+
+  const { getRootProps, getInputProps, isDragActive, open } =
+    useDropzone({
+      onDrop,
+      multiple: false,
+      maxSize: MAX_FILE_SIZE,
+      noClick: true,
+      noKeyboard: true,
+      accept: {
+        "application/pdf": [".pdf"],
+        "image/png": [".png"],
+        "image/jpeg": [".jpg", ".jpeg"],
+      },
+      onDropRejected: (rejections) => {
+        const rejection = rejections[0];
+        if (!rejection) return;
+
+        if (
+          rejection.errors.some(
+            (item) => item.code === "file-too-large",
+          )
+        ) {
+          setError("Размер файла не должен превышать 10 МБ.");
+        } else if (
+          rejection.errors.some(
+            (item) => item.code === "file-invalid-type",
+          )
+        ) {
+          setError("Поддерживаются файлы PDF, PNG и JPG.");
+        } else {
+          setError("Не удалось загрузить файл. Попробуйте ещё раз.");
+        }
+      },
+    });
+
+  const handleSubmit = async (
+    event: React.FormEvent<HTMLFormElement>,
+  ) => {
+    event.preventDefault();
+    if (isLoading) return;
+    setError("");
+
+    if (!question.trim()) {
+      setError("Напишите вопрос по вашему документу.");
+      return;
     }
-    
+
+    setIsLoading(true);
+
     try {
-      const compressedFile = await imageCompression(fileToCompress, options)
-      return compressedFile
-    } catch (error) {
-      console.error("Ошибка сжатия:", error)
-      return fileToCompress 
+      const formData = {
+        file,
+        docType,
+        question: question.trim(),
+      };
+
+      setFormData(formData);
+      setStep("processing");
+
+      const result = file
+        ? await analyzeDocument({ file, docType, question: formData.question })
+        : await sendMessage(formData.question);
+
+      setResult(result);
+      navigate("/result");
+    } catch (err) {
+      console.error("Ошибка обработки документа:", err);
+      setStep("upload");
+      setError(
+        err instanceof Error ? err.message : "Не удалось обработать документ. Попробуйте ещё раз.",
+      );
     } finally {
-      setIsCompressing(false)
+      setIsLoading(false);
     }
-  }
+  };
 
-  const onDrop = useCallback(async (acceptedFiles: File[]) => {
-    const selectedFile = acceptedFiles[0]
-    if (selectedFile) {
-      const processedFile = await compressImage(selectedFile)
-      setFile(processedFile)
+  const removeFile = () => {
+    setFile(null);
+    setError("");
+  };
+
+  const formatSize = (size: number) => {
+    if (size < 1024 * 1024) {
+      return `${(size / 1024).toFixed(0)} КБ`;
     }
-  }, [])
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: {
-      "image/jpeg": [".jpg", ".jpeg"],
-      "image/png": [".png"],
-      "application/pdf": [".pdf"],
-    },
-    maxFiles: 1,
-  })
-
-
-const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault()
-
-  if (!file || !docType || !question.trim()) {
-    alert("Заполните все поля")
-    return
-  }
-
-  setFormData({
-    file,
-    docType: docType as DocumentType,
-    question: question.trim(),
-  })
-
-  setStep("processing")
-
-  try {
-    const result = await analyzeDocument({
-      file,
-      docType: docType as DocumentType,
-      question: question.trim(),
-    })
-
-    setResult(result)
-  } catch {
-    setStep("upload")
-    alert("Не удалось обработать документ. Попробуйте ещё раз.")
-  }
-}
+    return `${(size / (1024 * 1024)).toFixed(1)} МБ`;
+  };
 
   return (
-    <Card className="w-full max-w-2xl mx-auto shadow-xl border-slate-200">
-      <CardHeader className="space-y-1">
-        <CardTitle className="text-2xl font-bold flex items-center gap-2 text-slate-900">
-          <FileText className="h-7 w-7 text-blue-600" />
-          Онлайн-деканат
-        </CardTitle>
-        <CardDescription className="text-slate-600">
-          Загрузите фото документа, и цифровой секретарь проверит его по правилам вуза за секунды.
-        </CardDescription>
-      </CardHeader>
-      
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          
-          
-          <div className="space-y-2">
-            <Label>1. Загрузите документ</Label>
-            <div
-              {...getRootProps()}
-              className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all duration-200
-                ${isDragActive ? "border-blue-500 bg-blue-50/50" : "border-slate-300 hover:border-blue-400 hover:bg-slate-50"}
-                ${file ? "bg-green-50/50 border-green-500" : ""}
-              `}
-            >
-              <input {...getInputProps()} />
-              {file ? (
-                <div className="flex flex-col items-center gap-3 text-green-700">
-                  <div className="bg-green-100 p-3 rounded-full">
-                    <FileText className="h-8 w-8" />
+    <main className="min-h-screen bg-[#f4f7f4] text-slate-800">
+      <header className="border-b border-emerald-100 bg-white">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4 sm:px-8">
+          <button
+            type="button"
+            onClick={() => navigate("/")}
+            className="flex items-center gap-3 text-left"
+          >
+            <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#087b45] text-white shadow-sm">
+              <FileText size={23} />
+            </span>
+            <span>
+              <span className="block text-lg font-bold tracking-tight text-[#075c36]">
+                Онлайн-деканат
+              </span>
+              <span className="block text-xs text-slate-500">
+                Электронная обработка документов
+              </span>
+            </span>
+          </button>
+
+          <div className="hidden items-center gap-2 rounded-full bg-emerald-50 px-4 py-2 text-sm font-medium text-[#087b45] sm:flex">
+            <ShieldCheck size={17} />
+            Удобно и безопасно
+          </div>
+        </div>
+      </header>
+
+      <section className="mx-auto max-w-4xl px-5 py-10 sm:px-8 sm:py-14">
+        <div className="mb-8">
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-emerald-100 bg-white px-3 py-1.5 text-sm font-medium text-[#087b45]">
+            <span className="h-2 w-2 rounded-full bg-[#159957]" />
+            Помощник по документам
+          </div>
+
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
+            Задайте вопрос
+          </h1>
+
+          <p className="mt-3 max-w-2xl text-base leading-7 text-slate-600">
+            Задайте вопрос и при необходимости приложите документ.
+            Система поможет разобрать содержание документа
+            и подготовить ответ.
+          </p>
+        </div>
+
+        <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_16px_50px_rgba(15,60,35,0.07)]">
+          <div className="h-1.5 bg-linear-to-r from-[#075c36] via-[#159957] to-[#b6d93c]" />
+
+          <form onSubmit={handleSubmit} className="space-y-8 p-5 sm:p-9">
+            <div>
+              <div className="mb-3 flex items-center gap-3">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 font-bold text-[#087b45]">
+                  1
+                </span>
+                <div>
+                  <h2 className="font-semibold text-slate-900">
+                    Тип документа (необязательно)
+                  </h2>
+                  <p className="text-sm text-slate-500">
+                    Выберите категорию или оставьте автоопределение
+                  </p>
+                </div>
+              </div>
+
+              <select
+                value={docType}
+                onChange={(event) =>
+                  setDocType(event.target.value as DocumentType | "")
+                }
+                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-sm outline-none transition focus:border-[#159957] focus:ring-4 focus:ring-emerald-50"
+              >
+                <option value="">Определить автоматически</option>
+                {DOC_TYPES.map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <div className="mb-3 flex items-center gap-3">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 font-bold text-[#087b45]">
+                  2
+                </span>
+                <div>
+                  <h2 className="font-semibold text-slate-900">
+                    Файл документа (необязательно)
+                  </h2>
+                  <p className="text-sm text-slate-500">
+                    PDF, PNG или JPG · до 10 МБ
+                  </p>
+                </div>
+              </div>
+
+              {!file ? (
+                <div
+                  {...getRootProps()}
+                  className={`rounded-2xl border-2 border-dashed p-7 text-center transition sm:p-10 ${
+                    isDragActive
+                      ? "border-[#159957] bg-emerald-50"
+                      : "border-emerald-200 bg-[#f9fcf9] hover:border-[#159957] hover:bg-emerald-50/60"
+                  }`}
+                >
+                  <input {...getInputProps()} />
+
+                  <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-white text-[#087b45] shadow-sm ring-1 ring-emerald-100">
+                    {isDragActive ? (
+                      <UploadCloud size={30} />
+                    ) : (
+                      <FileUp size={30} />
+                    )}
                   </div>
-                  <div className="space-y-1">
-                    <p className="font-semibold text-base">{file.name}</p>
-                    <p className="text-sm text-green-600">
-                      {(file.size / 1024 / 1024).toFixed(2)} МБ 
-                      {isCompressing && " (Оптимизируем...)"}
-                    </p>
-                  </div>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="mt-2 text-red-600 hover:text-red-700 hover:bg-red-50" 
-                    onClick={(e) => { 
-                      e.stopPropagation()
-                      setFile(null)
-                    }}
+
+                  <p className="mt-5 font-semibold text-slate-800">
+                    {isDragActive
+                      ? "Отпустите файл здесь"
+                      : "Перетащите файл в эту область"}
+                  </p>
+
+                  <p className="mt-2 text-sm text-slate-500">
+                    или выберите файл на устройстве
+                  </p>
+
+                  <button
+                    type="button"
+                    onClick={open}
+                    className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#087b45] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#075c36] focus:outline-none focus:ring-4 focus:ring-emerald-100"
                   >
-                    <X className="h-4 w-4 mr-1" /> Удалить
-                  </Button>
+                    <UploadCloud size={17} />
+                    Выбрать файл
+                  </button>
                 </div>
               ) : (
-                <div className="flex flex-col items-center gap-3 text-slate-500">
-                  <div className="bg-slate-100 p-4 rounded-full">
-                    <Upload className="h-8 w-8 text-slate-400" />
+                <div className="flex items-center gap-4 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white text-[#087b45] shadow-sm">
+                    <FileText size={24} />
                   </div>
-                  <div className="space-y-1">
-                    <p className="font-medium text-slate-700">Перетащите файл сюда или нажмите для выбора</p>
-                    <p className="text-xs text-slate-400">Поддерживаются JPG, PNG, PDF (до 10 МБ)</p>
+
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-semibold text-slate-800">
+                      {file.name}
+                    </p>
+                    <p className="mt-1 text-sm text-slate-500">
+                      {formatSize(file.size)}
+                    </p>
+                    <p className="mt-1 flex items-center gap-1 text-xs font-medium text-[#087b45]">
+                      <CheckCircle2 size={14} />
+                      Файл готов к обработке
+                    </p>
                   </div>
+
+                  <button
+                    type="button"
+                    onClick={removeFile}
+                    aria-label="Удалить файл"
+                    className="rounded-lg p-2 text-slate-400 transition hover:bg-white hover:text-red-600"
+                  >
+                    <Trash2 size={19} />
+                  </button>
                 </div>
               )}
             </div>
-          </div>
 
-          
-          <div className="space-y-2">
-            <Label htmlFor="docType">2. Тип документа</Label>
-            <Select value={docType} onValueChange={(value) => setDocType(value ?? "")}>
-              <SelectTrigger id="docType" className="h-11">
-                <SelectValue placeholder="Выберите тип документа" />
-              </SelectTrigger>
-              <SelectContent>
-                {DOC_TYPES.map((type) => (
-                  <SelectItem key={type.value} value={type.value}>
-                    {type.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+            <div>
+              <div className="mb-3 flex items-center gap-3">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 font-bold text-[#087b45]">
+                  3
+                </span>
+                <div>
+                  <h2 className="font-semibold text-slate-900">
+                    Ваш вопрос
+                  </h2>
+                  <p className="text-sm text-slate-500">
+                    Уточните, что нужно узнать из документа
+                  </p>
+                </div>
+              </div>
 
-         
-          <div className="space-y-2">
-            <Label htmlFor="question">3. Ваш вопрос</Label>
-            <Input
-              id="question"
-              placeholder="Например: Хватит ли этой справки для перевода на 2 курс?"
-              value={question}
-              onChange={(e) => setQuestion(e.target.value)}
-              className="h-11"
-            />
-          </div>
+              <textarea
+                value={question}
+                onChange={(event) => setQuestion(event.target.value)}
+                placeholder="Например: какие документы нужны для оформления академического отпуска?"
+                rows={4}
+                maxLength={MAX_QUESTION_LENGTH}
+                className="w-full resize-y rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-sm leading-6 outline-none transition placeholder:text-slate-400 focus:border-[#159957] focus:ring-4 focus:ring-emerald-50"
+              />
 
-          
-          <Button 
-            type="submit" 
-            className="w-full h-12 text-base font-semibold bg-blue-600 hover:bg-blue-700 transition-colors" 
-            disabled={!file || !docType || !question || isCompressing}
-          >
-            {isCompressing ? (
-              <>
-                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                Оптимизация фото...
-              </>
-            ) : (
-              "Отправить цифровому секретарю"
+              <p className="mt-2 text-right text-xs text-slate-400">
+                {question.length}/{MAX_QUESTION_LENGTH}
+              </p>
+            </div>
+
+            {error && (
+              <div
+                role="alert"
+                className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+              >
+                <AlertCircle className="mt-0.5 shrink-0" size={19} />
+                <p>{error}</p>
+              </div>
             )}
-          </Button>
 
-        </form>
-      </CardContent>
-    </Card>
-  )
+            <div className="rounded-xl bg-slate-50 p-4">
+              <div className="flex items-start gap-3">
+                <ShieldCheck
+                  size={20}
+                  className="mt-0.5 shrink-0 text-[#087b45]"
+                />
+                <p className="text-xs leading-5 text-slate-500">
+                  Перед отправкой убедитесь, что загрузили нужный файл.
+                  Не добавляйте документы с лишними персональными данными.
+                  Обработка файла зависит от настроенного сервера.
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#087b45] px-5 py-4 font-semibold text-white shadow-[0_8px_20px_rgba(8,123,69,0.18)] transition hover:bg-[#075c36] focus:outline-none focus:ring-4 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isLoading ? (
+                <>
+                  <LoaderCircle size={20} className="animate-spin" />
+                  Получаем ответ...
+                </>
+              ) : (
+                <>
+                  Отправить вопрос
+                  <ArrowRight size={19} />
+                </>
+              )}
+            </button>
+          </form>
+        </div>
+
+        <p className="mt-5 text-center text-xs leading-5 text-slate-400">
+          Онлайн-деканат · Электронный помощник для работы с документами
+        </p>
+      </section>
+    </main>
+  );
 }
