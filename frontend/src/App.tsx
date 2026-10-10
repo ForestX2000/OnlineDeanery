@@ -1,121 +1,61 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import { useAppStore } from "./store/useAppStore"
+import { DocumentUploader } from "./components/DocumentUploader"
+import { DocumentResult } from "./components/DocumentResult"
 
 function App() {
-  const [count, setCount] = useState(0)
+  // Читаем текущий шаг из глобального состояния
+  const { step } = useAppStore()
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
+    <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
+      
+      {/* Шапка приложения (всегда видна) */}
+      <header className="bg-white border-b border-slate-200 py-4 px-6 shadow-sm sticky top-0 z-50">
+        <div className="max-w-5xl mx-auto flex items-center gap-3">
+          <div className="bg-[#00A651] text-white p-2.5 rounded-xl shadow-md flex items-center justify-center">
+            <span className="font-bold text-xl tracking-tight">Онлайн Деканат</span>
+          </div>
+          <p className="text-xs text-white-500 font-medium">Цифровой секретарь с ИИ</p>
         </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+      </header>
 
-      <div className="ticks"></div>
+      
+      <main className="flex-1 p-4 md:p-8 flex flex-col items-center justify-start">
+        
+        
+        {step === "upload" && (
+          <div className="w-full max-w-2xl animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <DocumentUploader />
+          </div>
+        )}
+        
+        
+        {step === "processing" && (
+          <div className="flex flex-col items-center justify-center h-[60vh] gap-6 animate-in fade-in zoom-in-95 duration-500">
+            <div className="relative">
+              <div className="absolute inset-0 bg-blue-500 blur-2xl opacity-20 animate-pulse rounded-full"></div>
+              
+              <div className="relative animate-spin rounded-full h-16 w-16 border-4 border-slate-200 border-t-blue-600"></div>
+            </div>
+            
+            <div className="text-center space-y-2 max-w-md px-4">
+              <h2 className="text-xl font-semibold text-slate-800">Цифровой секретарь работает</h2>
+              <p className="text-slate-500 leading-relaxed">
+                Распознаём текст на документе, извлекаем поля и сверяем их с Положением вуза...
+              </p>
+            </div>
+          </div>
+        )}
+        
+        
+        {step === "result" && (
+          <div className="w-full max-w-4xl animate-in fade-in slide-in-from-bottom-8 duration-500">
+            <DocumentResult />
+          </div>
+        )}
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+      </main>
+    </div>
   )
 }
 
