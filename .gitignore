@@ -1,12 +1,10 @@
-@'
 node_modules/
 dist/
 build/
 coverage/
 
 .env
-.env.local
-.env.*.local
+.env.*
 !.env.example
 
 __pycache__/
@@ -19,4 +17,3 @@ venv/
 .DS_Store
 Thumbs.db
 *.log
-'@ | Set-Content -Encoding utf8 .gitignore 
