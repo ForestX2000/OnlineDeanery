@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 
 import { useAppStore } from "../store/useAppStore";
-import { analyzeDocument } from "../services/analyzeDocument";
+import { analyzeDocument, sendMessage, MAX_QUESTION_LENGTH } from "../../api";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
@@ -95,16 +95,6 @@ export default function DocumentUploader() {
     if (isLoading) return;
     setError("");
 
-    if (!file) {
-      setError("Сначала загрузите документ.");
-      return;
-    }
-
-    if (!docType) {
-      setError("Выберите тип документа.");
-      return;
-    }
-
     if (!question.trim()) {
       setError("Напишите вопрос по вашему документу.");
       return;
@@ -122,7 +112,9 @@ export default function DocumentUploader() {
       setFormData(formData);
       setStep("processing");
 
-      const result = await analyzeDocument(formData);
+      const result = file
+        ? await analyzeDocument({ file, docType, question: formData.question })
+        : await sendMessage(formData.question);
 
       setResult(result);
       navigate("/result");
@@ -186,11 +178,11 @@ export default function DocumentUploader() {
           </div>
 
           <h1 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
-            Загрузите документ
+            Задайте вопрос
           </h1>
 
           <p className="mt-3 max-w-2xl text-base leading-7 text-slate-600">
-            Добавьте файл, укажите его тип и задайте вопрос.
+            Задайте вопрос и при необходимости приложите документ.
             Система поможет разобрать содержание документа
             и подготовить ответ.
           </p>
@@ -207,10 +199,10 @@ export default function DocumentUploader() {
                 </span>
                 <div>
                   <h2 className="font-semibold text-slate-900">
-                    Тип документа
+                    Тип документа (необязательно)
                   </h2>
                   <p className="text-sm text-slate-500">
-                    Выберите подходящую категорию
+                    Выберите категорию или оставьте автоопределение
                   </p>
                 </div>
               </div>
@@ -222,7 +214,7 @@ export default function DocumentUploader() {
                 }
                 className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-sm outline-none transition focus:border-[#159957] focus:ring-4 focus:ring-emerald-50"
               >
-                <option value="">Выберите тип документа</option>
+                <option value="">Определить автоматически</option>
                 {DOC_TYPES.map((item) => (
                   <option key={item.value} value={item.value}>
                     {item.label}
@@ -238,7 +230,7 @@ export default function DocumentUploader() {
                 </span>
                 <div>
                   <h2 className="font-semibold text-slate-900">
-                    Файл документа
+                    Файл документа (необязательно)
                   </h2>
                   <p className="text-sm text-slate-500">
                     PDF, PNG или JPG · до 10 МБ
@@ -335,12 +327,12 @@ export default function DocumentUploader() {
                 onChange={(event) => setQuestion(event.target.value)}
                 placeholder="Например: какие документы нужны для оформления академического отпуска?"
                 rows={4}
-                maxLength={2000}
+                maxLength={MAX_QUESTION_LENGTH}
                 className="w-full resize-y rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-sm leading-6 outline-none transition placeholder:text-slate-400 focus:border-[#159957] focus:ring-4 focus:ring-emerald-50"
               />
 
               <p className="mt-2 text-right text-xs text-slate-400">
-                {question.length}/2000
+                {question.length}/{MAX_QUESTION_LENGTH}
               </p>
             </div>
 
@@ -376,11 +368,11 @@ export default function DocumentUploader() {
               {isLoading ? (
                 <>
                   <LoaderCircle size={20} className="animate-spin" />
-                  Обрабатываем документ...
+                  Получаем ответ...
                 </>
               ) : (
                 <>
-                  Обработать документ
+                  Отправить вопрос
                   <ArrowRight size={19} />
                 </>
               )}

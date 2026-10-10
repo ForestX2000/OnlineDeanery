@@ -1,55 +1,135 @@
+import { useRef, useState } from "react"
+import { ApiError, DOCUMENT_LABELS, MAX_QUESTION_LENGTH, sendMessage } from "../../api"
+import type { DocumentType, JsonValue } from "../../api"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Separator } from "@/components/ui/separator"
 import { FileText, AlertTriangle } from "lucide-react"
-import { DOCUMENT_LABELS } from "../../api"
-import type { DocumentType } from "../../api"
+
 
 import { useAppStore } from "@/store/useAppStore"
-import { Button } from "@base-ui/react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+
+const FIELD_LABELS = new Map<string, string>([
+  ["student_name", "ФИО студента"],
+  ["name", "ФИО студента"],
+  ["university", "Учебное заведение"],
+  ["program", "Образовательная программа"],
+  ["study_form", "Форма обучения"],
+  ["study_period", "Период обучения"],
+  ["number", "Номер документа"],
+  ["document_number", "Номер документа"],
+  ["internship_period", "Сроки практики"],
+  ["issue_date", "Дата выдачи"],
+  ["signature", "Подпись"],
+  ["stamp", "Печать"],
+  ["group", "Группа"],
+  ["course", "Курс"],
+  ["reason", "Основание"],
+  ["start_date", "Дата начала"],
+  ["end_date", "Дата окончания"],
+  ["application_date", "Дата заявления"],
+  ["organization", "Организация"],
+  ["supervisor", "Руководитель"],
+  ["grade", "Оценка"],
+])
+
+const VERIFICATION_LABELS = new Map<string, string>([
+  ["complete", "Обязательные поля заполнены"],
+  ["incomplete", "Обнаружены замечания"],
+  ["unknown", "Недостаточно данных для проверки"],
+])
+
+function fieldLabel(field: string): string {
+  return FIELD_LABELS.get(field) ?? field.replace(/_/g, " ")
+}
+
+function formatValue(value: JsonValue): string {
+  if (value === null || value === "") return "не найдено"
+  if (typeof value === "boolean") return value ? "Да" : "Нет"
+  if (typeof value === "object") return JSON.stringify(value)
+  return String(value)
+}
+
+function sourceUrl(url?: string | null): string | undefined {
+  if (!url) return
+  try {
+    const parsed = new URL(url)
+    if (["https:", "http:"].includes(parsed.protocol)) return parsed.href
+  } catch { /* Ссылка необязательна: оставляем текст источника. */ }
+}
 
 export function DocumentResult() {
-  const { result, reset } = useAppStore()
+  const { result, reset, setResult } = useAppStore()
+  const [question, setQuestion] = useState("")
+  const [pending, setPending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [expired, setExpired] = useState(false)
+  const submitting = useRef(false)
   const data = result
 
-  if (!data) return null
+  if(!data) return null
+
+  const document = data.document
+  const verification = data.verification
+  const documentLabel = document?.type
+    ? DOCUMENT_LABELS[document.type as DocumentType] ?? document.type
+    : "Тип не определён"
+
+  const handleFollowUp = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!question.trim() || submitting.current || expired) return
+    submitting.current = true
+    setPending(true)
+    setError(null)
+    try {
+      setResult(await sendMessage(question, data.conversation_id))
+      setQuestion("")
+    } catch (error) {
+      setExpired(error instanceof ApiError && error.status === 404)
+      setError(error instanceof Error ? error.message : "Не удалось получить ответ")
+    } finally {
+      submitting.current = false
+      setPending(false)
+    }
+  }
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 p-4">
 
-      <Card className="border-[#087b45]/20 bg-[#087b45]/5 relative overflow-hidden">
-        <div className="absolute top-0 left-0 right-0 h-1.5 bg-[#087b45]"></div>
+      {document && <Card className="border-[#087b45]/20 bg-[#087b45]/5 relative overflow-hidden">
+      <div className="absolute top-0 left-0 right-0 h-1.5 bg-[#087b45]"></div>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg text-[#1e293b]">
+          <CardTitle className="flex items-center gap-2 text-lg">
             <FileText className="h-5 w-5 text-[#087b45]" />
-            Распознанные данные{data.document_type
-              ? `: ${DOCUMENT_LABELS[data.document_type as DocumentType] ?? data.document_type}`
-              : ""}
+            Распознанные данные: {documentLabel}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
-              <TableRow className="border-[#1e293b]/10 hover:bg-transparent">
-                <TableHead className="w-1/3 text-[#1e293b]/70">Поле документа</TableHead>
-                <TableHead className="text-[#1e293b]/70">Значение</TableHead>
+              <TableRow>
+                <TableHead className="w-1/3">Поле документа</TableHead>
+                <TableHead>Значение</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {Object.entries(data.extracted_fields).map(([key, value]) => (
-                <TableRow key={key} className="border-[#1e293b]/10 hover:bg-[#087b45]/5">
-                  <TableCell className="font-medium capitalize text-[#1e293b]">
-                    {key.replace(/_/g, " ")}
+              {Object.entries(document.fields).map(([key, value]) => (
+                <TableRow key={key}>
+                  <TableCell className="font-medium">
+                    {fieldLabel(key)}
                   </TableCell>
                   <TableCell>
-                    {value === "не найдено" ? (
-                      <Badge className="flex items-center gap-1 w-fit bg-amber-100 text-amber-800 border border-amber-200 hover:bg-amber-100">
+                    {formatValue(value) === "не найдено" ? (
+                      <Badge variant="destructive" className="flex items-center gap-1 w-fit">
                         <AlertTriangle className="h-3 w-3" /> не найдено
                       </Badge>
                     ) : (
-                      <span className="text-[#1e293b] font-medium">
-                        {value}
+                      <span className="text-slate-800">
+                        {formatValue(value)}
                       </span>
                     )}
                   </TableCell>
@@ -57,37 +137,41 @@ export function DocumentResult() {
               ))}
             </TableBody>
           </Table>
-          {Object.keys(data.extracted_fields).length === 0 && (
-            <p className="mt-3 text-sm text-slate-500">Сервер не вернул распознанные поля.</p>
-          )}
+          {Object.keys(document.fields).length === 0 && <p className="text-slate-600">Поля документа не найдены.</p>}
+          {verification && <div className="mt-4 space-y-2">
+            <p>Статус проверки: {VERIFICATION_LABELS.get(verification.status) ?? verification.status}</p>
+            {verification.missing_fields.length > 0 && <p className="text-red-700">Не найдены обязательные поля: {verification.missing_fields.map(fieldLabel).join(", ")}</p>}
+            {verification.issues.map((issue, index) => <p key={index} className="text-red-700">{issue}</p>)}
+          </div>}
+          <p className="mt-4 text-sm text-slate-500">Проверка комплектности не означает принятие документа. Окончательное решение принимает деканат.</p>
         </CardContent>
-      </Card>
+      </Card>}
+
 
       <Card className="border-[#1e293b]/10 bg-white">
         <CardHeader>
           <CardTitle className="text-lg text-[#1e293b]">Ответ цифрового секретаря</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-[#1e293b] leading-relaxed text-lg whitespace-pre-wrap">
+          <p className="text-slate-800 leading-relaxed text-lg whitespace-pre-wrap">
             {data.answer}
           </p>
 
+
           {data.sources.length > 0 && (
             <>
-              <Separator className="my-4 bg-[#1e293b]/10" />
+              <Separator className="my-4" />
               <div className="space-y-2">
-                <p className="text-sm font-semibold text-[#1e293b]/70 uppercase tracking-wide">
+                <p className="text-sm font-semibold text-slate-600 uppercase tracking-wide">
                   Источники информации:
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {data.sources.map((source, idx) => (
-                    <Badge
-                      key={idx}
-                      variant="outline"
-                      className="bg-white text-[#087b45] border-[#087b45]/30 cursor-pointer hover:bg-[#087b45]/10 transition-colors"
-                    >
+                    <Badge key={idx} variant="outline" className="bg-white text-[#087b45] border-[#087b45]/30">
                       {source.type === "положение" ? "📜 " : "📄 "}
-                      {source.reference}
+                      {sourceUrl(source.url)
+                        ? <a href={sourceUrl(source.url)} target="_blank" rel="noopener noreferrer" className="underline">{source.reference}</a>
+                        : source.reference}
                     </Badge>
                   ))}
                 </div>
@@ -96,13 +180,15 @@ export function DocumentResult() {
           )}
         </CardContent>
       </Card>
+      <form onSubmit={handleFollowUp} className="space-y-3" aria-busy={pending}>
+        <Label htmlFor="follow-up">Уточняющий вопрос</Label>
+        <Input id="follow-up" value={question} onChange={(event) => setQuestion(event.target.value)}
+          required maxLength={MAX_QUESTION_LENGTH} disabled={pending || expired} placeholder="Спросите подробнее по этому обращению" />
+        {error && <p role="alert" className="text-red-700">{error}{expired && " Начните новое обращение и приложите документ заново."}</p>}
+        <Button type="submit" disabled={pending || expired || !question.trim()}>{pending ? "Получаем ответ..." : "Задать вопрос"}</Button>
+      </form>
+      <Button type="button" onClick={reset} disabled={pending} variant="outline">Новое обращение</Button>
 
-      <Button
-        onClick={reset}
-        className="mt-2 text-[#1e293b]/70 hover:text-[#1e293b] hover:bg-[#1e293b]/5 transition-colors"
-      >
-        Проверить другой документ
-      </Button>
     </div>
   )
 }
