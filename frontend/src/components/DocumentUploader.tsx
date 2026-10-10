@@ -1,8 +1,9 @@
 import { useState, useCallback } from "react"
 import { useDropzone } from "react-dropzone"
 import imageCompression from "browser-image-compression"
-import { useAppStore } from "@/store/useAppStore"
+import { DocumentType, useAppStore } from "@/store/useAppStore"
 
+import { analyzeDocument } from "@/services/analyzeDocument"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -10,7 +11,6 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Upload, FileText, X, Loader2 } from "lucide-react"
 
-// Типы документов строго из ТЗ хакатона
 const DOC_TYPES = [
   { value: "study_certificate", label: "Справка об обучении" },
   { value: "academic_leave", label: "Заявление на академический отпуск" },
@@ -23,16 +23,16 @@ export function DocumentUploader() {
   const [question, setQuestion] = useState("")
   const [isCompressing, setIsCompressing] = useState(false)
   
-  // Берем функцию переключения экранов из нашего стора
-  const { setStep } = useAppStore()
 
-  // Функция сжатия изображения перед отправкой (лайфхак для хакатона)
+  const { setStep, setFormData, setResult  } = useAppStore()
+
+  
   const compressImage = async (fileToCompress: File) => {
     if (!fileToCompress.type.startsWith("image/")) return fileToCompress
     
     setIsCompressing(true)
     const options = {
-      maxSizeMB: 0.5, // Сжимаем до 500 КБ для быстрой отправки
+      maxSizeMB: 0.5, 
       maxWidthOrHeight: 1920,
       useWebWorker: true,
     }
@@ -42,13 +42,12 @@ export function DocumentUploader() {
       return compressedFile
     } catch (error) {
       console.error("Ошибка сжатия:", error)
-      return fileToCompress // В случае ошибки отдаем оригинал
+      return fileToCompress 
     } finally {
       setIsCompressing(false)
     }
   }
 
-  // Обработка перетаскивания или выбора файла
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     const selectedFile = acceptedFiles[0]
     if (selectedFile) {
@@ -67,24 +66,36 @@ export function DocumentUploader() {
     maxFiles: 1,
   })
 
-  // Обработка отправки формы
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    if (!file || !docType || !question) {
-      alert("Пожалуйста, загрузите документ, выберите его тип и задайте вопрос")
-      return
-    }
-    
-    // 1. Переключаем экран на "Обработка"
-    setStep("processing")
-    
-    // 2. Эмулируем задержку работы ИИ и OCR (2.5 секунды)
-    // В будущем здесь будет реальный fetch запрос к бэкенду
-    setTimeout(() => {
-      setStep("result")
-    }, 2500)
+
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault()
+
+  if (!file || !docType || !question.trim()) {
+    alert("Заполните все поля")
+    return
   }
+
+  setFormData({
+    file,
+    docType: docType as DocumentType,
+    question: question.trim(),
+  })
+
+  setStep("processing")
+
+  try {
+    const result = await analyzeDocument({
+      file,
+      docType: docType as DocumentType,
+      question: question.trim(),
+    })
+
+    setResult(result)
+  } catch {
+    setStep("upload")
+    alert("Не удалось обработать документ. Попробуйте ещё раз.")
+  }
+}
 
   return (
     <Card className="w-full max-w-2xl mx-auto shadow-xl border-slate-200">
@@ -101,7 +112,7 @@ export function DocumentUploader() {
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
           
-          {/* 1. Зона загрузки файла */}
+          
           <div className="space-y-2">
             <Label>1. Загрузите документ</Label>
             <div
@@ -150,7 +161,7 @@ export function DocumentUploader() {
             </div>
           </div>
 
-          {/* 2. Выбор типа документа */}
+          
           <div className="space-y-2">
             <Label htmlFor="docType">2. Тип документа</Label>
             <Select value={docType} onValueChange={(value) => setDocType(value ?? "")}>
@@ -167,7 +178,7 @@ export function DocumentUploader() {
             </Select>
           </div>
 
-          {/* 3. Вопрос студента */}
+         
           <div className="space-y-2">
             <Label htmlFor="question">3. Ваш вопрос</Label>
             <Input
@@ -179,7 +190,7 @@ export function DocumentUploader() {
             />
           </div>
 
-          {/* 4. Кнопка отправки */}
+          
           <Button 
             type="submit" 
             className="w-full h-12 text-base font-semibold bg-blue-600 hover:bg-blue-700 transition-colors" 

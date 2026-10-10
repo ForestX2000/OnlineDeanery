@@ -4,11 +4,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Separator } from "@/components/ui/separator"
 import { FileText, AlertTriangle, CheckCircle2 } from "lucide-react"
 
-// Временный импорт, потом заменим на реальный стейт
-import { MOCK_SUCCESS_RESPONSE } from "@/mocks/mockResponse"
+
+import { useAppStore } from "@/store/useAppStore"
+import { Button } from "@base-ui/react"
 
 export function DocumentResult() {
-  const data = MOCK_SUCCESS_RESPONSE
+  const {result, reset}= useAppStore()
+  const data = result
+
+  if(!data) return null
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 p-4">
@@ -53,7 +57,7 @@ export function DocumentResult() {
         </CardContent>
       </Card>
 
-      {/* 2. Ответ цифрового секретаря */}
+      
       <Card className="border-blue-200 bg-blue-50/50">
         <CardHeader>
           <CardTitle className="text-lg text-blue-900">Ответ цифрового секретаря</CardTitle>
@@ -63,7 +67,7 @@ export function DocumentResult() {
             {data.answer}
           </p>
           
-          {/* 3. Источники (Ссылки на правила) */}
+          
           {data.sources.length > 0 && (
             <>
               <Separator className="my-4" />
@@ -84,6 +88,7 @@ export function DocumentResult() {
           )}
         </CardContent>
       </Card>
+      <Button onClick={reset} className="mt-2 text-red-600 hover:text-red-700 hover:bg-red-50" >Проверить другой документ</Button>
 
     </div>
   )
