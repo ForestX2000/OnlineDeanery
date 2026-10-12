@@ -1,4 +1,3 @@
-// src/services/mockApi.ts
 
 export interface LoginResponse {
   success: boolean;
@@ -20,7 +19,7 @@ export interface AnalyzeResponse {
   };
 }
 
-// --- ФЕЙКОВАЯ БАЗА ДАННЫХ ПОЛЬЗОВАТЕЛЕЙ ---
+
 interface MockUser {
   email: string;
   password: string;
@@ -53,7 +52,7 @@ const MOCK_USERS: MockUser[] = [
   },
 ];
 
-// Имитация задержки сети (1-2 секунды)
+
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export const mockApi = {
@@ -98,8 +97,7 @@ export const mockApi = {
       throw new Error("Пользователь с таким email уже зарегистрирован. Попробуйте войти.");
     }
 
-    // В реальном приложении здесь был бы запрос к БД для создания пользователя.
-    // В мок-версии мы просто эмулируем успешный ответ, как будто пользователь создан.
+
     
     return {
       success: true,
