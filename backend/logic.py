@@ -1,4 +1,4 @@
-"""Backend 2: POST /answer — поиск правил и проверка полей документа."""
+"Backend 2: POST /answer — поиск правил и проверка полей документа."
 
 import logging
 import os

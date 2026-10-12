@@ -18,6 +18,13 @@ from pypdf import PdfReader
 from pypdf.errors import PdfReadError
 
 from backend.models import ApiModel, ApiResponse, Document, ServiceAnswer
+from backend.database import engine, Base
+from backend.models import UserDB, DocumentDB, ExtractedFieldDB, RuleDB, RequestDB, AuditLogDB
+
+import logging
+logger = logging.getLogger(__name__)
+
+import asyncio
 
 MAX_FILE_SIZE = 10 * 1024 * 1024
 MAX_QUESTION_LENGTH = 5000
@@ -27,7 +34,9 @@ SESSION_TTL_SECONDS = 3600
 MAX_HISTORY_MESSAGES = 20
 ALLOWED_FORMATS = {".jpg": "JPEG", ".jpeg": "JPEG", ".png": "PNG", ".pdf": "PDF"}
 MIME_TYPES = {"JPEG": "image/jpeg", "PNG": "image/png", "PDF": "application/pdf"}
-ML1_URL = os.getenv("ML1_URL", "http://localhost:8001/ocr")
+
+# Настройки URL сервисов
+ML1_URL = os.getenv("ML1_URL", "http://host.docker.internal:8001/ocr")
 ML2_URL = os.getenv("ML2_URL", "http://localhost:8003/extract")
 BACKEND2_URL = os.getenv("BACKEND2_URL", "http://localhost:8002/answer")
 DocumentType = Literal["study_certificate", "academic_leave", "internship_certificate"]
@@ -35,11 +44,24 @@ DocumentType = Literal["study_certificate", "academic_leave", "internship_certif
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    async with httpx.AsyncClient(timeout=60) as client:
+    print("--- СТАРТ ИНИЦИАЛИЗАЦИИ БАЗЫ ДАННЫХ ---")
+    print("Зарегистрированные в Base модели:", list(Base.metadata.tables.keys()))
+    
+    # Автоматическое создание таблиц в БД при старте
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    print("--- ТАБЛИЦЫ УСПЕШНО СОЗДАНЫ ИЛИ УЖЕ СУЩЕСТВУЮТ ---")
+
+    # HTTP-клиент с настройкой товарища (таймаут 180с)
+    async with httpx.AsyncClient(timeout=180) as client:
         app.state.http_client = client
         yield
+        
     sessions.clear()
     active_sessions.clear()
+    
+    # Корректное закрытие соединения с БД при остановке приложения
+    await engine.dispose()
 
 
 app = FastAPI(title="Онлайн-деканат API", lifespan=lifespan)
