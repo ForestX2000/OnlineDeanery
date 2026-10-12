@@ -24,7 +24,7 @@ services:
       BACKEND2_URL: http://rules:8002/answer
       ML1_URL: "${ML1_URL:-http://host.docker.internal:8001/ocr}"
       ML2_URL: "${ML2_URL:-http://host.docker.internal:8003/extract}"
-      CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+      CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173,https://deanery.forestinc.ru,https://markedly-rare-basset.cloudpub.ru
       DATABASE_URL: "postgresql+asyncpg://admin:super_password@db:5432/deanery"
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -51,7 +51,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     environment:
-      VITE_API_URL: http://localhost:8000
+      VITE_API_URL: https://fancifully-formidable-greenshank.cloudpub.ru
     ports:
       - "5173:5173"
     volumes:
