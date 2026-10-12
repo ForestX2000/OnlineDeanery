@@ -81,3 +81,30 @@ test("network errors are shown as a connection problem", async () => {
   globalThis.fetch = async () => { throw new TypeError("Failed to fetch") }
   await assert.rejects(sendMessage("Вопрос?"), /Не удалось подключиться/)
 })
+
+test("image geometry and visual detection status survive the API boundary", async () => {
+  const document = {
+    type: "study_certificate", fields: { stamp: null, signature: null }, ocr_text: "Текст",
+    image: { width: 1600, height: 900, rotation: 90 },
+    visual_features: { status: "disabled", signature: null, stamp: null },
+    coordinates: [{ field: null, text: "Текст", bbox: [0, 0, 200, 100], confidence: null, source: "spotting", page: 1 }],
+  }
+  globalThis.fetch = async () => Response.json({ ...answer, document })
+  assert.deepEqual((await sendMessage("Вопрос?")).document, document)
+})
+
+test("legacy documents without image metadata still work", async () => {
+  const document = { type: null, fields: {}, ocr_text: "Текст", coordinates: [{ x: 10, y: 20 }] }
+  globalThis.fetch = async () => Response.json({ ...answer, document })
+  assert.deepEqual((await sendMessage("Вопрос?")).document, document)
+})
+
+test("invalid optional image metadata or detection status is rejected", async () => {
+  const document = { type: null, fields: {}, ocr_text: "Текст", coordinates: [] }
+  for (const extra of [{ image: {} }, { image: { width: 0, height: 900, rotation: 0 } },
+    { image: { width: 1600, height: 900, rotation: "90" } },
+    { visual_features: { status: "disabled", signature: "false", stamp: null } }]) {
+    globalThis.fetch = async () => Response.json({ ...answer, document: { ...document, ...extra } })
+    await assert.rejects(sendMessage("Вопрос?"), (error) => error.status === 502)
+  }
+})

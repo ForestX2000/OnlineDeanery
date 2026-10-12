@@ -116,7 +116,7 @@ export default function DocumentUploader() {
         ? await analyzeDocument({ file, docType, question: formData.question })
         : await sendMessage(formData.question);
 
-      setResult(result);
+      setResult(result, file);
       navigate("/result");
     } catch (err) {
       console.error("Ошибка обработки документа:", err);

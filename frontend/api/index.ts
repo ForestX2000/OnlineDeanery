@@ -1,5 +1,6 @@
 import { MAX_FILE_SIZE, MAX_QUESTION_LENGTH } from "./types.ts"
 import type { AnalysisResult, DocumentType } from "./types.ts"
+import { isDocumentImage } from "./highlights.ts"
 
 export * from "./types.ts"
 
@@ -43,8 +44,17 @@ function parseResult(body: unknown): AnalysisResult {
   const doc = body.document
   if (doc !== null && (!isRecord(doc) || !isRecord(doc.fields) ||
       (doc.type !== null && typeof doc.type !== "string") ||
-      typeof doc.ocr_text !== "string" || !Array.isArray(doc.coordinates))) {
+      typeof doc.ocr_text !== "string" || !Array.isArray(doc.coordinates) ||
+      (doc.image != null && !isDocumentImage(doc.image)))) {
     throw new ApiError("Сервер вернул некорректные данные документа", 502)
+  }
+  if (isRecord(doc) && doc.visual_features != null) {
+    const features = doc.visual_features
+    if (!isRecord(features) || !["ready", "disabled", "error"].includes(features.status as string) ||
+        ![true, false, null].includes(features.signature as boolean | null) ||
+        ![true, false, null].includes(features.stamp as boolean | null)) {
+      throw new ApiError("Сервер вернул некорректный результат проверки подписи и печати", 502)
+    }
   }
   const verification = body.verification ?? null
   if (verification !== null && (!isRecord(verification) || typeof verification.status !== "string" ||

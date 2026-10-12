@@ -60,3 +60,46 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+
+  ml1:
+    build:
+      context: .
+      dockerfile: ml1/Dockerfile
+    container_name: deanery_ml1
+    ports:
+      - "8001:8001"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      PADDLEOCR_VL_URL: http://host.docker.internal:8080/v1/chat/completions
+      # llama-server b8110 (ПК сокомандника) требует <__media__> -> =1.
+      # На актуальном llama-server (>=fix ad19f21, напр. b11569) нужен чистый
+      # "OCR:" -> =0 (замер: CER 0.85 с маркером против 0.10 без, baton.png).
+      # После обновления сервера на хосте выставить =0 или убрать строку.
+      PADDLEOCR_VL_LEGACY_MEDIA: ${PADDLEOCR_VL_LEGACY_MEDIA:-1}
+      # YOLO-детектор печатей/подписей (ml1/detector.py). Без файла весов
+      # детектор возвращает status disabled/error, а поля signature/stamp —
+      # null («проверка не выполнена»), а не «печати нет».
+      # YOLO_MODEL_PATH: ${YOLO_MODEL_PATH:-}
+      # YOLO_SIG_MODEL_PATH: ${YOLO_SIG_MODEL_PATH:-}
+      # YOLO_CONFIDENCE: ${YOLO_CONFIDENCE:-0.4}
+    restart: unless-stopped
+
+  ml2:
+    build:
+      context: .
+      dockerfile: ml2/Dockerfile
+    container_name: deanery_ml2
+    ports:
+      - "8003:8003"
+    restart: unless-stopped
+
+  db:
+    image: postgres:15-alpine
+    container_name: deanery_db
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: super_password
+      POSTGRES_DB: deanery
+    ports:
+      - "5432:5432"

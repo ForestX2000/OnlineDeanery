@@ -16,11 +16,34 @@ export interface Source {
   url?: string | null
 }
 
+export interface DocumentImage {
+  width: number
+  height: number
+  rotation: 0 | 90 | 180 | 270
+}
+
+export interface DocumentCoordinate {
+  field: string | null
+  text: string
+  bbox: [number, number, number, number]
+  confidence: number | null
+  source: "yolo" | "spotting"
+  page: 1
+}
+
+export interface VisualFeatures {
+  status: "ready" | "disabled" | "error"
+  signature: boolean | null
+  stamp: boolean | null
+}
+
 export interface DocumentData {
   type: string | null
   fields: Record<string, JsonValue>
   ocr_text: string
   coordinates: JsonValue[]
+  image?: DocumentImage | null
+  visual_features?: VisualFeatures | null
 }
 
 export interface Verification {

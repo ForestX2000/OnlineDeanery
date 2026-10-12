@@ -1,0 +1,117 @@
+"""Deterministic PaddleOCR-VL inference through a local llama.cpp server."""
+
+import base64
+import math
+import os
+from dataclasses import dataclass
+from typing import Any
+
+import cv2
+import numpy as np
+import requests
+
+
+class OcrResponseError(RuntimeError):
+    """The model did not return a usable, complete transcription."""
+
+
+class OcrTruncatedError(OcrResponseError):
+    pass
+
+
+@dataclass(frozen=True)
+class OcrSettings:
+    url: str = "http://127.0.0.1:8080/v1/chat/completions"
+    timeout: float = 120
+    max_tokens: int = 4096
+    # The existing server needs the legacy marker. Recent llama.cpp versions
+    # insert their own marker and need plain "OCR:" instead.
+    # Verified 2026-10-12 on llama.cpp b11569 + PaddleOCR-VL-1.5: plain "OCR:"
+    # transcribes the full page (CER 0.10), the legacy marker stops after
+    # the header (CER 0.85). Default is plain; set PADDLEOCR_VL_LEGACY_MEDIA=1
+    # only for llama.cpp builds older than the placeholder fix (ad19f21).
+    legacy_media: bool = False
+
+    def __post_init__(self):
+        if not self.url.startswith(("http://", "https://")):
+            raise ValueError("PADDLEOCR_VL_URL должен быть HTTP(S)-адресом")
+        if not math.isfinite(self.timeout) or self.timeout <= 0:
+            raise ValueError("PADDLEOCR_VL_TIMEOUT должен быть положительным")
+        if self.max_tokens <= 0:
+            raise ValueError("PADDLEOCR_VL_MAX_TOKENS должен быть положительным")
+
+    @classmethod
+    def from_env(cls):
+        legacy = os.getenv("PADDLEOCR_VL_LEGACY_MEDIA", "0").lower()
+        if legacy not in {"0", "1", "false", "true"}:
+            raise ValueError("PADDLEOCR_VL_LEGACY_MEDIA: допустимы 0 или 1")
+        return cls(
+            url=os.getenv("PADDLEOCR_VL_URL", cls.url),
+            timeout=float(os.getenv("PADDLEOCR_VL_TIMEOUT", "120")),
+            max_tokens=int(os.getenv("PADDLEOCR_VL_MAX_TOKENS", "4096")),
+            legacy_media=legacy in {"1", "true"},
+        )
+
+
+def read_transcription(payload: Any) -> str:
+    if not isinstance(payload, dict):
+        raise OcrResponseError("OCR-модель вернула неверный формат ответа")
+    choices = payload.get("choices")
+    if not isinstance(choices, list) or not choices or not isinstance(choices[0], dict):
+        raise OcrResponseError("В ответе OCR-модели нет результата распознавания")
+    choice = choices[0]
+    if choice.get("finish_reason") == "length":
+        raise OcrTruncatedError(
+            "OCR-текст обрезан лимитом токенов. Увеличьте PADDLEOCR_VL_MAX_TOKENS "
+            "и контекст llama-server или распознайте меньший фрагмент документа."
+        )
+    if choice.get("finish_reason") not in {None, "stop"}:
+        raise OcrResponseError("OCR-модель не завершила распознавание текста")
+    message = choice.get("message")
+    content = message.get("content") if isinstance(message, dict) else None
+    if not isinstance(content, str) or not content.strip():
+        raise OcrResponseError(
+            "OCR-модель вернула пустой текст. Проверьте читаемость снимка, "
+            "соответствие модели и mmproj, а также PADDLEOCR_VL_LEGACY_MEDIA."
+        )
+    return content.strip()
+
+
+def run_vl_ocr(image: np.ndarray, task: str = "OCR:", *,
+               settings: OcrSettings | None = None) -> str:
+    settings = settings or OcrSettings.from_env()
+    ok, buf = cv2.imencode(".png", image)
+    if not ok:
+        raise ValueError("Не удалось закодировать изображение в PNG")
+    img_b64 = base64.b64encode(buf.tobytes()).decode("ascii")
+    prompt = ("<__media__>" if settings.legacy_media else "") + task
+
+    response = requests.post(
+        settings.url,
+        json={
+            "messages": [{
+                "role": "user",
+                "content": [
+                    {"type": "image_url",
+                     "image_url": {"url": f"data:image/png;base64,{img_b64}"}},
+                    {"type": "text", "text": prompt},
+                ],
+            }],
+            "temperature": 0,
+            "max_tokens": settings.max_tokens,
+            "stream": False,
+        },
+        timeout=(5, settings.timeout),
+    )
+    response.raise_for_status()
+    try:
+        payload = response.json()
+    except ValueError as exc:
+        raise OcrResponseError("OCR-модель вернула некорректный JSON") from exc
+    return read_transcription(payload)
+
+
+def run_ocr(image: np.ndarray) -> dict[str, Any]:
+    # OCR: returns transcription, not grounding. Do not invent boxes/confidence.
+    return {"text": run_vl_ocr(image), "boxes": []}
+

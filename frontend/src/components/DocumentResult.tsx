@@ -12,6 +12,8 @@ import { useAppStore } from "@/store/useAppStore"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { ImageHighlight } from "@/components/ImageHighlight"
+import { documentHighlights } from "../../api/highlights"
 
 const FIELD_LABELS = new Map<string, string>([
   ["student_name", "ФИО студента"],
@@ -47,7 +49,11 @@ function fieldLabel(field: string): string {
   return FIELD_LABELS.get(field) ?? field.replace(/_/g, " ")
 }
 
-function formatValue(value: JsonValue): string {
+function formatValue(value: JsonValue, field: string): string {
+  if (["signature", "stamp"].includes(field)) {
+    if (value === null) return "Не проверено"
+    if (value === false) return "Не обнаружено"
+  }
   if (value === null || value === "") return "не найдено"
   if (typeof value === "boolean") return value ? "Да" : "Нет"
   if (typeof value === "object") return JSON.stringify(value)
@@ -63,7 +69,9 @@ function sourceUrl(url?: string | null): string | undefined {
 }
 
 export function DocumentResult() {
-  const { result, reset, setResult } = useAppStore()
+  const { result, reset, setResult, preview } = useAppStore()
+  const [selectedField, setSelectedField] = useState<string | null>(null)
+  const [hoveredField, setHoveredField] = useState<string | null>(null)
   const [question, setQuestion] = useState("")
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -74,6 +82,11 @@ export function DocumentResult() {
   if(!data) return null
 
   const document = data.document
+  const photo = preview?.conversationId === data.conversation_id ? preview : null
+  const highlights = documentHighlights(document?.coordinates, document?.image)
+  const highlightedFields = new Set(photo ? highlights.map((box) => box.field).filter(Boolean) : [])
+  const activeField = hoveredField ?? selectedField
+  const selectField = (field: string) => setSelectedField((current) => current === field ? null : field)
   const verification = data.verification
   const documentLabel = document?.type
     ? DOCUMENT_LABELS[document.type as DocumentType] ?? document.type
@@ -109,6 +122,9 @@ export function DocumentResult() {
           </CardTitle>
         </CardHeader>
         <CardContent>
+          {photo && <ImageHighlight key={photo.url} imageUrl={photo.url} name={photo.name}
+            image={document.image} highlights={highlights} activeField={activeField} selectedField={selectedField}
+            onHoverField={setHoveredField} onSelectField={selectField} fieldLabel={fieldLabel} />}
           <Table>
             <TableHeader>
               <TableRow>
@@ -118,18 +134,25 @@ export function DocumentResult() {
             </TableHeader>
             <TableBody>
               {Object.entries(document.fields).map(([key, value]) => (
-                <TableRow key={key}>
+                <TableRow key={key} className={activeField === key && highlightedFields.has(key) ? "bg-amber-100/70" : undefined}
+                  onMouseEnter={() => { if (highlightedFields.has(key)) setHoveredField(key) }}
+                  onMouseLeave={() => setHoveredField(null)}>
                   <TableCell className="font-medium">
-                    {fieldLabel(key)}
+                    {highlightedFields.has(key) ? <button type="button" className="text-left text-[#087b45] underline decoration-dotted underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2"
+                      aria-label={`Показать на фото: ${fieldLabel(key)}`} aria-controls="document-preview"
+                      aria-pressed={selectedField === key} onClick={() => selectField(key)}
+                      onFocus={() => setHoveredField(key)} onBlur={() => setHoveredField(null)}>
+                      {fieldLabel(key)}
+                    </button> : fieldLabel(key)}
                   </TableCell>
                   <TableCell>
-                    {formatValue(value) === "не найдено" ? (
+                    {formatValue(value, key) === "не найдено" ? (
                       <Badge variant="destructive" className="flex items-center gap-1 w-fit">
                         <AlertTriangle className="h-3 w-3" /> не найдено
                       </Badge>
                     ) : (
                       <span className="text-slate-800">
-                        {formatValue(value)}
+                        {formatValue(value, key)}
                       </span>
                     )}
                   </TableCell>
@@ -138,6 +161,12 @@ export function DocumentResult() {
             </TableBody>
           </Table>
           {Object.keys(document.fields).length === 0 && <p className="text-slate-600">Поля документа не найдены.</p>}
+          {document.visual_features?.status === "disabled" && <p className="mt-4 text-sm text-slate-600">
+            Проверка подписи и печати не выполнена: модель детекции не подключена.
+          </p>}
+          {document.visual_features?.status === "error" && <p className="mt-4 text-sm text-slate-600">
+            Проверка подписи и печати не выполнена: модель детекции недоступна.
+          </p>}
           {verification && <div className="mt-4 space-y-2">
             <p>Статус проверки: {VERIFICATION_LABELS.get(verification.status) ?? verification.status}</p>
             {verification.missing_fields.length > 0 && <p className="text-red-700">Не найдены обязательные поля: {verification.missing_fields.map(fieldLabel).join(", ")}</p>}
