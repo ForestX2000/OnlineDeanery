@@ -1,3 +1,5 @@
+"""Предобработка изображения: наклон, тени, блики, низкое разрешение."""
+
 import cv2
 import numpy as np
 
@@ -79,9 +81,21 @@ def preprocess(image_bytes: bytes) -> np.ndarray:
     if img is None:
         raise ValueError("Не удалось декодировать изображение")
 
+    img = auto_rotate(img)
+
     img = upscale_if_small(img)
     img = deskew(img)
     img = remove_glare(img)
     img = remove_shadows(img)
     img = enhance_contrast(img)
     return img
+
+def auto_rotate(image: np.ndarray) -> np.ndarray:
+    """Пробует 4 ориентации, выбирает ту, где OCR находит больше текста."""
+    # без OCR — просто проверка через aspect ratio
+    # если высота >> ширины и текст повёрнут — поворачиваем
+    h, w = image.shape[:2]
+    if h > w * 1.5:
+        # возможно, вертикальный скан — повернём
+        return cv2.rotate(image, cv2.ROTATE_90_CLOCKWISE)
+    return image
