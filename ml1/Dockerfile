@@ -1,8 +1,6 @@
 FROM python:3.11-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    cmake \
     libgl1 \
     libglib2.0-0 \
     libgomp1 \
@@ -20,11 +18,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
         "python-multipart>=0.0.9" \
         "opencv-python-headless>=4.10.0" \
         "numpy<2" \
-        "paddlepaddle==2.6.2" \
-        "paddleocr==2.9.1"
-
-# пересобираем pyclipper из исходников, чтобы обойти битый wheel
-RUN pip install --no-cache-dir --no-binary pyclipper pyclipper==1.3.0.post6
+        "requests>=2.31.0"
 
 COPY ml1/ ./ml1/
 

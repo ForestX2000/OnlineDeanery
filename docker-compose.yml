@@ -20,9 +20,6 @@ services:
 
   backend:
     image: online-deanery-backend:local
-    build:
-      context: .
-      dockerfile: backend/Dockerfile
     environment:
       BACKEND2_URL: http://rules:8002/answer
       ML1_URL: "${ML1_URL:-http://host.docker.internal:8001/ocr}"
@@ -71,6 +68,10 @@ services:
     container_name: deanery_ml1
     ports:
       - "8001:8001"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      PADDLEOCR_VL_URL: http://host.docker.internal:8080/v1/chat/completions
     restart: unless-stopped
 
   ml2:

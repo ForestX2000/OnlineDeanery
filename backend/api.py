@@ -52,7 +52,7 @@ async def lifespan(app: FastAPI):
         await conn.run_sync(Base.metadata.create_all)
     print("--- ТАБЛИЦЫ УСПЕШНО СОЗДАНЫ ИЛИ УЖЕ СУЩЕСТВУЮТ ---")
 
-    # HTTP-клиент с настройкой товарища (таймаут 180с)
+    # HTTP-клиент с настройкой таймаута
     async with httpx.AsyncClient(timeout=180) as client:
         app.state.http_client = client
         yield
@@ -60,7 +60,7 @@ async def lifespan(app: FastAPI):
     sessions.clear()
     active_sessions.clear()
     
-    # Корректное закрытие соединения с БД при остановке приложения
+    # Корректное закрытие соединения с БД при остановке
     await engine.dispose()
 
 
