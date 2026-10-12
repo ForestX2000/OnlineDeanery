@@ -294,7 +294,12 @@ def contextual_question(question: str, history: list) -> str:
     return question
 
 
-def answer_question(base: KnowledgeBase, question: str, document, history: list) -> dict:
+NO_ANSWER_TEXT = "Ответа нет: в загруженных правилах и полях документа не найдено достаточно информации для ответа на этот вопрос. Обратитесь в деканат."
+
+
+def answer_question(base: KnowledgeBase, question: str, document, history: list, *,
+                    selected_clause_ids: list[str] | None = None,
+                    selected_field_ids: list[str] | None = None) -> dict:
     question = contextual_question(question, history)
     key, rule = document_rule(base, document.type if document else None)
     verification, sources, summary = None, [], ""
@@ -307,12 +312,13 @@ def answer_question(base: KnowledgeBase, question: str, document, history: list)
                        if any((terms := tokens(label)) and terms <= query_terms
                               for label in [config.label, *config.aliases])]
     search_type = requested_types[0] if len(requested_types) == 1 else (None if requested_types else key)
-    clauses = retrieve(base, question, search_type)
+    clauses = (retrieve(base, question, search_type) if selected_clause_ids is None else
+               [clause for clause in base.clauses if clause.id in selected_clause_ids])
     parts = []
     # Вопрос о конкретном поле можно ответить по документу и без нормативной базы.
     if document is not None and rule is not None and not is_completeness_question(question):
         for field in rule.required_fields:
-            if not asks_for_field(question, field):
+            if not (asks_for_field(question, field) if selected_field_ids is None else field.name in selected_field_ids):
                 continue
             value, conflict = field_value(document.fields, field)
             if conflict:
@@ -332,7 +338,7 @@ def answer_question(base: KnowledgeBase, question: str, document, history: list)
         ))
         sources.extend(source(base, clause) for clause in clauses)
     elif not parts and not (document is not None and is_completeness_question(question) and verification["status"] != "unknown"):
-        parts.append("Ответа нет: в загруженных правилах и полях документа не найдено достаточно информации для ответа на этот вопрос. Обратитесь в деканат.")
+        parts.append(NO_ANSWER_TEXT)
 
     if summary:
         parts.append(summary)

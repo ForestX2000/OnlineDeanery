@@ -6,11 +6,13 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Literal
 
+import httpx
 from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field
 
 from backend.models import Document, ServiceAnswer
-from backend.rules import KnowledgeBase, answer_question, load_knowledge_base
+from backend.answer_llm import AnswerLlmSettings, select_evidence
+from backend.rules import KnowledgeBase, NO_ANSWER_TEXT, answer_question, load_knowledge_base
 
 DEFAULT_RULES_PATH = Path(__file__).with_name("data") / "rules.json"
 logger = logging.getLogger(__name__)
@@ -41,7 +43,15 @@ async def lifespan(app: FastAPI):
     else:
         logger.warning("База правил отсутствует: %s", path)
         app.state.knowledge_base = KnowledgeBase()
-    yield
+    settings = AnswerLlmSettings.from_env()
+    app.state.answer_llm_settings = settings
+    client = httpx.AsyncClient(follow_redirects=False, trust_env=False) if settings is not None else None
+    app.state.answer_llm_client = client
+    try:
+        yield
+    finally:
+        if client is not None:
+            await client.aclose()
 
 
 app = FastAPI(title="Онлайн-деканат: логика и правила", lifespan=lifespan)
@@ -55,8 +65,23 @@ async def health(request: Request):
 
 
 @app.post("/answer", response_model=ServiceAnswer)
-def answer(data: AnswerRequest, request: Request):
+async def answer(data: AnswerRequest, request: Request):
     question = data.question.strip()
     if not question:
         raise HTTPException(status_code=400, detail="Вопрос не должен быть пустым")
-    return answer_question(request.app.state.knowledge_base, question, data.document, data.history)
+    base = request.app.state.knowledge_base
+    fallback = answer_question(base, question, data.document, data.history)
+    # Known field/rule questions stay immediate and deterministic. The optional
+    # model broadens matching only for questions that could not be answered.
+    if not fallback["answer"].startswith(NO_ANSWER_TEXT):
+        return fallback
+    selection = await select_evidence(
+        base, question, data.document, data.history,
+        request.app.state.answer_llm_settings, request.app.state.answer_llm_client,
+    )
+    if selection is None:
+        return fallback
+    return answer_question(
+        base, question, data.document, data.history,
+        selected_clause_ids=selection.clause_ids, selected_field_ids=selection.field_ids,
+    )

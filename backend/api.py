@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field, JsonValue, ValidationError
 from pypdf import PdfReader
 from pypdf.errors import PdfReadError
 
-from backend.models import ApiModel, ApiResponse, Document, ServiceAnswer
+from backend.models import ApiModel, ApiResponse, Document, DocumentImage, ServiceAnswer
 
 MAX_FILE_SIZE = 10 * 1024 * 1024
 MAX_QUESTION_LENGTH = 5000
@@ -35,7 +35,7 @@ DocumentType = Literal["study_certificate", "academic_leave", "internship_certif
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    async with httpx.AsyncClient(timeout=60) as client:
+    async with httpx.AsyncClient(timeout=180) as client:
         app.state.http_client = client
         yield
     sessions.clear()
@@ -61,11 +61,14 @@ class ChatMessage(ApiModel):
 class OcrResult(ApiModel):
     text: str
     coordinates: list[JsonValue] = Field(default_factory=list)
+    image: DocumentImage | None = None
+    visual_features: dict[str, JsonValue] | None = None
 
 
 class ExtractedDocument(ApiModel):
     document_type: str | None = None
     fields: dict[str, JsonValue]
+    coordinates: list[JsonValue] | None = None
 
 
 @dataclass
@@ -215,14 +218,18 @@ async def analyze(
     question: str = Form(..., max_length=MAX_QUESTION_LENGTH),
     conversation_id: str | None = Form(None, min_length=1, max_length=100),
     document_type: DocumentType | None = Form(None),
+    rotation: int = Form(0, ge=0, le=270, multiple_of=90),
 ):
     try:
         question = validate_question(question)
         with use_session(conversation_id) as (conversation_id, session):
             content, mime = await validate_file(file)
-            ocr_payload = await send_request(ML1_URL, files={
+            ocr_options = {"files": {
                 "file": (Path(file.filename).name, content, mime),
-            })
+            }}
+            if rotation:
+                ocr_options["data"] = {"rotation": str(rotation)}
+            ocr_payload = await send_request(ML1_URL, **ocr_options)
             ocr = parse_service(OcrResult, ocr_payload, "ML 1")
             extract_payload = {"ocr_result": ocr_payload}
             if document_type:
@@ -233,7 +240,9 @@ async def analyze(
                 type=extracted.document_type or document_type,
                 fields=extracted.fields,
                 ocr_text=ocr.text,
-                coordinates=ocr.coordinates,
+                coordinates=extracted.coordinates if extracted.coordinates is not None else ocr.coordinates,
+                image=ocr.image,
+                visual_features=ocr.visual_features,
             )
             return await get_answer(question, conversation_id, session, document)
     finally:

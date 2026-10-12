@@ -17,3 +17,18 @@ venv/
 .DS_Store
 Thumbs.db
 *.log
+
+data/
+*.png
+*.jpg
+mws_data/
+
+# ML weights and training artefacts live outside git (see YOLO_MODEL_PATH).
+*.pt
+*.onnx
+*.engine
+*.gguf
+weights/
+runs/
+
+.venv\
