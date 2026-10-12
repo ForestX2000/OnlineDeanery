@@ -13,7 +13,8 @@ import {
   AlertCircle,
 } from "lucide-react";
 
-import { useAppStore, type AnalysisResult } from "../store/useAppStore";
+import { useAppStore } from "../store/useAppStore";
+import type { AnalysisResult } from "../../api";
 import { analyzeDocument, sendMessage, MAX_QUESTION_LENGTH } from "../../api";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;

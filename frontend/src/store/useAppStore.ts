@@ -1,14 +1,9 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import type { AnalysisResult } from "../../api"; // <-- ИМПОРТИРУЕМ правильный тип отсюда
 
 export type DocumentType = "study_certificate" | "academic_leave" | "internship_certificate";
 export type UserRole = "student" | "admin";
-
-export interface AnalysisResult {
-  extracted_fields: Record<string, string>;
-  answer: string;
-  sources: { type: string; reference: string }[];
-}
 
 export interface User {
   email: string;
@@ -30,7 +25,7 @@ interface AppState {
   result: AnalysisResult | null;
 
   setStep: (step: AppState["step"]) => void;
-  setFormData: (data: { file: File; docType: DocumentType; question: string }) => void;
+  setFormData: (data: { file: File | null; docType: DocumentType | ""; question: string }) => void;
   setResult: (result: AnalysisResult) => void;
   reset: () => void;
 }
