@@ -1,4 +1,3 @@
-
 import { useCallback, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { useNavigate } from "react-router-dom";
@@ -15,7 +14,11 @@ import {
 } from "lucide-react";
 
 import { useAppStore } from "../store/useAppStore";
+<<<<<<< HEAD
 import { analyzeDocument, sendMessage, MAX_QUESTION_LENGTH } from "../../api";
+=======
+import { mockApi } from "@/services/mockApi"; 
+>>>>>>> cbc8abf (добавила новый дизайн 2.0, фильтрация и разделения по профилю)
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
@@ -39,7 +42,7 @@ type DocumentType = (typeof DOC_TYPES)[number]["value"];
 export default function DocumentUploader() {
   const navigate = useNavigate();
 
-  const setFormData = useAppStore((state) => state.setFormData);
+  // <-- Убрали setFormData, так как он не использовался
   const setResult = useAppStore((state) => state.setResult);
   const setStep = useAppStore((state) => state.setStep);
 
@@ -54,40 +57,32 @@ export default function DocumentUploader() {
     if (files.length > 0) setFile(files[0]);
   }, []);
 
-  const { getRootProps, getInputProps, isDragActive, open } =
-    useDropzone({
-      onDrop,
-      multiple: false,
-      maxSize: MAX_FILE_SIZE,
-      noClick: true,
-      noKeyboard: true,
-      accept: {
-        "application/pdf": [".pdf"],
-        "image/png": [".png"],
-        "image/jpeg": [".jpg", ".jpeg"],
-      },
-      onDropRejected: (rejections) => {
-        const rejection = rejections[0];
-        if (!rejection) return;
+  const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
+    onDrop,
+    multiple: false,
+    maxSize: MAX_FILE_SIZE,
+    noClick: true,
+    noKeyboard: true,
+    accept: {
+      "application/pdf": [".pdf"],
+      "image/png": [".png"],
+      "image/jpeg": [".jpg", ".jpeg"],
+    },
+    onDropRejected: (rejections) => {
+      const rejection = rejections[0];
+      if (!rejection) return;
 
-        if (
-          rejection.errors.some(
-            (item) => item.code === "file-too-large",
-          )
-        ) {
-          setError("Размер файла не должен превышать 10 МБ.");
-        } else if (
-          rejection.errors.some(
-            (item) => item.code === "file-invalid-type",
-          )
-        ) {
-          setError("Поддерживаются файлы PDF, PNG и JPG.");
-        } else {
-          setError("Не удалось загрузить файл. Попробуйте ещё раз.");
-        }
-      },
-    });
+      if (rejection.errors.some((item) => item.code === "file-too-large")) {
+        setError("Размер файла не должен превышать 10 МБ.");
+      } else if (rejection.errors.some((item) => item.code === "file-invalid-type")) {
+        setError("Поддерживаются файлы PDF, PNG и JPG.");
+      } else {
+        setError("Не удалось загрузить файл. Попробуйте ещё раз.");
+      }
+    },
+  });
 
+<<<<<<< HEAD
   const handleSubmit = async (
     event: React.FormEvent<HTMLFormElement>,
   ) => {
@@ -118,14 +113,39 @@ export default function DocumentUploader() {
 
       setResult(result);
       navigate("/result");
+=======
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!file || !docType) {
+      setError("Пожалуйста, выберите файл и укажите тип документа.");
+      return;
+    }
+
+    setIsLoading(true); // <-- Исправление: включаем индикатор загрузки
+    setStep("processing");
+
+    try {
+      const response = await mockApi.analyzeDocument(file, docType, question);
+      
+      if (response.success) {
+        setResult(response.data);
+        navigate("/result"); // <-- Явный переход на страницу результата
+      }
+>>>>>>> cbc8abf (добавила новый дизайн 2.0, фильтрация и разделения по профилю)
     } catch (err) {
-      console.error("Ошибка обработки документа:", err);
+      // <-- Исправление: используем пойманную ошибку вместо игнорирования
+      const errorMessage = err instanceof Error ? err.message : "Ошибка при анализе документа";
+      setError(errorMessage);
       setStep("upload");
+<<<<<<< HEAD
       setError(
         err instanceof Error ? err.message : "Не удалось обработать документ. Попробуйте ещё раз.",
       );
+=======
+>>>>>>> cbc8abf (добавила новый дизайн 2.0, фильтрация и разделения по профилю)
     } finally {
-      setIsLoading(false);
+      setIsLoading(false); // <-- Исправление: выключаем индикатор загрузки в любом случае
     }
   };
 
@@ -142,14 +162,25 @@ export default function DocumentUploader() {
   };
 
   return (
-    <main className="min-h-screen bg-[#f4f7f4] text-slate-800">
-      <header className="border-b border-emerald-100 bg-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4 sm:px-8">
-          <button
-            type="button"
-            onClick={() => navigate("/")}
-            className="flex items-center gap-3 text-left"
+    <div className="w-full">
+      <form onSubmit={handleSubmit} className="space-y-8">
+        <div>
+          <div className="mb-3 flex items-center gap-3">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#087b45]/10 font-bold text-[#087b45]">
+              1
+            </span>
+            <div>
+              <h2 className="font-semibold text-[#1e293b]">Тип документа</h2>
+              <p className="text-sm text-[#1e293b]/60">Выберите подходящую категорию</p>
+            </div>
+          </div>
+
+          <select
+            value={docType}
+            onChange={(event) => setDocType(event.target.value as DocumentType | "")}
+            className="w-full rounded-xl border border-[#1e293b]/20 bg-white px-4 py-3.5 text-sm text-[#1e293b] outline-none transition focus:border-[#087b45] focus:ring-4 focus:ring-[#087b45]/10"
           >
+<<<<<<< HEAD
             <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#087b45] text-white shadow-sm">
               <FileText size={23} />
             </span>
@@ -186,13 +217,24 @@ export default function DocumentUploader() {
             Система поможет разобрать содержание документа
             и подготовить ответ.
           </p>
+=======
+            <option value="">Выберите тип документа</option>
+            {DOC_TYPES.map((item) => (
+              <option key={item.value} value={item.value}>
+                {item.label}
+              </option>
+            ))}
+          </select>
+>>>>>>> cbc8abf (добавила новый дизайн 2.0, фильтрация и разделения по профилю)
         </div>
 
-        <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_16px_50px_rgba(15,60,35,0.07)]">
-          <div className="h-1.5 bg-linear-to-r from-[#075c36] via-[#159957] to-[#b6d93c]" />
-
-          <form onSubmit={handleSubmit} className="space-y-8 p-5 sm:p-9">
+        <div>
+          <div className="mb-3 flex items-center gap-3">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#087b45]/10 font-bold text-[#087b45]">
+              2
+            </span>
             <div>
+<<<<<<< HEAD
               <div className="mb-3 flex items-center gap-3">
                 <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 font-bold text-[#087b45]">
                   1
@@ -221,8 +263,14 @@ export default function DocumentUploader() {
                   </option>
                 ))}
               </select>
+=======
+              <h2 className="font-semibold text-[#1e293b]">Файл документа</h2>
+              <p className="text-sm text-[#1e293b]/60">PDF, PNG или JPG · до 10 МБ</p>
+>>>>>>> cbc8abf (добавила новый дизайн 2.0, фильтрация и разделения по профилю)
             </div>
+          </div>
 
+<<<<<<< HEAD
             <div>
               <div className="mb-3 flex items-center gap-3">
                 <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 font-bold text-[#087b45]">
@@ -333,33 +381,54 @@ export default function DocumentUploader() {
 
               <p className="mt-2 text-right text-xs text-slate-400">
                 {question.length}/{MAX_QUESTION_LENGTH}
-              </p>
-            </div>
+=======
+          {!file ? (
+            <div
+              {...getRootProps()}
+              className={`rounded-2xl border-2 border-dashed p-7 text-center transition sm:p-10 ${
+                isDragActive
+                  ? "border-[#087b45] bg-[#087b45]/5"
+                  : "border-[#1e293b]/20 bg-[#f4f7f4] hover:border-[#087b45]/50 hover:bg-[#087b45]/5"
+              }`}
+            >
+              <input {...getInputProps()} />
 
-            {error && (
-              <div
-                role="alert"
-                className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"
-              >
-                <AlertCircle className="mt-0.5 shrink-0" size={19} />
-                <p>{error}</p>
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-white text-[#087b45] shadow-sm ring-1 ring-[#1e293b]/10">
+                {isDragActive ? <UploadCloud size={30} /> : <FileUp size={30} />}
               </div>
-            )}
 
-            <div className="rounded-xl bg-slate-50 p-4">
-              <div className="flex items-start gap-3">
-                <ShieldCheck
-                  size={20}
-                  className="mt-0.5 shrink-0 text-[#087b45]"
-                />
-                <p className="text-xs leading-5 text-slate-500">
-                  Перед отправкой убедитесь, что загрузили нужный файл.
-                  Не добавляйте документы с лишними персональными данными.
-                  Обработка файла зависит от настроенного сервера.
+              <p className="mt-5 font-semibold text-[#1e293b]">
+                {isDragActive ? "Отпустите файл здесь" : "Перетащите файл в эту область"}
+>>>>>>> cbc8abf (добавила новый дизайн 2.0, фильтрация и разделения по профилю)
+              </p>
+
+              <p className="mt-2 text-sm text-[#1e293b]/60">или выберите файл на устройстве</p>
+
+              <button
+                type="button"
+                onClick={open}
+                className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#087b45] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#065c34] focus:outline-none focus:ring-4 focus:ring-[#087b45]/20"
+              >
+                <UploadCloud size={17} />
+                Выбрать файл
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-4 rounded-2xl border border-[#087b45]/20 bg-[#087b45]/5 p-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white text-[#087b45] shadow-sm">
+                <FileText size={24} />
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-semibold text-[#1e293b]">{file.name}</p>
+                <p className="mt-1 text-sm text-[#1e293b]/60">{formatSize(file.size)}</p>
+                <p className="mt-1 flex items-center gap-1 text-xs font-medium text-[#087b45]">
+                  <CheckCircle2 size={14} />
+                  Файл готов к обработке
                 </p>
               </div>
-            </div>
 
+<<<<<<< HEAD
             <button
               type="submit"
               disabled={isLoading}
@@ -378,12 +447,77 @@ export default function DocumentUploader() {
               )}
             </button>
           </form>
+=======
+              <button
+                type="button"
+                onClick={removeFile}
+                aria-label="Удалить файл"
+                className="rounded-lg p-2 text-[#1e293b]/40 transition hover:bg-white hover:text-red-600"
+              >
+                <Trash2 size={19} />
+              </button>
+            </div>
+          )}
+>>>>>>> cbc8abf (добавила новый дизайн 2.0, фильтрация и разделения по профилю)
         </div>
 
-        <p className="mt-5 text-center text-xs leading-5 text-slate-400">
-          Онлайн-деканат · Электронный помощник для работы с документами
-        </p>
-      </section>
-    </main>
+        <div>
+          <div className="mb-3 flex items-center gap-3">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#087b45]/10 font-bold text-[#087b45]">
+              3
+            </span>
+            <div>
+              <h2 className="font-semibold text-[#1e293b]">Ваш вопрос</h2>
+              <p className="text-sm text-[#1e293b]/60">Уточните, что нужно узнать из документа</p>
+            </div>
+          </div>
+
+          <textarea
+            value={question}
+            onChange={(event) => setQuestion(event.target.value)}
+            placeholder="Например: какие документы нужны для оформления академического отпуска?"
+            rows={4}
+            maxLength={2000}
+            className="w-full resize-y rounded-xl border border-[#1e293b]/20 bg-white px-4 py-3.5 text-sm leading-6 text-[#1e293b] outline-none transition placeholder:text-[#1e293b]/40 focus:border-[#087b45] focus:ring-4 focus:ring-[#087b45]/10"
+          />
+
+          <p className="mt-2 text-right text-xs text-[#1e293b]/40">{question.length}/2000</p>
+        </div>
+
+        {error && (
+          <div role="alert" className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            <AlertCircle className="mt-0.5 shrink-0" size={19} />
+            <p>{error}</p>
+          </div>
+        )}
+
+        <div className="rounded-xl bg-[#f4f7f4] p-4">
+          <div className="flex items-start gap-3">
+            <ShieldCheck size={20} className="mt-0.5 shrink-0 text-[#087b45]" />
+            <p className="text-xs leading-5 text-[#1e293b]/60">
+              Перед отправкой убедитесь, что загрузили нужный файл. Не добавляйте документы с лишними персональными данными.
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="submit"
+          disabled={isLoading}
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#087b45] px-5 py-4 font-semibold text-white shadow-[0_8px_20px_rgba(8,123,69,0.18)] transition hover:bg-[#065c34] focus:outline-none focus:ring-4 focus:ring-[#087b45]/20 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {isLoading ? (
+            <>
+              <LoaderCircle size={20} className="animate-spin" />
+              Обрабатываем документ...
+            </>
+          ) : (
+            <>
+              Обработать документ
+              <ArrowRight size={19} />
+            </>
+          )}
+        </button>
+      </form>
+    </div>
   );
 }
