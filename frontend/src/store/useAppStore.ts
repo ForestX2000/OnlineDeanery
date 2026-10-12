@@ -1,46 +1,60 @@
-import { create } from "zustand"
-import type { AnalysisResult, DocumentType } from "../../api"
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
+import type { AnalysisResult } from "../../api"; // <-- ИМПОРТИРУЕМ правильный тип отсюда
 
-interface AppState {
-  step: "upload" | "processing" | "result"
-  file: File | null
-  docType: DocumentType | ""
-  question: string
-  result: AnalysisResult | null
-  error: string | null
+export type DocumentType = "study_certificate" | "academic_leave" | "internship_certificate";
+export type UserRole = "student" | "admin";
 
-  setStep: (step: AppState["step"]) => void
-  setFormData: (data: {
-    file: File | null
-    docType: DocumentType | ""
-    question: string
-  }) => void
-  setResult: (result: AnalysisResult) => void
-  setError: (error: string | null) => void
-  reset: () => void
+export interface User {
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: UserRole;
 }
 
-export const useAppStore = create<AppState>((set) => ({
-  step: "upload",
-  file: null,
-  docType: "",
-  question: "",
-  result: null,
-  error: null,
+interface AppState {
+  isAuthenticated: boolean;
+  user: User | null;
+  login: (user: User) => void;
+  logout: () => void;
 
-  setStep: (step) => set({ step }),
+  step: "upload" | "processing" | "result";
+  file: File | null;
+  docType: DocumentType | "";
+  question: string;
+  result: AnalysisResult | null;
 
-  setFormData: (data) => set(data),
+  setStep: (step: AppState["step"]) => void;
+  setFormData: (data: { file: File | null; docType: DocumentType | ""; question: string }) => void;
+  setResult: (result: AnalysisResult) => void;
+  reset: () => void;
+}
 
-  setResult: (result) => set({ result, step: "result", error: null }),
-  setError: (error) => set({ error }),
+export const useAppStore = create<AppState>()(
+  persist(
+    (set) => ({
+      isAuthenticated: false,
+      user: null,
+      login: (user) => set({ isAuthenticated: true, user }),
+      logout: () => set({ 
+        isAuthenticated: false, 
+        user: null, 
+        step: "upload", file: null, docType: "", question: "", result: null 
+      }),
 
-  reset: () => set({
-    step: "upload",
-    file: null,
-    docType: "",
-    question: "",
-    result: null,
-    error: null,
-  }),
-}))
+      step: "upload", file: null, docType: "", question: "", result: null,
+      setStep: (step) => set({ step }),
+      setFormData: (data) => set(data),
+      setResult: (result) => set({ result, step: "result" }),
+      reset: () => set({ step: "upload", file: null, docType: "", question: "", result: null }),
+    }),
+    {
+      name: "online-deanery-storage",
+      partialize: (state) => ({
+        isAuthenticated: state.isAuthenticated,
+        user: state.user,
+        result: state.result,
+      }),
+    }
+  )
+);

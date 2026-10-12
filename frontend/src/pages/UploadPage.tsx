@@ -4,11 +4,11 @@ import DocumentUploader from "@/components/DocumentUploader";
 
 export default function UploadPage() {
   return (
-    <main className="min-h-screen bg-[#f4f7f4] px-5 py-10">
+    <div className="px-5 py-10">
       <div className="mx-auto max-w-4xl">
         <Link
           to="/"
-          className="mb-8 inline-flex items-center gap-2 text-sm text-[#1e293b]/70 hover:text-[#087b45]"
+          className="mb-8 inline-flex items-center gap-2 text-sm text-[#1e293b]/70 hover:text-[#087b45] transition"
         >
           <ArrowLeft size={18} />
           На главную
@@ -27,6 +27,6 @@ export default function UploadPage() {
           <DocumentUploader />
         </div>
       </div>
-    </main>
+    </div>
   );
 }
