@@ -1,36 +1,48 @@
-from functools import lru_cache
+"""OCR: PaddleOCR-VL через llama-server (llama.cpp)."""
+
+import base64
+import os
 from typing import Any
+
+import cv2
 import numpy as np
-from paddleocr import PaddleOCR
+import requests
+
+# URL llama-server с PaddleOCR-VL.
+# В Docker переопределяется через environment в docker-compose.yml.
+VL_URL = os.getenv("PADDLEOCR_VL_URL", "http://host.docker.internal:8080/v1/chat/completions")
+VL_TIMEOUT = 120
 
 
-# singleton PaddleOCR — модель грузится один раз
-@lru_cache(maxsize=1)
-def get_ocr() -> PaddleOCR:
-    return PaddleOCR(
-        lang="ru",
-        use_angle_cls=True,
-        show_log=False,
-        use_gpu=False,
+# отправляет картинку в PaddleOCR-VL, возвращает plain text
+def run_vl_ocr(image: np.ndarray, task: str = "OCR:") -> str:
+    ok, buf = cv2.imencode(".png", image)
+    if not ok:
+        raise RuntimeError("Не удалось закодировать картинку в PNG")
+    img_b64 = base64.b64encode(buf.tobytes()).decode()
+
+    resp = requests.post(
+        VL_URL,
+        json={
+            "messages": [{
+                "role": "user",
+                "content": [
+                    {"type": "image_url",
+                     "image_url": {"url": f"data:image/png;base64,{img_b64}"}},
+                    {"type": "text", "text": f"<__media__>{task}"},
+                ],
+            }],
+            "temperature": 0,
+            "max_tokens": 1500,
+        },
+        timeout=VL_TIMEOUT,
     )
+    resp.raise_for_status()
+    return resp.json()["choices"][0]["message"]["content"]
 
 
-# запускает OCR и возвращает текст + координаты блоков
+# главная функция: возвращает текст от PaddleOCR-VL
 def run_ocr(image: np.ndarray) -> dict[str, Any]:
-    ocr = get_ocr()
-    raw = ocr.ocr(image, cls=True)
+    text = run_vl_ocr(image, task="OCR:")
+    return {"text": text, "boxes": []}
 
-    boxes: list[dict[str, Any]] = []
-    lines: list[str] = []
-
-    for page in raw or []:
-        for item in page or []:
-            bbox, (text, conf) = item[0], item[1]
-            boxes.append({
-                "text": text,
-                "bbox": bbox,
-                "confidence": float(conf),
-            })
-            lines.append(text)
-
-    return {"text": "\n".join(lines), "boxes": boxes}
