@@ -27,7 +27,7 @@ SESSION_TTL_SECONDS = 3600
 MAX_HISTORY_MESSAGES = 20
 ALLOWED_FORMATS = {".jpg": "JPEG", ".jpeg": "JPEG", ".png": "PNG", ".pdf": "PDF"}
 MIME_TYPES = {"JPEG": "image/jpeg", "PNG": "image/png", "PDF": "application/pdf"}
-ML1_URL: "${ML1_URL:-http://host.docker.internal:8001/ocr}"
+ML1_URL = os.getenv("ML1_URL", "http://host.docker.internal:8001/ocr")
 ML2_URL = os.getenv("ML2_URL", "http://localhost:8003/extract")
 BACKEND2_URL = os.getenv("BACKEND2_URL", "http://localhost:8002/answer")
 DocumentType = Literal["study_certificate", "academic_leave", "internship_certificate"]

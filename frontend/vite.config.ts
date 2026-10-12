@@ -10,4 +10,9 @@ export default defineConfig({
       "@": path.resolve(import.meta.dirname, "./src"),
     },
   },
+    server: {
+      allowedHosts: [
+        'markedly-rare-basset.cloudpub.ru', 'deanery.forestinc.ru'
+      ],
+    },
 })
