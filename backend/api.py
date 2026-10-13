@@ -1,6 +1,7 @@
 ﻿import os
 import time
 import uuid
+import logging
 import warnings
 from contextlib import asynccontextmanager, contextmanager
 from dataclasses import dataclass, field
@@ -31,11 +32,14 @@ ML1_URL = os.getenv("ML1_URL", "http://localhost:8001/ocr")
 ML2_URL = os.getenv("ML2_URL", "http://localhost:8003/extract")
 BACKEND2_URL = os.getenv("BACKEND2_URL", "http://localhost:8002/answer")
 DocumentType = Literal["study_certificate", "academic_leave", "internship_certificate"]
+logger = logging.getLogger(__name__)
+# Внутренние сервисы: 60с каждый, браузер ждёт до 200с за цепочку из трёх.
+INTERNAL_TIMEOUT = float(os.getenv("INTERNAL_TIMEOUT", "60"))
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    async with httpx.AsyncClient(timeout=180) as client:
+    async with httpx.AsyncClient(timeout=INTERNAL_TIMEOUT) as client:
         app.state.http_client = client
         yield
     sessions.clear()
@@ -48,9 +52,14 @@ app.add_middleware(
     allow_origins=[origin.strip() for origin in os.getenv(
         "CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173"
     ).split(",") if origin.strip()],
-    allow_methods=["POST"],
+    allow_methods=["GET", "POST"],
     allow_headers=["Content-Type"],
 )
+
+
+@app.get("/health")
+async def health():
+    return {"status": "ok", "sessions": len(sessions)}
 
 
 class ChatMessage(ApiModel):
@@ -103,7 +112,7 @@ def use_session(conversation_id: str | None):
             raise HTTPException(status_code=404, detail="Диалог не найден или срок его хранения истёк")
         session = sessions[conversation_id]
     else:
-        if len(sessions.keys() | active_sessions) >= MAX_SESSIONS:
+        if len(set(sessions) | active_sessions) >= MAX_SESSIONS:
             raise HTTPException(status_code=503, detail="Слишком много активных диалогов. Попробуйте позже")
         conversation_id, session = str(uuid.uuid4()), Session()
     if conversation_id in active_sessions:
@@ -160,12 +169,22 @@ async def send_request(url: str, **kwargs) -> dict:
     service = {ML1_URL: "OCR (ML 1)", ML2_URL: "Extract (ML 2)", BACKEND2_URL: "Backend 2"}.get(url, "внутренний сервис")
     try:
         response = await app.state.http_client.post(url, **kwargs)
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            # Пробрасываем тело upstream для отладки, обрезаем до 500 символов.
+            try:
+                detail = response.text[:500]
+            except Exception:
+                detail = ""
+            logger.warning("Сервис %s вернул %s: %s", service, response.status_code, detail)
+            raise HTTPException(
+                status_code=502,
+                detail=f"{service} вернул ошибку {response.status_code}" + (f": {detail}" if detail else ""),
+            ) from exc
         result = response.json()
     except httpx.TimeoutException as exc:
-        raise HTTPException(status_code=504, detail="Превышено время ожидания сервиса") from exc
-    except httpx.HTTPStatusError as exc:
-        raise HTTPException(status_code=502, detail="Внутренний сервис вернул ошибку") from exc
+        raise HTTPException(status_code=504, detail=f"Превышено время ожидания сервиса {service} ({INTERNAL_TIMEOUT:g}с)") from exc
     except httpx.RequestError as exc:
         raise HTTPException(status_code=503, detail=f"Сервис {service} недоступен. Проверьте его запуск и адрес подключения.") from exc
     except ValueError as exc:

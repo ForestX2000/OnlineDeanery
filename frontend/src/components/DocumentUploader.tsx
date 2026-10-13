@@ -15,26 +15,12 @@ import {
 } from "lucide-react";
 
 import { useAppStore } from "../store/useAppStore";
-import { analyzeDocument, sendMessage, MAX_QUESTION_LENGTH } from "../../api";
+import { analyzeDocument, sendMessage, MAX_FILE_SIZE, MAX_QUESTION_LENGTH, DOCUMENT_LABELS } from "../../api";
+import type { DocumentType } from "../../api";
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
-
-const DOC_TYPES = [
-  {
-    value: "study_certificate",
-    label: "Справка об обучении",
-  },
-  {
-    value: "academic_leave",
-    label: "Заявление на академический отпуск",
-  },
-  {
-    value: "internship_certificate",
-    label: "Справка о практике",
-  },
-] as const;
-
-type DocumentType = (typeof DOC_TYPES)[number]["value"];
+const DOC_TYPES = (Object.entries(DOCUMENT_LABELS) as Array<[DocumentType, string]>).map(
+  ([value, label]) => ({ value, label }),
+);
 
 export default function DocumentUploader() {
   const navigate = useNavigate();
@@ -142,56 +128,28 @@ export default function DocumentUploader() {
   };
 
   return (
-    <main className="min-h-screen bg-[#f4f7f4] text-slate-800">
-      <header className="border-b border-emerald-100 bg-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4 sm:px-8">
-          <button
-            type="button"
-            onClick={() => navigate("/")}
-            className="flex items-center gap-3 text-left"
-          >
-            <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#087b45] text-white shadow-sm">
-              <FileText size={23} />
-            </span>
-            <span>
-              <span className="block text-lg font-bold tracking-tight text-[#075c36]">
-                Онлайн-деканат
-              </span>
-              <span className="block text-xs text-slate-500">
-                Электронная обработка документов
-              </span>
-            </span>
-          </button>
-
-          <div className="hidden items-center gap-2 rounded-full bg-emerald-50 px-4 py-2 text-sm font-medium text-[#087b45] sm:flex">
-            <ShieldCheck size={17} />
-            Удобно и безопасно
-          </div>
-        </div>
-      </header>
-
-      <section className="mx-auto max-w-4xl px-5 py-10 sm:px-8 sm:py-14">
-        <div className="mb-8">
-          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-emerald-100 bg-white px-3 py-1.5 text-sm font-medium text-[#087b45]">
-            <span className="h-2 w-2 rounded-full bg-[#159957]" />
-            Помощник по документам
-          </div>
-
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
-            Задайте вопрос
-          </h1>
-
-          <p className="mt-3 max-w-2xl text-base leading-7 text-slate-600">
-            Задайте вопрос и при необходимости приложите документ.
-            Система поможет разобрать содержание документа
-            и подготовить ответ.
-          </p>
+    <div className="text-slate-800">
+      <div className="mb-8">
+        <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-emerald-100 bg-white px-3 py-1.5 text-sm font-medium text-[#087b45]">
+          <span className="h-2 w-2 rounded-full bg-[#159957]" />
+          Помощник по документам
         </div>
 
-        <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_16px_50px_rgba(15,60,35,0.07)]">
-          <div className="h-1.5 bg-linear-to-r from-[#075c36] via-[#159957] to-[#b6d93c]" />
+        <h1 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
+          Задайте вопрос
+        </h1>
 
-          <form onSubmit={handleSubmit} className="space-y-8 p-5 sm:p-9">
+        <p className="mt-3 max-w-2xl text-base leading-7 text-slate-600">
+          Задайте вопрос и при необходимости приложите документ.
+          Система поможет разобрать содержание документа
+          и подготовить ответ.
+        </p>
+      </div>
+
+      <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_16px_50px_rgba(15,60,35,0.07)]">
+        <div className="h-1.5 bg-linear-to-r from-[#075c36] via-[#159957] to-[#b6d93c]" />
+
+        <form onSubmit={handleSubmit} className="space-y-8 p-5 sm:p-9">
             <div>
               <div className="mb-3 flex items-center gap-3">
                 <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 font-bold text-[#087b45]">
@@ -221,6 +179,11 @@ export default function DocumentUploader() {
                   </option>
                 ))}
               </select>
+              {!file && docType && (
+                <p className="mt-2 text-xs text-amber-700">
+                  Тип «{DOCUMENT_LABELS[docType as DocumentType]}» применится к следующему файлу. Вопрос без файла идёт только по Положению.
+                </p>
+              )}
             </div>
 
             <div>
@@ -383,7 +346,6 @@ export default function DocumentUploader() {
         <p className="mt-5 text-center text-xs leading-5 text-slate-400">
           Онлайн-деканат · Электронный помощник для работы с документами
         </p>
-      </section>
-    </main>
+    </div>
   );
 }

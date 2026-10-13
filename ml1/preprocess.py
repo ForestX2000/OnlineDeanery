@@ -78,9 +78,13 @@ def prepare_image(image_bytes: bytes, rotation: int = 0) -> PreparedImage:
     instead of applying inpainting, contrast normalization, or guessed deskew.
     rotation=0 включает авто-определение бокового фото (estimate_rotation);
     явные 90/180/270 применяются как есть и эвристику обходят.
+    PDF здесь не растеризуется: многостраничный PDF должен отклоняться раньше
+    с понятной ошибкой, одностраничный — конвертироваться вызывающим кодом.
     """
     if type(rotation) is not int or rotation not in (0, 90, 180, 270):
         raise ValueError("Поворот должен быть 0, 90, 180 или 270 градусов")
+    if image_bytes[:5] == b"%PDF-":
+        raise ValueError("PDF без растеризации не поддерживается: конвертируйте первую страницу в PNG/JPG")
 
     try:
         with Image.open(BytesIO(image_bytes)) as source:

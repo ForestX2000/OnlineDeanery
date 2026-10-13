@@ -98,8 +98,9 @@ services:
     image: postgres:15-alpine
     container_name: deanery_db
     environment:
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: super_password
-      POSTGRES_DB: deanery
+      POSTGRES_USER: ${POSTGRES_USER:-admin}
+      # Не храните реальные пароли в репо: задайте POSTGRES_PASSWORD в .env (см. .env.example).
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-super_password}
+      POSTGRES_DB: ${POSTGRES_DB:-deanery}
     ports:
       - "5432:5432"

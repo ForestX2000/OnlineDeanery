@@ -29,13 +29,18 @@ frontend, API и сервис правил, и этот сценарий раб�
 
 ### Проверка документов
 
-Сервисы OCR и извлечения полей пока не входят в репозиторий. Поэтому загрузка
-файла заработает, если отдельно запустить совместимые сервисы на хосте:
+Сервисы OCR (`ml1`, PaddleOCR-VL через llama-server) и извлечения полей (`ml2`,
+regex + словарь + опциональная LLM) входят в репозиторий и поднимаются через compose.
+Для распознавания нужен внешний `llama-server` с `PaddleOCR-VL-1.5` на хосте:
 
-- OCR: `http://localhost:8001/ocr`
-- Extract: `http://localhost:8003/extract`
+- OCR: `http://localhost:8001/ocr` (в compose `ml1:8001`, `PADDLEOCR_VL_URL=http://host.docker.internal:8080/v1/chat/completions`)
+- Extract: `http://localhost:8003/extract` (в compose `ml2:8003`)
 
-Compose обращается к сервисам на компьютере через `host.docker.internal`.
+PDF принимается API, но `ml1/preprocess` PDF не растеризует: для PDF используйте
+JPG/PNG первой страницы, либо добавьте растеризацию (`pypdf/fitz/poppler`).
+Без `YOLO_*.onnx` детектор возвращает `signature/stamp=null` («проверка не выполнена»).
+
+Compose обращается к llama-server на компьютере через `host.docker.internal`.
 Если адреса отличаются, создайте `.env` на основе `.env.example` и укажите
 `ML1_URL` и `ML2_URL`, затем перезапустите контейнеры:
 
