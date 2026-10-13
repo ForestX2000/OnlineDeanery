@@ -29,20 +29,29 @@ frontend, API и сервис правил, и этот сценарий раб�
 
 ### Проверка документов
 
-Сервисы OCR (`ml1`, PaddleOCR-VL через llama-server) и извлечения полей (`ml2`,
-regex + словарь + опциональная LLM) входят в репозиторий и поднимаются через compose.
-Для распознавания нужен внешний `llama-server` с `PaddleOCR-VL-1.5` на хосте:
+Одна команда поднимает все, включая OCR:
 
-- OCR: `http://localhost:8001/ocr` (в compose `ml1:8001`, `PADDLEOCR_VL_URL=http://host.docker.internal:8080/v1/chat/completions`)
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/install_llama.ps1
+docker compose up --build
+```
+
+`install_llama.ps1` скачивает `llama-server` и оба `.gguf` в `./models/`.
+Сервис OCR (`ml1`, PaddleOCR-VL через compose-сервис `llama`) и извлечение полей (`ml2`)
+входят в репозиторий. Host-режим (`llama-server.exe` рядом) тоже поддерживается:
+`PADDLEOCR_VL_URL=http://host.docker.internal:8080/v1/chat/completions`, см. `scripts/run_llama.ps1`.
+
+- OCR: `http://localhost:8001/ocr` (в compose `ml1:8001` -> сервис `llama:8080`)
 - Extract: `http://localhost:8003/extract` (в compose `ml2:8003`)
+- llama-server: `http://localhost:8080/health` (модели из `./models/`, см. `models/README.md`)
 
 PDF принимается API, но `ml1/preprocess` PDF не растеризует: для PDF используйте
 JPG/PNG первой страницы, либо добавьте растеризацию (`pypdf/fitz/poppler`).
 Без `YOLO_*.onnx` детектор возвращает `signature/stamp=null` («проверка не выполнена»).
 
-Compose обращается к llama-server на компьютере через `host.docker.internal`.
+Без `models/*.gguf` сервис `llama` будет перезапускаться, `ml1` вернет `503`.
 Если адреса отличаются, создайте `.env` на основе `.env.example` и укажите
-`ML1_URL` и `ML2_URL`, затем перезапустите контейнеры:
+`PADDLEOCR_VL_URL`, `ML1_URL` и `ML2_URL`, затем перезапустите контейнеры:
 
 ```powershell
 Copy-Item .env.example .env

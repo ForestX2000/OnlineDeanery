@@ -39,8 +39,10 @@ Backend 2 реализован в `backend/logic.py`, проверка и пои
 Его документация доступна на `http://localhost:8002/docs`, состояние базы — на `/health`.
 Состояние API — на `GET /health` (`:8000`). Вопросы без файла уже работают через два
 backend-сервиса. Обработка файлов требует OCR (`ml1`) и Extract (`ml2`): они входят
-в репозиторий, но OCR-модель `PaddleOCR-VL-1.5` запускается отдельно через `llama-server`
-(`PADDLEOCR_VL_URL`). Без него интерфейс покажет ошибку подключения (503/504), а не тестовый ответ.
+в репозиторий, OCR-модель `PaddleOCR-VL-1.5` едет compose-сервисом `llama`
+(`./models/*.gguf`, образ `ghcr.io/ggml-org/llama.cpp:server`).
+Для host-режима задайте `PADDLEOCR_VL_URL=http://host.docker.internal:8080/v1/chat/completions`.
+Без моделей/сервиса интерфейс покажет ошибку подключения (503/504), а не тестовый ответ.
 Адреса можно задать переменными окружения перед запуском uvicorn:
 
 ```powershell
