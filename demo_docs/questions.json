@@ -1,0 +1,14 @@
+[
+  {
+    "id": "leave-01",
+    "file": "academic_leave.png",
+    "question": "Чего не хватает в заявлении на академический отпуск?",
+    "document_type": "academic_leave"
+  },
+  {
+    "id": "practice-01",
+    "file": "internship_certificate.png",
+    "question": "Справка о практике в порядке?",
+    "document_type": "internship_certificate"
+  }
+]
