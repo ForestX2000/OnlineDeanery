@@ -14,19 +14,47 @@ import {
 } from "lucide-react";
 
 import { useAppStore } from "../store/useAppStore";
-import type { AnalysisResult, DocumentType } from "../../api";
+import type { AnalysisResult, DocumentData, DocumentType, JsonValue } from "../../api";
 import { analyzeDocument, sendMessage, MAX_FILE_SIZE, MAX_QUESTION_LENGTH, DOCUMENT_LABELS } from "../../api";
-import { canPreviewImage } from "../../api/highlights";
+import { canPreviewImage, documentHighlights } from "../../api/highlights";
+import { ImageHighlight } from "@/components/ImageHighlight";
 
 const DOC_TYPES = (Object.entries(DOCUMENT_LABELS) as Array<[DocumentType, string]>).map(
   ([value, label]) => ({ value, label }),
 );
+
+const FIELD_LABELS: Record<string, string> = {
+  student_name: "ФИО студента", name: "ФИО студента", university: "Учебное заведение",
+  program: "Образовательная программа", study_form: "Форма обучения", study_period: "Период обучения",
+  number: "Номер документа", document_number: "Номер документа", internship_period: "Сроки практики",
+  issue_date: "Дата выдачи", signature: "Подпись", stamp: "Печать", group: "Группа", course: "Курс",
+  reason: "Основание", start_date: "Дата начала", end_date: "Дата окончания",
+  application_date: "Дата заявления", organization: "Организация", supervisor: "Руководитель", grade: "Оценка",
+};
+
+function processingFieldLabel(field: string) {
+  return FIELD_LABELS[field] ?? field.replace(/_/g, " ");
+}
+
+function processingFieldValue(value: JsonValue, field: string) {
+  if (["signature", "stamp"].includes(field)) {
+    if (value === null) return "Не проверено";
+    if (value === false) return "Не обнаружено";
+  }
+  if (value === null || value === "") return "не найдено";
+  if (typeof value === "boolean") return value ? "Да" : "Нет";
+  return typeof value === "object" ? JSON.stringify(value) : String(value);
+}
+
+const pause = (ms: number) => new Promise<void>((resolve) => window.setTimeout(resolve, ms));
 
 export default function DocumentUploader() {
   const navigate = useNavigate();
 
   const setResult = useAppStore((state) => state.setResult);
   const setStep = useAppStore((state) => state.setStep);
+  const authToken = useAppStore((state) => state.authToken);
+  const user = useAppStore((state) => state.user);
 
   const [file, setFile] = useState<File | null>(null);
   const [docType, setDocType] = useState<DocumentType | "">("");
@@ -34,6 +62,10 @@ export default function DocumentUploader() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [processingImageUrl, setProcessingImageUrl] = useState<string | null>(null);
+  const [processingDocument, setProcessingDocument] = useState<DocumentData | null>(null);
+  const [visibleFields, setVisibleFields] = useState<string[]>([]);
+  const [processingStage, setProcessingStage] = useState<"ocr" | "extract" | "answer">("ocr");
+  const [activeProcessingField, setActiveProcessingField] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isLoading || !file || !canPreviewImage(file)) {
@@ -85,9 +117,18 @@ export default function DocumentUploader() {
       setError("Напишите вопрос по вашему документу.");
       return;
     }
+    if (user && !authToken) {
+      setError("Войдите в аккаунт заново, чтобы сохранять историю запросов.");
+      navigate("/login");
+      return;
+    }
 
     setIsLoading(true);
     setStep("processing");
+    setProcessingDocument(null);
+    setVisibleFields([]);
+    setProcessingStage("ocr");
+    let fieldAnimation = Promise.resolve();
 
     try {
       const formData = {
@@ -97,12 +138,30 @@ export default function DocumentUploader() {
       };
 
       const result = file
-        ? await analyzeDocument({ file, docType, question: formData.question })
-        : await sendMessage(formData.question);
+        ? await analyzeDocument({
+          file,
+          docType,
+          question: formData.question,
+          token: authToken ?? undefined,
+          onProgress: setProcessingStage,
+          onFields: (document) => {
+            setProcessingDocument(document);
+            setVisibleFields([]);
+            fieldAnimation = (async () => {
+              for (const field of Object.keys(document.fields)) {
+                await pause(140);
+                setVisibleFields((visible) => [...visible, field]);
+              }
+            })();
+          },
+        })
+        : await sendMessage(formData.question, undefined, authToken ?? undefined);
+      await fieldAnimation;
       // Приводим тип, чтобы удовлетворить строгую проверку TypeScript при конфликте определений
       setResult(result as unknown as AnalysisResult, file);
       navigate("/result");
     } catch (err) {
+      await fieldAnimation;
       const errorMessage = err instanceof Error ? err.message : "Не удалось обработать документ. Попробуйте ещё раз.";
       setError(errorMessage);
       setStep("upload");
@@ -306,19 +365,60 @@ export default function DocumentUploader() {
           <div>
             <h2 className="font-semibold text-slate-900">Модель изучает документ</h2>
             <p className="mt-1 text-sm text-slate-600">
-              Ищем текст и поля. Распознанные области появятся на изображении после обработки.
+              {processingStage === "ocr" && "Распознаём текст документа…"}
+              {processingStage === "extract" && "Выделяем нужные поля…"}
+              {processingStage === "answer" && "Поля найдены. Готовим итоговый ответ…"}
             </p>
           </div>
           {processingImageUrl ? (
-            <div className="neon-document-frame relative mx-auto max-w-2xl overflow-hidden rounded-2xl bg-[#04130a]">
-              <img src={processingImageUrl} alt={`Обрабатываем документ: ${file.name}`}
-                className="block max-h-[65vh] w-full object-contain" style={{ imageOrientation: "from-image" }} />
-              <div className="neon-scan-line" aria-hidden="true" />
+            <div className="relative mx-auto max-w-2xl">
+              {processingDocument?.image ? (
+                <ImageHighlight
+                  imageUrl={processingImageUrl}
+                  name={file.name}
+                  image={processingDocument.image}
+                  highlights={documentHighlights(processingDocument.coordinates, processingDocument.image)
+                    .filter((box) => box.field !== null && visibleFields.includes(box.field))}
+                  activeField={activeProcessingField}
+                  selectedField={null}
+                  onHoverField={setActiveProcessingField}
+                  onSelectField={setActiveProcessingField}
+                  fieldLabel={processingFieldLabel}
+                />
+              ) : (
+                <div className="neon-document-frame relative overflow-hidden rounded-2xl bg-[#04130a]">
+                  <img src={processingImageUrl} alt={`Обрабатываем документ: ${file.name}`}
+                    className="block max-h-[65vh] w-full object-contain" style={{ imageOrientation: "from-image" }} />
+                </div>
+              )}
+              {processingStage !== "answer" && <div className="neon-scan-line" aria-hidden="true" />}
             </div>
           ) : (
             <div className="flex items-center gap-3 rounded-xl border border-[#159957]/40 bg-[#087b45]/5 p-4 text-sm text-[#1e293b] shadow-[0_0_14px_rgba(8,123,69,0.16)]">
               <FileText size={20} className="shrink-0 text-emerald-700" />
               <span>Обрабатываем файл {file.name}</span>
+            </div>
+          )}
+          {processingDocument && (
+            <div className="overflow-hidden rounded-2xl border border-[#087b45]/20 bg-white shadow-sm">
+              <div className="border-b border-slate-100 px-4 py-3">
+                <h3 className="font-semibold text-slate-900">Распознанные поля</h3>
+                <p className="mt-1 text-xs text-slate-500">Поля появляются по мере обработки документа.</p>
+              </div>
+              {visibleFields.length ? (
+                <div className="divide-y divide-slate-100">
+                  {visibleFields.map((field) => (
+                    <div key={field} className="processing-field-appear grid gap-1 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_2fr] sm:gap-4">
+                      <span className="font-medium text-[#087b45]">{processingFieldLabel(field)}</span>
+                      <span className="whitespace-pre-wrap break-words text-slate-800">{processingFieldValue(processingDocument.fields[field], field)}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : !Object.keys(processingDocument.fields).length ? (
+                <p className="px-4 py-4 text-sm text-slate-500">Модель не нашла поля в этом документе.</p>
+              ) : (
+                <p className="px-4 py-4 text-sm text-slate-500">Ожидаем распознанные поля…</p>
+              )}
             </div>
           )}
         </section>

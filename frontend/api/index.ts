@@ -1,5 +1,5 @@
 import { MAX_FILE_SIZE, MAX_QUESTION_LENGTH } from "./types.ts"
-import type { AnalysisResult, DocumentType, LoginResult } from "./types.ts"
+import type { AnalysisResult, DocumentData, DocumentType, LoginResult, RequestHistoryItem } from "./types.ts"
 import { isDocumentImage } from "./highlights.ts"
 
 export * from "./types.ts"
@@ -100,27 +100,121 @@ export function validateFile(file: File): void {
   if (file.size > MAX_FILE_SIZE) throw new ApiError("Максимальный размер файла — 10 МБ")
 }
 
-export async function sendMessage(message: string, conversationId?: string): Promise<AnalysisResult> {
+function bearerHeaders(token?: string): Record<string, string> {
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
+export async function sendMessage(message: string, conversationId?: string, token?: string): Promise<AnalysisResult> {
   return request("/chat", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...bearerHeaders(token) },
     body: JSON.stringify({ message: validateQuestion(message), conversation_id: conversationId }),
   })
 }
 
-export async function analyzeDocument({ file, question, docType, conversationId }: {
+type AnalysisProgress = "ocr" | "extract" | "answer"
+
+async function analyzeDocumentStream({
+  file, question, docType, conversationId, token, onFields, onProgress,
+}: {
   file: File
   question: string
   docType?: DocumentType | ""
   conversationId?: string
+  token?: string
+  onFields?: (document: DocumentData) => void
+  onProgress?: (stage: AnalysisProgress) => void
 }): Promise<AnalysisResult> {
-  validateFile(file)
   const body = new FormData()
   body.append("file", file, file.name)
   body.append("question", validateQuestion(question))
   if (docType) body.append("document_type", docType)
   if (conversationId) body.append("conversation_id", conversationId)
-  return request("/analyze", { method: "POST", body })
+
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+  try {
+    const response = await fetch(`${API_URL}/analyze/stream`, {
+      method: "POST",
+      headers: bearerHeaders(token),
+      body,
+      signal: controller.signal,
+    })
+    if (!response.ok) {
+      const bodyJson: unknown = await response.json().catch(() => null)
+      throw new ApiError(errorDetail(bodyJson) || `Ошибка сервера (${response.status})`, response.status)
+    }
+    if (!response.body) throw new ApiError("Сервер не открыл поток обработки", 502)
+
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ""
+    let finalResult: AnalysisResult | null = null
+
+    const handleLine = (line: string) => {
+      if (!line.trim()) return
+      let event: unknown
+      try { event = JSON.parse(line) } catch { throw new ApiError("Сервер передал некорректное событие обработки", 502) }
+      if (!isRecord(event) || typeof event.type !== "string") {
+        throw new ApiError("Сервер передал некорректное событие обработки", 502)
+      }
+      if (event.type === "progress" && ["ocr", "extract", "answer"].includes(event.stage as string)) {
+        onProgress?.(event.stage as AnalysisProgress)
+      } else if (event.type === "fields") {
+        const partial = parseResult({
+          conversation_id: "processing",
+          answer: "Обработка продолжается",
+          sources: [],
+          document: event.document,
+        })
+        if (partial.document) onFields?.(partial.document)
+      } else if (event.type === "result") {
+        finalResult = parseResult(event.result)
+      } else if (event.type === "error") {
+        throw new ApiError(typeof event.detail === "string" ? event.detail : "Не удалось обработать документ",
+          typeof event.status === "number" ? event.status : 500)
+      }
+    }
+
+    while (true) {
+      const { value, done } = await reader.read()
+      buffer += decoder.decode(value, { stream: !done })
+      const lines = buffer.split("\n")
+      buffer = lines.pop() ?? ""
+      for (const line of lines) handleLine(line)
+      if (done) break
+    }
+    if (buffer.trim()) handleLine(buffer)
+    if (!finalResult) throw new ApiError("Обработка завершилась без итогового ответа", 502)
+    return finalResult
+  } catch (error) {
+    if (error instanceof ApiError) throw error
+    if (controller.signal.aborted) throw new ApiError("Время ожидания ответа истекло. Попробуйте ещё раз.")
+    throw new ApiError("Поток обработки прерван. Проверьте соединение с сервером.")
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+export async function analyzeDocument({ file, question, docType, conversationId, token, onFields, onProgress }: {
+  file: File
+  question: string
+  docType?: DocumentType | ""
+  conversationId?: string
+  token?: string
+  onFields?: (document: DocumentData) => void
+  onProgress?: (stage: AnalysisProgress) => void
+}): Promise<AnalysisResult> {
+  validateFile(file)
+  if (onFields || onProgress) {
+    return analyzeDocumentStream({ file, question, docType, conversationId, token, onFields, onProgress })
+  }
+  const body = new FormData()
+  body.append("file", file, file.name)
+  body.append("question", validateQuestion(question))
+  if (docType) body.append("document_type", docType)
+  if (conversationId) body.append("conversation_id", conversationId)
+  return request("/analyze", { method: "POST", headers: token ? bearerHeaders(token) : undefined, body })
 }
 
 function parseAuth(body: unknown): LoginResult {
@@ -169,6 +263,26 @@ export async function loginRequest(email: string, password: string): Promise<Log
   const trimmed = email.trim()
   if (!trimmed || !password) throw new ApiError("Введите email и пароль")
   return parseAuth(await authRequest("/api/auth/login", { email: trimmed, password }))
+}
+
+export async function logoutRequest(token: string): Promise<void> {
+  await fetch(`${API_URL}/api/auth/logout`, { method: "POST", headers: bearerHeaders(token) })
+}
+
+export async function getRequestHistory(token: string): Promise<RequestHistoryItem[]> {
+  const response = await fetch(`${API_URL}/api/requests`, { headers: bearerHeaders(token) })
+  const body: unknown = await response.json().catch(() => null)
+  if (!response.ok) {
+    throw new ApiError(errorDetail(body) || `Ошибка сервера (${response.status})`, response.status)
+  }
+  if (!Array.isArray(body) || !body.every((item: unknown) => isRecord(item) &&
+      Number.isInteger(item.request_id) && typeof item.question === "string" &&
+      (item.answer === null || typeof item.answer === "string") && typeof item.status === "string" &&
+      typeof item.created_at === "string" && typeof item.user_email === "string" &&
+      typeof item.user_name === "string")) {
+    throw new ApiError("Сервер вернул некорректную историю запросов", 502)
+  }
+  return body as RequestHistoryItem[]
 }
 
 export async function forgotPasswordRequest(email: string): Promise<string> {

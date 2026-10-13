@@ -65,6 +65,16 @@ export interface LoginResult {
   user: AuthUser
 }
 
+export interface RequestHistoryItem {
+  request_id: number
+  question: string
+  answer: string | null
+  status: "processing" | "resolved" | "failed" | string
+  created_at: string
+  user_email: string
+  user_name: string
+}
+
 export interface AnalysisResult {
   conversation_id: string
   answer: string

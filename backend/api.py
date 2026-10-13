@@ -2,6 +2,8 @@ import os
 import time
 import uuid
 import logging
+import json
+import hashlib
 import warnings
 import secrets
 import string
@@ -9,23 +11,25 @@ import smtplib
 from email.message import EmailMessage
 from contextlib import asynccontextmanager, contextmanager
 from dataclasses import dataclass, field
+from datetime import datetime
 from io import BytesIO
 from pathlib import Path
 from typing import Literal
 
 import httpx
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile, Depends, status
+from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile, Depends, status
+from fastapi.responses import StreamingResponse
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image, UnidentifiedImageError
 from pydantic import BaseModel, Field, JsonValue, ValidationError
 from pypdf import PdfReader
 from pypdf.errors import PdfReadError
-from sqlalchemy import select
+from sqlalchemy import delete, select
 
 from backend.models import ApiModel, ApiResponse, Document, DocumentImage, ServiceAnswer
 from backend.database import engine, Base, SessionLocal
-from backend.models import UserDB, DocumentDB, ExtractedFieldDB, RuleDB, RequestDB, AuditLogDB
+from backend.models import UserDB, DocumentDB, ExtractedFieldDB, RuleDB, RequestDB, AuditLogDB, AuthTokenDB
 
 MAX_FILE_SIZE = 10 * 1024 * 1024
 MAX_QUESTION_LENGTH = 5000
@@ -80,7 +84,7 @@ app.add_middleware(
         "CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173"
     ).split(",") if origin.strip()],
     allow_methods=["GET", "POST"],
-    allow_headers=["Content-Type"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 
@@ -93,6 +97,38 @@ async def health():
 async def get_db():
     async with SessionLocal() as session:
         yield session
+
+
+async def resolve_user(authorization: str | None, db):
+    if not authorization:
+        return None
+    scheme, _, token = authorization.partition(" ")
+    if scheme.lower() != "bearer" or not token:
+        raise HTTPException(status_code=401, detail="Сессия входа истекла. Войдите в аккаунт заново.")
+    token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    result = await db.execute(
+        select(UserDB).join(AuthTokenDB, AuthTokenDB.user_id == UserDB.user_id)
+        .where(AuthTokenDB.token_hash == token_hash)
+    )
+    user = result.scalars().first()
+    if user is None:
+        raise HTTPException(status_code=401, detail="Пользователь не найден. Войдите в аккаунт заново.")
+    return user
+
+
+async def get_optional_user(
+    authorization: str | None = Header(default=None), db=Depends(get_db)
+):
+    return await resolve_user(authorization, db)
+
+
+async def get_required_user(
+    authorization: str | None = Header(default=None), db=Depends(get_db)
+):
+    user = await resolve_user(authorization, db)
+    if user is None:
+        raise HTTPException(status_code=401, detail="Войдите в аккаунт, чтобы открыть историю запросов.")
+    return user
 
 
 # Схемы аутентификации и управления пользователями
@@ -134,6 +170,16 @@ class MessageResponse(BaseModel):
 class ChatMessage(ApiModel):
     message: str = Field(max_length=MAX_QUESTION_LENGTH)
     conversation_id: str | None = Field(default=None, min_length=1, max_length=100)
+
+
+class RequestHistoryItem(ApiModel):
+    request_id: int
+    question: str
+    answer: str | None
+    status: str
+    created_at: datetime
+    user_email: str
+    user_name: str
 
 
 class OcrResult(ApiModel):
@@ -208,9 +254,15 @@ async def login(data: LoginRequest, db = Depends(get_db)):
 
     role_str = user.role.value if hasattr(user.role, "value") else str(user.role)
 
+    token = secrets.token_urlsafe(32)
+    db.add(AuthTokenDB(
+        token_hash=hashlib.sha256(token.encode("utf-8")).hexdigest(),
+        user_id=user.user_id,
+    ))
+    await db.commit()
     return {
         "success": True,
-        "token": f"fake-jwt-token-{user.user_id}-{int(time.time())}",
+        "token": token,
         "user": {
             "email": user.email,
             "firstName": first_name,
@@ -223,6 +275,41 @@ async def login(data: LoginRequest, db = Depends(get_db)):
             "user_id": user.user_id
         }
     }
+
+
+@app.get("/api/requests", response_model=list[RequestHistoryItem])
+async def request_history(
+    current_user: UserDB = Depends(get_required_user), db=Depends(get_db)
+):
+    query = select(RequestDB, UserDB).join(UserDB, RequestDB.user_id == UserDB.user_id)
+    if current_user.role != "admin":
+        query = query.where(RequestDB.user_id == current_user.user_id)
+    result = await db.execute(query.order_by(RequestDB.created_at.desc(), RequestDB.request_id.desc()))
+    return [
+        RequestHistoryItem(
+            request_id=request.request_id,
+            question=request.question_text,
+            answer=request.answer_text,
+            status=request.status,
+            created_at=request.created_at,
+            user_email=user.email,
+            user_name=user.username,
+        )
+        for request, user in result.all()
+    ]
+
+
+@app.post("/api/auth/logout", response_model=MessageResponse)
+async def logout(
+    authorization: str | None = Header(default=None),
+    current_user: UserDB = Depends(get_required_user),
+    db=Depends(get_db),
+):
+    _, _, token = (authorization or "").partition(" ")
+    token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    await db.execute(delete(AuthTokenDB).where(AuthTokenDB.token_hash == token_hash))
+    await db.commit()
+    return {"success": True, "message": "Вы вышли из аккаунта."}
 
 
 @app.post("/api/admin/users", response_model=MessageResponse)
@@ -426,12 +513,53 @@ async def get_answer(question: str, conversation_id: str, session: Session,
     sessions[conversation_id] = session
     return result
 
+
+async def begin_request_record(db, user: UserDB | None, question: str) -> int | None:
+    if user is None:
+        return None
+    record = RequestDB(user_id=user.user_id, question_text=question, status="processing")
+    db.add(record)
+    await db.commit()
+    await db.refresh(record)
+    return record.request_id
+
+
+async def finish_request_record(
+    db, request_id: int | None, status_value: str, answer: str | None = None
+) -> None:
+    if request_id is None:
+        return
+    record = await db.get(RequestDB, request_id)
+    if record is None:
+        return
+    record.status = status_value
+    record.answer_text = answer
+    await db.commit()
+
+
+async def finish_request_record_in_new_session(
+    request_id: int | None, status_value: str, answer: str | None = None
+) -> None:
+    async with SessionLocal() as history_db:
+        await finish_request_record(history_db, request_id, status_value, answer)
+
 # Эндпоинты чата и анализа
 @app.post("/chat", response_model=ApiResponse)
-async def chat(data: ChatMessage):
+async def chat(
+    data: ChatMessage,
+    current_user: UserDB | None = Depends(get_optional_user),
+    db=Depends(get_db),
+):
     question = validate_question(data.message)
-    with use_session(data.conversation_id) as (conversation_id, session):
-        return await get_answer(question, conversation_id, session, session.document)
+    request_id = await begin_request_record(db, current_user, question)
+    try:
+        with use_session(data.conversation_id) as (conversation_id, session):
+            result = await get_answer(question, conversation_id, session, session.document)
+        await finish_request_record(db, request_id, "resolved", result.answer)
+        return result
+    except Exception:
+        await finish_request_record(db, request_id, "failed")
+        raise
 
 
 @app.post("/analyze", response_model=ApiResponse)
@@ -441,31 +569,108 @@ async def analyze(
     conversation_id: str | None = Form(None, min_length=1, max_length=100),
     document_type: DocumentType | None = Form(None),
     rotation: int = Form(0, ge=0, le=270, multiple_of=90),
+    current_user: UserDB | None = Depends(get_optional_user),
+    db=Depends(get_db),
 ):
     try:
         question = validate_question(question)
-        with use_session(conversation_id) as (conversation_id, session):
-            content, mime = await validate_file(file)
-            ocr_options = {"files": {
-                "file": (Path(file.filename).name, content, mime),
-            }}
-            if rotation:
-                ocr_options["data"] = {"rotation": str(rotation)}
-            ocr_payload = await send_request(ML1_URL, **ocr_options)
-            ocr = parse_service(OcrResult, ocr_payload, "ML 1")
-            extract_payload = {"ocr_result": ocr_payload}
-            if document_type:
-                extract_payload["document_type"] = document_type
-            extracted = parse_service(ExtractedDocument,
-                                      await send_request(ML2_URL, json=extract_payload), "ML 2")
-            database_document = Document(
-                type=extracted.document_type or document_type,
-                fields=extracted.fields,
-                ocr_text=ocr.text,
-                coordinates=extracted.coordinates if extracted.coordinates is not None else ocr.coordinates,
-                image=ocr.image,
-                visual_features=ocr.visual_features,
-            )
-            return await get_answer(question, conversation_id, session, database_document)
+        request_id = await begin_request_record(db, current_user, question)
+        try:
+            with use_session(conversation_id) as (conversation_id, session):
+                content, mime = await validate_file(file)
+                ocr_options = {"files": {
+                    "file": (Path(file.filename).name, content, mime),
+                }}
+                if rotation:
+                    ocr_options["data"] = {"rotation": str(rotation)}
+                ocr_payload = await send_request(ML1_URL, **ocr_options)
+                ocr = parse_service(OcrResult, ocr_payload, "ML 1")
+                extract_payload = {"ocr_result": ocr_payload}
+                if document_type:
+                    extract_payload["document_type"] = document_type
+                extracted = parse_service(ExtractedDocument,
+                                          await send_request(ML2_URL, json=extract_payload), "ML 2")
+                database_document = Document(
+                    type=extracted.document_type or document_type,
+                    fields=extracted.fields,
+                    ocr_text=ocr.text,
+                    coordinates=extracted.coordinates if extracted.coordinates is not None else ocr.coordinates,
+                    image=ocr.image,
+                    visual_features=ocr.visual_features,
+                )
+                result = await get_answer(question, conversation_id, session, database_document)
+            await finish_request_record(db, request_id, "resolved", result.answer)
+            return result
+        except Exception:
+            await finish_request_record(db, request_id, "failed")
+            raise
     finally:
         await file.close()
+
+
+@app.post("/analyze/stream")
+async def analyze_stream(
+    file: UploadFile = File(...),
+    question: str = Form(..., max_length=MAX_QUESTION_LENGTH),
+    conversation_id: str | None = Form(None, min_length=1, max_length=100),
+    document_type: DocumentType | None = Form(None),
+    rotation: int = Form(0, ge=0, le=270, multiple_of=90),
+    current_user: UserDB | None = Depends(get_optional_user),
+    db=Depends(get_db),
+):
+    question = validate_question(question)
+    request_id = await begin_request_record(db, current_user, question)
+
+    def encode_event(event: dict) -> str:
+        return json.dumps(event, ensure_ascii=False, separators=(",", ":")) + "\n"
+
+    async def event_stream():
+        try:
+            with use_session(conversation_id) as (active_conversation_id, session):
+                yield encode_event({"type": "progress", "stage": "ocr"})
+                content, mime = await validate_file(file)
+                ocr_options = {"files": {
+                    "file": (Path(file.filename).name, content, mime),
+                }}
+                if rotation:
+                    ocr_options["data"] = {"rotation": str(rotation)}
+                ocr_payload = await send_request(ML1_URL, **ocr_options)
+                ocr = parse_service(OcrResult, ocr_payload, "ML 1")
+
+                yield encode_event({"type": "progress", "stage": "extract"})
+                extract_payload = {"ocr_result": ocr_payload}
+                if document_type:
+                    extract_payload["document_type"] = document_type
+                extracted = parse_service(ExtractedDocument,
+                                          await send_request(ML2_URL, json=extract_payload), "ML 2")
+                database_document = Document(
+                    type=extracted.document_type or document_type,
+                    fields=extracted.fields,
+                    ocr_text=ocr.text,
+                    coordinates=extracted.coordinates if extracted.coordinates is not None else ocr.coordinates,
+                    image=ocr.image,
+                    visual_features=ocr.visual_features,
+                )
+                yield encode_event({
+                    "type": "fields",
+                    "document": database_document.model_dump(mode="json"),
+                })
+                yield encode_event({"type": "progress", "stage": "answer"})
+                result = await get_answer(question, active_conversation_id, session, database_document)
+            await finish_request_record_in_new_session(request_id, "resolved", result.answer)
+            yield encode_event({"type": "result", "result": result.model_dump(mode="json")})
+        except HTTPException as exc:
+            await finish_request_record_in_new_session(request_id, "failed")
+            yield encode_event({"type": "error", "detail": exc.detail, "status": exc.status_code})
+        except Exception:
+            logger.exception("Не удалось завершить потоковый анализ документа")
+            await finish_request_record_in_new_session(request_id, "failed")
+            yield encode_event({"type": "error", "detail": "Не удалось завершить обработку документа.", "status": 500})
+        finally:
+            await file.close()
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="application/x-ndjson",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )

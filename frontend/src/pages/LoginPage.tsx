@@ -37,7 +37,7 @@ export default function LoginPage() {
         firstName: result.user.firstName,
         lastName: result.user.lastName,
         role: (result.user.role === "admin" ? "admin" : "student") as UserRole,
-      });
+      }, result.token);
       const state = location.state as LocationState | null;
       const from = state?.from?.pathname || "/upload";
       navigate(from, { replace: true });

@@ -69,7 +69,7 @@ function sourceUrl(url?: string | null): string | undefined {
 }
 
 export function DocumentResult() {
-  const { result, reset, setResult, preview } = useAppStore()
+  const { result, reset, setResult, preview, authToken } = useAppStore()
   const [selectedField, setSelectedField] = useState<string | null>(null)
   const [hoveredField, setHoveredField] = useState<string | null>(null)
   const [question, setQuestion] = useState("")
@@ -99,7 +99,7 @@ export function DocumentResult() {
     setPending(true)
     setError(null)
     try {
-      setResult(await sendMessage(question, data.conversation_id))
+      setResult(await sendMessage(question, data.conversation_id, authToken ?? undefined))
       setQuestion("")
     } catch (error) {
       setExpired(error instanceof ApiError && error.status === 404)

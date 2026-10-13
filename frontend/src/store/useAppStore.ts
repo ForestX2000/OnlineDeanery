@@ -22,13 +22,14 @@ interface AppState {
   error: string | null;
   preview: { url: string; name: string; conversationId: string } | null;
   isAuthenticated: boolean;
+  authToken: string | null;
   user: User | null;
 
   setStep: (step: AppState["step"]) => void;
   setFormData: (data: { file: File | null; docType: DocumentType | ""; question: string }) => void;
   setResult: (result: AnalysisResult, sourceFile?: File | null) => void;
   setError: (error: string | null) => void;
-  login: (user: User) => void;
+  login: (user: User, token: string) => void;
   logout: () => void;
   reset: () => void;
 }
@@ -37,11 +38,12 @@ export const useAppStore = create<AppState>()(
   persist(
     (set) => ({
       isAuthenticated: false,
+      authToken: null,
       user: null,
-      login: (user) => set({ isAuthenticated: true, user }),
+      login: (user, authToken) => set({ isAuthenticated: true, user, authToken }),
       logout: () => set((state) => {
         if (state.preview) URL.revokeObjectURL(state.preview.url);
-        return { isAuthenticated: false, user: null,
+        return { isAuthenticated: false, authToken: null, user: null,
           step: "upload", file: null, docType: "", question: "", result: null, error: null, preview: null };
       }),
 
@@ -72,6 +74,7 @@ export const useAppStore = create<AppState>()(
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         isAuthenticated: state.isAuthenticated,
+        authToken: state.authToken,
         user: state.user,
         result: state.result,
       }),

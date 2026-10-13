@@ -1,7 +1,7 @@
 import asyncio
 from backend.database import engine
 from backend.models import Base
-from backend.models import UserDB, DocumentDB, ExtractedFieldDB, RuleDB, RequestDB, AuditLogDB
+from backend.models import UserDB, DocumentDB, ExtractedFieldDB, RuleDB, RequestDB, AuditLogDB, AuthTokenDB
 
 async def init_tables():
     print("Инициализация таблиц базы данных...")

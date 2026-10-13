@@ -60,8 +60,11 @@ export function ImageHighlight({ imageUrl, name, image, highlights, activeField,
           visible.length ? "На фото рамками отмечены распознанные текстовые строки и поля." :
           "Координаты текста не получены. Проверьте, что сервис OCR использует PaddleOCR-VL-1.5 и задачу Spotting."}
       </figcaption>
-      {activeField && visible.some((box) => box.field === activeField) &&
-        <p className="text-sm font-medium text-[#087b45]" aria-live="polite">На фото: {fieldLabel(activeField)}</p>}
+      <p className="h-5 text-sm font-medium leading-5 text-[#087b45]" aria-live="polite" aria-atomic="true">
+        {activeField && visible.some((box) => box.field === activeField)
+          ? <>На фото: {fieldLabel(activeField)}</>
+          : "\u00a0"}
+      </p>
     </figure>
   )
 }

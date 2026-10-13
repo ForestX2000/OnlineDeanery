@@ -1,9 +1,11 @@
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { BookOpen, LogOut, LogIn } from "lucide-react";
+import { logoutRequest } from "../../api";
 import { useAppStore } from "@/store/useAppStore";
 
 export default function Header() {
   const user = useAppStore((state) => state.user);
+  const authToken = useAppStore((state) => state.authToken);
   const isAuthenticated = useAppStore((state) => state.isAuthenticated);
   const logout = useAppStore((state) => state.logout);
   const navigate = useNavigate();
@@ -13,6 +15,7 @@ export default function Header() {
   const isAdmin = user?.role === "admin";
 
   const handleLogout = () => {
+    if (authToken) void logoutRequest(authToken).catch(() => undefined);
     logout();
     navigate("/login");
   };

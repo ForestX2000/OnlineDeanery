@@ -135,6 +135,18 @@ class RuleDB(Base):
   content = Column(Text, nullable=False)
 
 
+class AuthTokenDB(Base):
+  __tablename__ = "auth_tokens"
+
+  token_hash = Column(String(64), primary_key=True)
+  user_id = Column(
+      Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False
+  )
+  created_at = Column(
+      TIMESTAMP(timezone=True), server_default=func.now(), nullable=False
+  )
+
+
 class RequestDB(Base):
   __tablename__ = "requests"
 
