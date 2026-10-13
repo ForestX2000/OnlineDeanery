@@ -13,7 +13,7 @@ import {
   CheckCircle2,
   XCircle,
   ArrowUpRight,
-  UploadCloud,
+  
   Settings,
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
@@ -136,9 +136,6 @@ export default function ProfilePage() {
   }, [user, navigate]);
 
   const isAdmin = user?.role === "admin";
-
-  // Студент видит только свои документы.
-  // Администратор видит все демонстрационные документы.
   const visibleDocuments = useMemo(() => {
     if (!user) return [];
 
@@ -181,35 +178,9 @@ export default function ProfilePage() {
 
   return (
     <main className="min-h-screen bg-[#f4f7f4] px-4 py-8 text-slate-800 sm:px-6 lg:px-8">
+      
       <div className="mx-auto max-w-7xl space-y-7">
-        <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <button
-            type="button"
-            onClick={() => navigate("/")}
-            className="flex w-fit items-center gap-3 text-left"
-          >
-            <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#087b45] text-white">
-              <FileText size={23} />
-            </span>
-            <span>
-              <span className="block text-lg font-bold text-[#075c36]">
-                Онлайн-деканат
-              </span>
-              <span className="text-xs text-slate-500">
-                Личный кабинет
-              </span>
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => navigate("/upload")}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#087b45] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#075c36]"
-          >
-            <UploadCloud size={18} />
-            Загрузить документ
-          </button>
-        </header>
+        
 
         <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
           <div className="flex flex-col gap-5 sm:flex-row sm:items-center">

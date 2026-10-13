@@ -27,7 +27,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Все страницы оборачиваются в Layout */}
+        
         <Route element={<Layout />}>
           <Route path="/" element={<HomePage />} />
           <Route path="/login" element={<LoginPage />} />
