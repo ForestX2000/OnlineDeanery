@@ -1,10 +1,15 @@
 import { Link } from "react-router-dom";
 import {
-  ArrowRight, FileText, BookOpen, ShieldCheck,
-  Bell, Calendar, ChevronRight, UploadCloud
+  ArrowRight,
+  FileText,
+  BookOpen,
+  ShieldCheck,
+  Bell,
+  Calendar,
+  ChevronRight,
+  UploadCloud,
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
-
 
 const UNIVERSITY_NEWS = [
   {
@@ -12,27 +17,29 @@ const UNIVERSITY_NEWS = [
     title: "Изменения в расписании зимней сессии",
     date: "10 октября 2026",
     category: "Учебный процесс",
-    description: "Обратите внимание на новые даты проведения экзаменов для 3 и 4 курсов факультета компьютерных наук.",
+    description:
+      "Обратите внимание на новые даты проведения экзаменов для 3 и 4 курсов факультета компьютерных наук.",
   },
   {
     id: 2,
     title: "Приём заявок на повышенную стипендию",
     date: "08 октября 2026",
     category: "Финансы",
-    description: "Открыт сбор документов для назначения повышенной государственной академической стипендии за научную деятельность.",
+    description:
+      "Открыт сбор документов для назначения повышенной государственной академической стипендии за научную деятельность.",
   },
   {
     id: 3,
     title: "День открытых дверей факультета ИТ",
     date: "05 октября 2026",
     category: "Мероприятия",
-    description: "Приглашаем всех желающих познакомиться с новыми образовательными программами и лабораториями.",
+    description:
+      "Приглашаем всех желающих познакомиться с новыми образовательными программами и лабораториями.",
   },
 ];
 
 export default function HomePage() {
   const { isAuthenticated, user } = useAppStore();
-
 
   if (isAuthenticated && user) {
     return (
@@ -43,14 +50,17 @@ export default function HomePage() {
               Добро пожаловать, {user.firstName}!
             </h2>
             <p className="mt-3 max-w-xl text-base text-white/80 sm:text-lg">
-              Чем мы можем помочь вам сегодня? Загрузите документ для мгновенного анализа или ознакомьтесь с последними новостями.
+              Чем мы можем помочь вам сегодня? Загрузите документ для
+              мгновенного анализа или ознакомьтесь с последними новостями.
             </p>
             <Link
               to="/upload"
-              className="mt-6 inline-flex w-full items-center justify-center gap-3 rounded-xl bg-white px-6 py-4 font-semibold text-[#087b45] transition hover:bg-[#f4f7f4] sm:mt-8 sm:w-auto"
+              className="mt-6 inline-flex w-full items-center justify-center gap-3 rounded-xl bg-white px-6 py-4 font-semibold text-[#087b45] transition hover:bg-[#f4f7f4] dark:bg-slate-800 dark:text-green-400 dark:hover:bg-slate-700 sm:mt-8 sm:w-auto"
             >
-              <UploadCloud size={20} />
-              Загрузить новый документ
+              <UploadCloud size={20} className="shrink-0 text-[#087b45] dark:text-green-400"/>
+              <span className="text-[#087b45] dark:text-green-400">
+                Загрузить новый документ
+              </span>
             </Link>
           </div>
 
@@ -98,7 +108,6 @@ export default function HomePage() {
     );
   }
 
-
   return (
     <div className="min-h-screen bg-[#f4f7f4] text-[#1e293b]">
       <main>
@@ -110,14 +119,12 @@ export default function HomePage() {
 
             <h2 className="text-3xl font-extrabold leading-tight sm:text-4xl md:text-5xl">
               Университетские документы —
-              <span className="block text-[#087b45]">
-                теперь понятнее
-              </span>
+              <span className="block text-[#087b45]">теперь понятнее</span>
             </h2>
 
             <p className="mt-5 max-w-lg text-base leading-7 text-[#1e293b]/70 sm:mt-6 sm:text-lg sm:leading-8">
-              Загрузи документ, задай вопрос и получи ответ
-              с опорой на нормативные документы университета.
+              Загрузи документ, задай вопрос и получи ответ с опорой на
+              нормативные документы университета.
             </p>
 
             <Link
@@ -135,14 +142,11 @@ export default function HomePage() {
               <FileText size={32} className="hidden sm:block" />
             </div>
 
-            <h3 className="text-xl font-bold sm:text-2xl">
-              Разберёмся вместе
-            </h3>
+            <h3 className="text-xl font-bold sm:text-2xl">Разберёмся вместе</h3>
 
             <p className="mt-3 text-sm leading-6 text-[#1e293b]/70 sm:text-base sm:leading-7">
-              Не знаешь, что означает пункт в справке или
-              какие правила применяются к твоей ситуации?
-              Начни с загрузки документа.
+              Не знаешь, что означает пункт в справке или какие правила
+              применяются к твоей ситуации? Начни с загрузки документа.
             </p>
 
             <div className="mt-6 space-y-4 sm:mt-7">
@@ -176,12 +180,23 @@ export default function HomePage() {
               {[
                 ["01", "Загрузи документ", "Выбери файл и укажи его тип."],
                 ["02", "Задай вопрос", "Напиши, что именно хочешь узнать."],
-                ["03", "Изучи ответ", "Посмотри результат и подтверждающие источники."],
+                [
+                  "03",
+                  "Изучи ответ",
+                  "Посмотри результат и подтверждающие источники.",
+                ],
               ].map(([number, title, description]) => (
-                <div key={number} className="rounded-2xl border border-[#1e293b]/10 bg-[#f4f7f4] p-5 sm:p-6">
+                <div
+                  key={number}
+                  className="rounded-2xl border border-[#1e293b]/10 bg-[#f4f7f4] p-5 sm:p-6"
+                >
                   <p className="font-bold text-[#087b45]">{number}</p>
-                  <h4 className="mt-3 text-base font-bold sm:text-lg">{title}</h4>
-                  <p className="mt-2 text-sm text-[#1e293b]/70 sm:text-base">{description}</p>
+                  <h4 className="mt-3 text-base font-bold sm:text-lg">
+                    {title}
+                  </h4>
+                  <p className="mt-2 text-sm text-[#1e293b]/70 sm:text-base">
+                    {description}
+                  </p>
                 </div>
               ))}
             </div>

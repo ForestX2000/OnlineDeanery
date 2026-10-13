@@ -176,6 +176,9 @@ export default function ProfilePage() {
     (doc) => doc.status === "В обработке",
   ).length;
 
+  
+
+
   return (
     <main className="min-h-screen bg-[#f4f7f4] px-4 py-8 text-slate-800 sm:px-6 lg:px-8">
       
