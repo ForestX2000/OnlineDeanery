@@ -9,6 +9,9 @@ import { DocumentResult } from "./components/DocumentResult";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
 import DocumentDetailsPage from "./pages/DocumentDetailsPage";
+import { ThemeProvider } from "./context/ThemeProvider";
+
+
 
 function ResultPage() {
   const result = useAppStore((state) => state.result);
@@ -25,6 +28,7 @@ function ResultPage() {
 
 export default function App() {
   return (
+    <ThemeProvider>
     <BrowserRouter>
       <Routes>
         
@@ -70,5 +74,6 @@ export default function App() {
         </Route>
       </Routes>
     </BrowserRouter>
+    </ThemeProvider>
   );
 }
