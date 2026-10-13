@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { useNavigate } from "react-router-dom";
 import {
@@ -16,6 +16,7 @@ import {
 import { useAppStore } from "../store/useAppStore";
 import type { AnalysisResult, DocumentType } from "../../api";
 import { analyzeDocument, sendMessage, MAX_FILE_SIZE, MAX_QUESTION_LENGTH, DOCUMENT_LABELS } from "../../api";
+import { canPreviewImage } from "../../api/highlights";
 
 const DOC_TYPES = (Object.entries(DOCUMENT_LABELS) as Array<[DocumentType, string]>).map(
   ([value, label]) => ({ value, label }),
@@ -32,6 +33,18 @@ export default function DocumentUploader() {
   const [question, setQuestion] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [processingImageUrl, setProcessingImageUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isLoading || !file || !canPreviewImage(file)) {
+      setProcessingImageUrl(null);
+      return;
+    }
+
+    const url = URL.createObjectURL(file);
+    setProcessingImageUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file, isLoading]);
 
   const onDrop = useCallback((files: File[]) => {
     setError("");
@@ -87,7 +100,7 @@ export default function DocumentUploader() {
         ? await analyzeDocument({ file, docType, question: formData.question })
         : await sendMessage(formData.question);
       // Приводим тип, чтобы удовлетворить строгую проверку TypeScript при конфликте определений
-      setResult(result as unknown as AnalysisResult);
+      setResult(result as unknown as AnalysisResult, file);
       navigate("/result");
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Не удалось обработать документ. Попробуйте ещё раз.";
@@ -287,6 +300,29 @@ export default function DocumentUploader() {
           )}
         </button>
       </form>
+
+      {isLoading && file && (
+        <section className="mt-8 space-y-3" aria-live="polite" aria-busy="true">
+          <div>
+            <h2 className="font-semibold text-slate-900">Модель изучает документ</h2>
+            <p className="mt-1 text-sm text-slate-600">
+              Ищем текст и поля. Распознанные области появятся на изображении после обработки.
+            </p>
+          </div>
+          {processingImageUrl ? (
+            <div className="neon-document-frame relative mx-auto max-w-2xl overflow-hidden rounded-2xl bg-[#04130a]">
+              <img src={processingImageUrl} alt={`Обрабатываем документ: ${file.name}`}
+                className="block max-h-[65vh] w-full object-contain" style={{ imageOrientation: "from-image" }} />
+              <div className="neon-scan-line" aria-hidden="true" />
+            </div>
+          ) : (
+            <div className="flex items-center gap-3 rounded-xl border border-lime-300 bg-lime-50 p-4 text-sm text-emerald-950 shadow-[0_0_14px_rgba(132,255,35,0.24)]">
+              <FileText size={20} className="shrink-0 text-emerald-700" />
+              <span>Обрабатываем файл {file.name}</span>
+            </div>
+          )}
+        </section>
+      )}
 
       {/* Подсказка безопасности */}
       <div className="mt-8 rounded-xl bg-[#f4f7f4] p-4">

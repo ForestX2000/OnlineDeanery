@@ -134,7 +134,7 @@ export function DocumentResult() {
             </TableHeader>
             <TableBody>
               {Object.entries(document.fields).map(([key, value]) => (
-                <TableRow key={key} className={activeField === key && highlightedFields.has(key) ? "bg-amber-100/70" : undefined}
+                <TableRow key={key} className={activeField === key && highlightedFields.has(key) ? "bg-lime-100/70" : undefined}
                   onMouseEnter={() => { if (highlightedFields.has(key)) setHoveredField(key) }}
                   onMouseLeave={() => setHoveredField(null)}>
                   <TableCell className="font-medium">

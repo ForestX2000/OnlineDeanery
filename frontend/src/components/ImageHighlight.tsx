@@ -26,7 +26,7 @@ export function ImageHighlight({ imageUrl, name, image, highlights, activeField,
 
   return (
     <figure id="document-preview" className="mb-6 space-y-2">
-      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+      <div className="neon-document-frame overflow-hidden rounded-2xl bg-[#04130a]">
         <div className="relative">
           <img src={imageUrl} alt={`Загруженный документ: ${name}`} className="block h-auto w-full"
             style={{ imageOrientation: "from-image" }}
@@ -42,8 +42,8 @@ export function ImageHighlight({ imageUrl, name, image, highlights, activeField,
               aria-pressed={box.field ? selectedField === box.field : undefined}
               onMouseEnter={activate} onMouseLeave={deactivate} onFocus={activate} onBlur={deactivate}
               onClick={() => { if (box.field) onSelectField(box.field) }}
-              className={`absolute border-2 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900 ${isActive
-                ? "z-10 border-amber-500 bg-amber-300/25" : "border-emerald-600/70 bg-emerald-500/10"}`}
+              className={`absolute border-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime-200 ${isActive
+                ? "neon-field-box-active z-10" : "neon-field-box"}`}
               style={{ left: `${box.left}%`, top: `${box.top}%`, width: `${box.width}%`, height: `${box.height}%` }} />
           })}
         </div>
