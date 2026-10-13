@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { afterEach, test } from "node:test"
-import { analyzeDocument, ApiError, MAX_FILE_SIZE, sendMessage, validateFile } from "../api/index.ts"
+import { analyzeDocument, ApiError, forgotPasswordRequest, loginRequest, MAX_FILE_SIZE, sendMessage, validateFile } from "../api/index.ts"
 
 const originalFetch = globalThis.fetch
 afterEach(() => { globalThis.fetch = originalFetch })
@@ -80,6 +80,30 @@ test("malformed success responses cannot reach the components", async () => {
 test("network errors are shown as a connection problem", async () => {
   globalThis.fetch = async () => { throw new TypeError("Failed to fetch") }
   await assert.rejects(sendMessage("Вопрос?"), /Не удалось подключиться/)
+})
+
+test("login posts credentials and returns the user", async () => {
+  const payload = { success: true, token: "t", user: { email: "s@u.ru", firstName: "Иван", lastName: "С", role: "student" } }
+  globalThis.fetch = async (url, init) => {
+    assert.equal(url, "http://localhost:8000/api/auth/login")
+    assert.deepEqual(JSON.parse(init.body), { email: "s@u.ru", password: "pw" })
+    return Response.json(payload)
+  }
+  assert.deepEqual(await loginRequest("  s@u.ru ", "pw"), payload)
+  globalThis.fetch = async () => Response.json({ detail: "Неверный пароль" }, { status: 401 })
+  await assert.rejects(loginRequest("s@u.ru", "pw"), (error) => error.status === 401 && /пароль/.test(error.message))
+  await assert.rejects(loginRequest("  ", "pw"), /email и пароль/)
+})
+
+test("forgot password returns the server message", async () => {
+  globalThis.fetch = async (url, init) => {
+    assert.equal(url, "http://localhost:8000/api/auth/forgot-password")
+    assert.deepEqual(JSON.parse(init.body), { email: "s@u.ru" })
+    return Response.json({ success: true, message: "Пароль отправлен" })
+  }
+  assert.equal(await forgotPasswordRequest("s@u.ru"), "Пароль отправлен")
+  globalThis.fetch = async () => Response.json({ detail: "Не зарегистрирован" }, { status: 404 })
+  await assert.rejects(forgotPasswordRequest("s@u.ru"), (error) => error.status === 404)
 })
 
 test("image geometry and visual detection status survive the API boundary", async () => {

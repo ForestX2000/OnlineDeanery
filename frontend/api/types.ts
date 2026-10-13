@@ -52,6 +52,19 @@ export interface Verification {
   issues: string[]
 }
 
+export interface AuthUser {
+  email: string
+  firstName: string
+  lastName: string
+  role: string
+}
+
+export interface LoginResult {
+  success: boolean
+  token: string
+  user: AuthUser
+}
+
 export interface AnalysisResult {
   conversation_id: string
   answer: string

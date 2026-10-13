@@ -1,5 +1,5 @@
 import { MAX_FILE_SIZE, MAX_QUESTION_LENGTH } from "./types.ts"
-import type { AnalysisResult, DocumentType } from "./types.ts"
+import type { AnalysisResult, DocumentType, LoginResult } from "./types.ts"
 import { isDocumentImage } from "./highlights.ts"
 
 export * from "./types.ts"
@@ -121,4 +121,62 @@ export async function analyzeDocument({ file, question, docType, conversationId 
   if (docType) body.append("document_type", docType)
   if (conversationId) body.append("conversation_id", conversationId)
   return request("/analyze", { method: "POST", body })
+}
+
+function parseAuth(body: unknown): LoginResult {
+  if (!isRecord(body) || typeof body.success !== "boolean" || typeof body.token !== "string" ||
+      !isRecord(body.user) || typeof body.user.email !== "string") {
+    throw new ApiError("Сервер вернул некорректный ответ входа", 502)
+  }
+  const user = body.user
+  return {
+    success: body.success as boolean,
+    token: body.token as string,
+    user: {
+      email: user.email as string,
+      firstName: typeof user.firstName === "string" ? user.firstName : "",
+      lastName: typeof user.lastName === "string" ? user.lastName : "",
+      role: typeof user.role === "string" ? user.role : "student",
+    },
+  }
+}
+
+async function authRequest(path: string, payload: Record<string, string>): Promise<unknown> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 30_000)
+  try {
+    const response = await fetch(`${API_URL}${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    })
+    const body: unknown = await response.json().catch(() => null)
+    if (!response.ok) {
+      throw new ApiError(errorDetail(body) || `Ошибка сервера (${response.status})`, response.status)
+    }
+    return body
+  } catch (error) {
+    if (error instanceof ApiError) throw error
+    if (controller.signal.aborted) throw new ApiError("Время ожидания ответа истекло. Попробуйте ещё раз.")
+    throw new ApiError("Не удалось подключиться к серверу. Проверьте соединение и доступность backend.")
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+export async function loginRequest(email: string, password: string): Promise<LoginResult> {
+  const trimmed = email.trim()
+  if (!trimmed || !password) throw new ApiError("Введите email и пароль")
+  return parseAuth(await authRequest("/api/auth/login", { email: trimmed, password }))
+}
+
+export async function forgotPasswordRequest(email: string): Promise<string> {
+  const trimmed = email.trim()
+  if (!trimmed) throw new ApiError("Введите email")
+  const body = await authRequest("/api/auth/forgot-password", { email: trimmed })
+  if (!isRecord(body) || typeof body.message !== "string") {
+    throw new ApiError("Сервер вернул некорректный ответ", 502)
+  }
+  return body.message
 }
