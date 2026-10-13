@@ -4,7 +4,7 @@ import type { AnalysisResult, DocumentType } from "./types.ts"
 export * from "./types.ts"
 
 const API_URL = (import.meta.env?.VITE_API_URL ?? "http://localhost:8000").replace(/\/+$/, "")
-// /analyze последовательно вызывает три сервиса с таймаутом по 60 секунд.
+// /analyze последовательно вызывает сервисы с таймаутом.
 const REQUEST_TIMEOUT_MS = 200_000
 
 export class ApiError extends Error {
@@ -111,4 +111,48 @@ export async function analyzeDocument({ file, question, docType, conversationId 
   if (docType) body.append("document_type", docType)
   if (conversationId) body.append("conversation_id", conversationId)
   return request("/analyze", { method: "POST", body })
+}
+
+// --- МЕТОДЫ АВТОРИЗАЦИИ И ВОССТАНОВЛЕНИЯ ПАРОЛЯ ---
+
+export interface LoginResponseDto {
+  success: boolean
+  token: string
+  user: {
+    email: string
+    firstName: string
+    lastName: string
+    role: string
+  }
+}
+
+export interface ForgotPasswordResponseDto {
+  success: boolean
+  message: string
+}
+
+export async function loginUser(email: string, password: string): Promise<LoginResponseDto> {
+  const response = await fetch(`${API_URL}/api/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  })
+  const body: unknown = await response.json().catch(() => null)
+  if (!response.ok) {
+    throw new ApiError(errorDetail(body) || "Ошибка авторизации", response.status)
+  }
+  return body as LoginResponseDto
+}
+
+export async function forgotPassword(email: string): Promise<ForgotPasswordResponseDto> {
+  const response = await fetch(`${API_URL}/api/auth/forgot-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  })
+  const body: unknown = await response.json().catch(() => null)
+  if (!response.ok) {
+    throw new ApiError(errorDetail(body) || "Не удалось отправить запрос на восстановление", response.status)
+  }
+  return body as ForgotPasswordResponseDto
 }
