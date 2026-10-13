@@ -10,13 +10,14 @@ interface Props {
   highlights: HighlightBox[]
   activeField: string | null
   selectedField: string | null
+  animateFields?: boolean
   onHoverField: (field: string | null) => void
   onSelectField: (field: string) => void
   fieldLabel: (field: string) => string
 }
 
 export function ImageHighlight({ imageUrl, name, image, highlights, activeField, selectedField,
-  onHoverField, onSelectField, fieldLabel }: Props) {
+  animateFields = false, onHoverField, onSelectField, fieldLabel }: Props) {
   const [loaded, setLoaded] = useState<{ url: string; width: number; height: number } | null>(null)
   const [failedUrl, setFailedUrl] = useState<string | null>(null)
   const [activeBox, setActiveBox] = useState<number | null>(null)
@@ -39,11 +40,11 @@ export function ImageHighlight({ imageUrl, name, image, highlights, activeField,
             const activate = () => { setActiveBox(index); onHoverField(box.field) }
             const deactivate = () => { setActiveBox(null); onHoverField(null) }
             return (
-              <button key={index} type="button" aria-label={description} title={description}
+              <button key={`${box.field ?? box.text}-${box.left}-${box.top}`} type="button" aria-label={description} title={description}
                 aria-pressed={box.field ? selectedField === box.field : undefined}
                 onMouseEnter={activate} onMouseLeave={deactivate} onFocus={activate} onBlur={deactivate}
                 onClick={() => { if (box.field) onSelectField(box.field) }}
-                className={`absolute border-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#159957] ${isActive
+                className={`absolute border-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#159957] ${animateFields ? "processing-box-appear" : ""} ${isActive
                   ? "neon-field-box-active z-10" : "neon-field-box"}`}
                 style={{ left: `${box.left}%`, top: `${box.top}%`, width: `${box.width}%`, height: `${box.height}%` }}>
                 <span className="pointer-events-none absolute bottom-full left-[-2px] max-w-64 truncate rounded-t bg-[#087b45] px-1.5 py-1 text-[10px] font-semibold text-white shadow-[0_0_8px_rgba(8,123,69,0.8)]">

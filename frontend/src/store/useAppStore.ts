@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
-import type { AnalysisResult } from "../../api"; // <-- ИМПОРТИРУЕМ правильный тип отсюда
+import type { AnalysisResult, DocumentData } from "../../api";
 import { canPreviewImage } from "../../api/highlights.ts";
 
 export type DocumentType = "study_certificate" | "academic_leave" | "internship_certificate";
@@ -21,6 +21,14 @@ interface AppState {
   result: AnalysisResult | null;
   error: string | null;
   preview: { url: string; name: string; conversationId: string } | null;
+  isProcessing: boolean;
+  processingFileName: string;
+  processingImage: { url: string; name: string } | null;
+  processingDocument: DocumentData | null;
+  processingVisibleFields: string[];
+  processingStage: "ocr" | "extract" | "answer";
+  processingDocType: DocumentType | "";
+  processingError: string | null;
   isAuthenticated: boolean;
   authToken: string | null;
   user: User | null;
@@ -28,6 +36,11 @@ interface AppState {
   setStep: (step: AppState["step"]) => void;
   setFormData: (data: { file: File | null; docType: DocumentType | ""; question: string }) => void;
   setResult: (result: AnalysisResult, sourceFile?: File | null) => void;
+  beginProcessing: (file: File, docType: DocumentType | "", question: string) => void;
+  setProcessingStage: (stage: "ocr" | "extract" | "answer") => void;
+  setProcessingDocument: (document: DocumentData) => void;
+  showProcessingField: (field: string) => void;
+  failProcessing: (error: string) => void;
   setError: (error: string | null) => void;
   login: (user: User, token: string) => void;
   logout: () => void;
@@ -43,28 +56,65 @@ export const useAppStore = create<AppState>()(
       login: (user, authToken) => set({ isAuthenticated: true, user, authToken }),
       logout: () => set((state) => {
         if (state.preview) URL.revokeObjectURL(state.preview.url);
+        if (state.processingImage) URL.revokeObjectURL(state.processingImage.url);
         return { isAuthenticated: false, authToken: null, user: null,
-          step: "upload", file: null, docType: "", question: "", result: null, error: null, preview: null };
+          step: "upload", file: null, docType: "", question: "", result: null, error: null, preview: null,
+          isProcessing: false, processingFileName: "", processingImage: null, processingDocument: null,
+          processingVisibleFields: [], processingStage: "ocr", processingDocType: "", processingError: null };
       }),
 
       step: "upload", file: null, docType: "", question: "", result: null, error: null, preview: null,
+      isProcessing: false, processingFileName: "", processingImage: null, processingDocument: null,
+      processingVisibleFields: [], processingStage: "ocr", processingDocType: "", processingError: null,
       setStep: (step) => set({ step }),
       setFormData: (data) => set(data),
+      beginProcessing: (file, processingDocType, question) => set((state) => {
+        if (state.preview) URL.revokeObjectURL(state.preview.url);
+        if (state.processingImage) URL.revokeObjectURL(state.processingImage.url);
+        const processingImage = canPreviewImage(file)
+          ? { url: URL.createObjectURL(file), name: file.name }
+          : null;
+        return {
+          step: "processing", docType: processingDocType, question, result: null, error: null, preview: null,
+          isProcessing: true, processingFileName: file.name, processingImage, processingDocument: null,
+          processingVisibleFields: [], processingStage: "ocr", processingDocType, processingError: null,
+        };
+      }),
+      setProcessingStage: (processingStage) => set({ processingStage }),
+      setProcessingDocument: (processingDocument) => set({ processingDocument, processingVisibleFields: [] }),
+      showProcessingField: (field) => set((state) => state.processingVisibleFields.includes(field)
+        ? state
+        : { processingVisibleFields: [...state.processingVisibleFields, field] }),
+      failProcessing: (processingError) => set({ isProcessing: false, processingError, step: "result" }),
       setResult: (result, sourceFile) => set((state) => {
         let preview = state.preview;
         if (!result.document) preview = null;
         else if (sourceFile !== undefined) {
-          preview = sourceFile && canPreviewImage(sourceFile)
-            ? { url: URL.createObjectURL(sourceFile), name: sourceFile.name, conversationId: result.conversation_id }
-            : null;
+          if (sourceFile && canPreviewImage(sourceFile)) {
+            const processingImage = state.processingImage;
+            preview = processingImage?.name === sourceFile.name
+              ? { ...processingImage, conversationId: result.conversation_id }
+              : { url: URL.createObjectURL(sourceFile), name: sourceFile.name, conversationId: result.conversation_id };
+          } else preview = null;
         } else if (preview?.conversationId !== result.conversation_id) preview = null;
         if (state.preview && state.preview !== preview) URL.revokeObjectURL(state.preview.url);
-        return { result, preview, step: "result", error: null };
+        if (state.processingImage && state.processingImage.url !== preview?.url) {
+          URL.revokeObjectURL(state.processingImage.url);
+        }
+        return {
+          result, preview, step: "result", error: null, isProcessing: false, processingFileName: "",
+          processingImage: null, processingDocument: null, processingVisibleFields: [], processingStage: "ocr", processingError: null,
+        };
       }),
       setError: (error) => set({ error }),
       reset: () => set((state) => {
         if (state.preview) URL.revokeObjectURL(state.preview.url);
-        return { step: "upload", file: null, docType: "", question: "", result: null, error: null, preview: null };
+        if (state.processingImage) URL.revokeObjectURL(state.processingImage.url);
+        return {
+          step: "upload", file: null, docType: "", question: "", result: null, error: null, preview: null,
+          isProcessing: false, processingFileName: "", processingImage: null, processingDocument: null,
+          processingVisibleFields: [], processingStage: "ocr", processingDocType: "", processingError: null,
+        };
       }),
     }),
     {

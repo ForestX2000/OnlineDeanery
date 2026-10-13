@@ -1,4 +1,5 @@
 import re
+from datetime import date
 from typing import Any
 
 FIELDS_BY_TYPE: dict[str, list[str]] = {
@@ -99,36 +100,94 @@ def normalize_study_form(value: str | None) -> str:
     return value
 
 
-def extract_study_period(text: str) -> str:
-    """Собирает период из даты зачисления + даты завершения."""
+_DATE_TOKEN = r"(?<!\d)(?:\d{1,2}[./]\d{1,2}[./]\d{2,4}|\d{1,2}[./]\d{4}|\d{1,2}[./]\d{1,2}|\d{4})(?!\d)"
+
+
+def _parse_date_token(value: str) -> tuple[str, str, date | None] | None:
+    """Нормализует полную или частично распознанную дату без выдумывания её частей."""
+    parts = re.split(r"[./]", value)
+    try:
+        if len(parts) == 3 and len(parts[2]) in {2, 4}:
+            day, month, year = map(int, parts)
+            if len(parts[2]) == 2:
+                year += 2000 if year < 70 else 1900
+            parsed = date(year, month, day)
+            return parsed.strftime("%d.%m.%Y"), "day", parsed
+        if len(parts) == 2 and len(parts[1]) == 4:
+            month, year = map(int, parts)
+            if not 1 <= month <= 12 or not 1900 <= year <= 2100:
+                return None
+            return f"{month:02d}.{year:04d}", "month", None
+        if len(parts) == 2:
+            day, month = map(int, parts)
+            date(2000, month, day)
+            return f"{day:02d}.{month:02d}", "day_month", None
+        if len(parts) == 1:
+            year = int(parts[0])
+            if 1900 <= year <= 2100:
+                return f"{year:04d}", "year", None
+    except ValueError:
+        return None
+    return None
+
+
+def _date_after_label(text: str, label: str) -> tuple[str, str, date | None] | None:
+    for match in re.finditer(rf"(?:{label})[^\d\n]{{0,80}}", text, re.IGNORECASE):
+        tail = text[match.end():match.end() + 80].splitlines()[0]
+        candidate = re.search(_DATE_TOKEN, tail)
+        if candidate:
+            parsed = _parse_date_token(candidate.group(0))
+            if parsed:
+                return parsed
+    return None
+
+
+def _study_period_details(text: str) -> tuple[str, str | None]:
+    """Извлекает подтверждённые границы периода и объясняет восстановление даты."""
+    notes: list[str] = []
+    enrollment = (
+        _date_after_label(text, r"\b(?:дата\s+)?(?:зачислени\w*|дивслени\w*|дислени\w*|исчислени\w*)")
+        or _date_after_label(text, r"\bзачислен\w*\s+(?:с|на|в)\b")
+    )
+
     start = end = None
-
-    # дата зачисления — несколько вариантов OCR
-    for pattern in (
-        r"зачислен\w*[^\d]{0,30}(\d{2}\.\d{2}\.\d{4})",
-        r"дата\s+зачислени\w*[^\d]{0,10}(\d{2}\.\d{2}\.\d{4})",
-        r"дивслени\w*[^\d]{0,10}(\d{2}\.\d{2}\.\d{4})",       # OCR: «дивсления»
-        r"дислени\w*[^\d]{0,10}(\d{2}\.\d{2}\.\d{4})",
-        r"исчислени\w*[^\d]{0,10}(\d{2}\.\d{2}\.\d{4})",
-    ):
-        m = re.search(pattern, text, re.IGNORECASE)
-        if m:
-            start = m.group(1)
+    range_pattern = rf"\bс\s*({_DATE_TOKEN})[^\n]{{0,50}}?\b(?:по|до)\s*({_DATE_TOKEN})"
+    for match in re.finditer(range_pattern, text, re.IGNORECASE):
+        candidate_start = _parse_date_token(match.group(1))
+        candidate_end = _parse_date_token(match.group(2))
+        if candidate_start and candidate_end:
+            start, end = candidate_start, candidate_end
             break
 
-    # дата завершения
-    for pattern in (
-        r"завершени\w*\s+обучени\w*[^\d]{0,20}(\d{2}\.\d{2}\.\d{4})",
-        r"(\d{2}\.\d{2}\.\d{4})\s*[Гг]\.?\s*$",
-    ):
-        m = re.search(pattern, text, re.IGNORECASE | re.MULTILINE)
-        if m:
-            end = m.group(1)
-            break
+    if start is None:
+        start = _date_after_label(text, r"\b(?:дата\s+)?начала\s+обучени\w*")
+    if end is None:
+        end = _date_after_label(text, r"\b(?:дата\s+)?(?:завершени\w*|окончани\w*)\s+обучени\w*")
 
-    if start and end:
-        return f"{start} – {end}"
-    return start or end or "не найдено"
+    if enrollment and (start is None or start[1] != "day"):
+        start = enrollment
+        notes.append("Начало периода взято из даты зачисления.")
+        if enrollment[1] != "day":
+            notes.append(f"Дата зачисления распознана частично ({enrollment[0]}).")
+
+    if start and end and start[2] and end[2] and end[2] < start[2]:
+        end = None
+        notes.append("Дата окончания раньше даты зачисления и не включена в период.")
+
+    if end and end[1] != "day":
+        notes.append(f"Дата окончания распознана частично ({end[0]}); недостающие части не подставлялись.")
+    elif start and not end:
+        notes.append("Полную дату окончания обучения не удалось распознать.")
+    if start and start[1] != "day" and not enrollment:
+        notes.append(f"Дата начала распознана частично ({start[0]}).")
+
+    value = " – ".join(item[0] for item in (start, end) if item)
+    return value or "не найдено", " ".join(notes) or None
+
+
+def extract_study_period(text: str) -> str:
+    """Собирает период обучения, используя дату зачисления как достоверное начало."""
+    return _study_period_details(text)[0]
 
 
 def extract_program(text: str) -> str:
@@ -162,7 +221,9 @@ def extract_fields(text: str, doc_type: str) -> dict[str, Any]:
         if field == "study_form":
             value = normalize_study_form(value)
         elif field == "study_period":
-            value = extract_study_period(text)
+            value, note = _study_period_details(text)
+            if note:
+                fields["study_period_note"] = note
         elif field == "program":
             value = extract_program(text)
 

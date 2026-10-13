@@ -73,6 +73,8 @@ def link_coordinates(coordinates, fields: dict) -> list[dict]:
             continue
 
         for name, value in fields.items():
+            if name.endswith("_note"):
+                continue
             if not isinstance(value, str) or normalize(value) == "не найдено":
                 continue
             score = field_match_score(name, value, text)

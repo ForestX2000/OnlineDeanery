@@ -207,7 +207,7 @@ class SignatureStampDetector:
 def load_detector(path: str, modified: int, keep: tuple) -> SignatureStampDetector:
     import onnxruntime as ort
     options = ort.SessionOptions()
-    options.intra_op_num_threads = 2
+    options.intra_op_num_threads = int(os.getenv("YOLO_INTRA_OP_THREADS", "0"))
     return SignatureStampDetector(ort.InferenceSession(path, sess_options=options,
                                                        providers=["CPUExecutionProvider"]),
                                   frozenset(keep))

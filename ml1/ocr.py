@@ -28,7 +28,7 @@ class OcrTruncatedError(OcrResponseError):
 @dataclass(frozen=True)
 class OcrSettings:
     url: str = "http://127.0.0.1:8080/v1/chat/completions"
-    timeout: float = 120
+    timeout: float = 180
     max_tokens: int = 4096
     # The existing server needs the legacy marker. Recent llama.cpp versions
     # insert their own marker and need plain "OCR:" instead.
@@ -53,7 +53,7 @@ class OcrSettings:
             raise ValueError("PADDLEOCR_VL_LEGACY_MEDIA: допустимы 0 или 1")
         return cls(
             url=os.getenv("PADDLEOCR_VL_URL", cls.url),
-            timeout=float(os.getenv("PADDLEOCR_VL_TIMEOUT", "120")),
+            timeout=float(os.getenv("PADDLEOCR_VL_TIMEOUT", "180")),
             max_tokens=int(os.getenv("PADDLEOCR_VL_MAX_TOKENS", "4096")),
             legacy_media=legacy in {"1", "true"},
         )

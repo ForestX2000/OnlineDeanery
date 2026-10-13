@@ -208,6 +208,12 @@ def check_document(base: KnowledgeBase, doc_type: str | None, fields: dict[str, 
             labels = {field.name: field.label for field in rule.required_fields}
             issues.append(f"{labels[order.start]} не может быть позже поля «{labels[order.end]}».")
             references.append(order.reference)
+    period_note = fields.get("study_period_note")
+    if isinstance(period_note, str) and any(
+        marker in normalize(period_note)
+        for marker in ("частично", "не удалось распознать", "раньше даты")
+    ):
+        issues.append(f"Период обучения: {period_note}")
     status = "incomplete" if missing or issues else "complete"
     if status == "complete":
         summary = f"Документ в порядке по проверке комплектности: «{rule.label}» содержит все поля из загруженных требований."
@@ -339,6 +345,9 @@ def answer_question(base: KnowledgeBase, question: str, document, history: list,
                 text = "есть" if as_boolean(value) else "нет"
             else:
                 text = str(value)
+            period_note = document.fields.get("study_period_note") if field.name == "study_period" else None
+            if isinstance(period_note, str):
+                text += f" ({period_note})"
             content.append(f"{field.label} — {text}.")
         parts.append("Содержание документа по извлечённым полям:\n" + "\n".join(content))
         sources.append({"type": "документ", "reference": "Поля документа", "url": None})
@@ -356,6 +365,9 @@ def answer_question(base: KnowledgeBase, question: str, document, history: list,
                 text = "есть" if as_boolean(value) else "нет"
             else:
                 text = str(value)
+            period_note = document.fields.get("study_period_note") if field.name == "study_period" else None
+            if isinstance(period_note, str):
+                text += f" ({period_note})"
             parts.append(f"По данным документа: {field.label} — {text}.")
             sources.append({"type": "документ", "reference": f"Поле «{field.label}»", "url": None})
 

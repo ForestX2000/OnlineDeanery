@@ -39,6 +39,7 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const [expandedItems, setExpandedItems] = useState<Set<number>>(() => new Set());
 
   useEffect(() => {
     if (!user) {
@@ -79,6 +80,12 @@ export default function ProfilePage() {
 
   const resolvedCount = items.filter((item) => item.status === "resolved").length;
   const failedCount = items.filter((item) => item.status === "failed").length;
+  const toggleExpanded = (requestId: number) => setExpandedItems((current) => {
+    const next = new Set(current);
+    if (next.has(requestId)) next.delete(requestId);
+    else next.add(requestId);
+    return next;
+  });
 
   return (
     <main className="min-h-screen bg-[#f4f7f4] px-4 py-8 text-slate-800 sm:px-6 lg:px-8">
@@ -172,49 +179,55 @@ export default function ProfilePage() {
                 const StatusIcon = status.icon;
                 return (
                   <article key={item.request_id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:border-[#087b45]/30 hover:shadow-md">
-                    <details className="group">
-                      <summary className="flex cursor-pointer list-none flex-col gap-3 p-5 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#159957] sm:flex-row sm:items-center sm:justify-between [&::-webkit-details-marker]:hidden">
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-500">
-                            <time dateTime={item.created_at}>{formatDate(item.created_at)}</time>
-                            {isAdmin && <span className="truncate">{item.user_name} · {item.user_email}</span>}
-                          </div>
-                          <p className="mt-3 line-clamp-2 whitespace-pre-wrap break-words font-semibold text-slate-800">{item.question}</p>
-                        </div>
-                        <div className="flex shrink-0 items-center justify-between gap-3 sm:justify-end">
-                          <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${status.style}`}>
-                            <StatusIcon size={14} /> {status.label}
-                          </span>
-                          <ChevronDown size={18} className="text-slate-400 transition-transform group-open:rotate-180" aria-hidden="true" />
-                        </div>
-                      </summary>
-                      <div className="space-y-5 border-t border-slate-100 px-5 py-5 sm:px-6">
-                        <dl className="grid gap-4 text-sm sm:grid-cols-2">
+                    <button type="button" aria-expanded={expandedItems.has(item.request_id)} aria-controls={`request-details-${item.request_id}`}
+                      onClick={() => toggleExpanded(item.request_id)}
+                      className="flex w-full cursor-pointer flex-col gap-3 p-5 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#159957] sm:flex-row sm:items-center sm:justify-between">
+                      <span className="min-w-0 flex-1">
+                        <span className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-500">
+                          <time dateTime={item.created_at}>{formatDate(item.created_at)}</time>
+                          {isAdmin && <span className="truncate">{item.user_name} · {item.user_email}</span>}
+                        </span>
+                        <span className="mt-3 block line-clamp-2 whitespace-pre-wrap break-words font-semibold text-slate-800">{item.question}</span>
+                      </span>
+                      <span className="flex shrink-0 items-center justify-between gap-3 sm:justify-end">
+                        <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${status.style}`}>
+                          <StatusIcon size={14} /> {status.label}
+                        </span>
+                        <ChevronDown size={18} className={`text-slate-400 transition-transform duration-300 motion-reduce:transition-none ${expandedItems.has(item.request_id) ? "rotate-180" : ""}`} aria-hidden="true" />
+                      </span>
+                    </button>
+                    <div id={`request-details-${item.request_id}`}
+                      className={`grid transition-[grid-template-rows] duration-300 ease-in-out motion-reduce:transition-none ${expandedItems.has(item.request_id) ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
+                      aria-hidden={!expandedItems.has(item.request_id)}>
+                      <div className="min-h-0 overflow-hidden">
+                        <div className={`space-y-5 border-t border-slate-100 px-5 py-5 transition-opacity duration-200 motion-reduce:transition-none sm:px-6 ${expandedItems.has(item.request_id) ? "opacity-100" : "opacity-0"}`}>
+                          <dl className="grid gap-4 text-sm sm:grid-cols-2">
+                            <div>
+                              <dt className="font-medium text-slate-500">Дата запроса</dt>
+                              <dd className="mt-1 text-slate-800">{formatDate(item.created_at)}</dd>
+                            </div>
+                            <div>
+                              <dt className="font-medium text-slate-500">Статус</dt>
+                              <dd className="mt-1 inline-flex items-center gap-1.5 text-slate-800"><StatusIcon size={15} className={status.style.split(" ").filter((part) => part.startsWith("text-")).join(" ")} />{status.label}</dd>
+                            </div>
+                            {isAdmin && <div className="sm:col-span-2">
+                              <dt className="font-medium text-slate-500">Пользователь</dt>
+                              <dd className="mt-1 break-words text-slate-800">{item.user_name} · {item.user_email}</dd>
+                            </div>}
+                          </dl>
                           <div>
-                            <dt className="font-medium text-slate-500">Дата запроса</dt>
-                            <dd className="mt-1 text-slate-800">{formatDate(item.created_at)}</dd>
+                            <h3 className="text-sm font-semibold text-[#087b45]">Вопрос</h3>
+                            <p className="mt-2 whitespace-pre-wrap break-words text-slate-800">{item.question}</p>
                           </div>
                           <div>
-                            <dt className="font-medium text-slate-500">Статус</dt>
-                            <dd className="mt-1 inline-flex items-center gap-1.5 text-slate-800"><StatusIcon size={15} className={status.style.split(" ").filter((part) => part.startsWith("text-")).join(" ")} />{status.label}</dd>
+                            <h3 className="text-sm font-semibold text-slate-500">Ответ</h3>
+                            {item.answer
+                              ? <p className="mt-2 whitespace-pre-wrap break-words leading-7 text-slate-700">{item.answer}</p>
+                              : <p className="mt-2 text-sm text-slate-500">{item.status === "processing" ? "Запрос ещё обрабатывается." : "Ответ не сохранён."}</p>}
                           </div>
-                          {isAdmin && <div className="sm:col-span-2">
-                            <dt className="font-medium text-slate-500">Пользователь</dt>
-                            <dd className="mt-1 break-words text-slate-800">{item.user_name} · {item.user_email}</dd>
-                          </div>}
-                        </dl>
-                        <div>
-                          <h3 className="text-sm font-semibold text-[#087b45]">Вопрос</h3>
-                          <p className="mt-2 whitespace-pre-wrap break-words text-slate-800">{item.question}</p>
-                        </div>
-                        <div>
-                          <h3 className="text-sm font-semibold text-slate-500">Ответ</h3>
-                          {item.answer
-                            ? <p className="mt-2 whitespace-pre-wrap break-words leading-7 text-slate-700">{item.answer}</p>
-                            : <p className="mt-2 text-sm text-slate-500">{item.status === "processing" ? "Запрос ещё обрабатывается." : "Ответ не сохранён."}</p>}
                         </div>
                       </div>
-                    </details>
+                    </div>
                   </article>
                 );
               })}

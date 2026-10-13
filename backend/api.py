@@ -46,8 +46,8 @@ ML2_URL = os.getenv("ML2_URL", "http://localhost:8003/extract")
 BACKEND2_URL = os.getenv("BACKEND2_URL", "http://localhost:8002/answer")
 DocumentType = Literal["study_certificate", "academic_leave", "internship_certificate"]
 logger = logging.getLogger(__name__)
-# Внутренние сервисы: 60с каждый, браузер ждёт до 200с за цепочку из трёх.
-INTERNAL_TIMEOUT = float(os.getenv("INTERNAL_TIMEOUT", "60"))
+# Даём OCR-сервису завершить распознавание и оставляем время на ответ.
+INTERNAL_TIMEOUT = float(os.getenv("INTERNAL_TIMEOUT", "210"))
 
 # Настройки SMTP для отправки реальной почты
 SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")

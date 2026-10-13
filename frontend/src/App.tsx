@@ -12,7 +12,9 @@ import DocumentDetailsPage from "./pages/DocumentDetailsPage";
 
 function ResultPage() {
   const result = useAppStore((state) => state.result);
-  if (!result) return <Navigate to="/upload" replace />;
+  const isProcessing = useAppStore((state) => state.isProcessing);
+  const processingError = useAppStore((state) => state.processingError);
+  if (!result && !isProcessing && !processingError) return <Navigate to="/upload" replace />;
 
   return (
     <div className="px-5 py-10">
@@ -21,6 +23,11 @@ function ResultPage() {
       </div>
     </div>
   );
+}
+
+function UploadRoute() {
+  const isProcessing = useAppStore((state) => state.isProcessing);
+  return isProcessing ? <Navigate to="/result" replace /> : <UploadPage />;
 }
 
 export default function App() {
@@ -33,7 +40,7 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           
          
-          <Route path="/upload" element={<UploadPage />} />
+          <Route path="/upload" element={<UploadRoute />} />
           <Route path="/result" element={<ResultPage />} />
           <Route 
             path="/profile" 
