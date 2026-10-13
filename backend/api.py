@@ -1,8 +1,12 @@
-﻿import os
+import os
 import time
 import uuid
 import logging
 import warnings
+import secrets
+import string
+import smtplib
+from email.message import EmailMessage
 from contextlib import asynccontextmanager, contextmanager
 from dataclasses import dataclass, field
 from io import BytesIO
@@ -10,16 +14,17 @@ from pathlib import Path
 from typing import Literal
 
 import httpx
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile, Depends, status
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image, UnidentifiedImageError
 from pydantic import BaseModel, Field, JsonValue, ValidationError
 from pypdf import PdfReader
 from pypdf.errors import PdfReadError
+from sqlalchemy import select
 
 from backend.models import ApiModel, ApiResponse, Document, DocumentImage, ServiceAnswer
-from backend.database import engine, Base
+from backend.database import engine, Base, SessionLocal
 from backend.models import UserDB, DocumentDB, ExtractedFieldDB, RuleDB, RequestDB, AuditLogDB
 
 MAX_FILE_SIZE = 10 * 1024 * 1024
@@ -39,6 +44,13 @@ DocumentType = Literal["study_certificate", "academic_leave", "internship_certif
 logger = logging.getLogger(__name__)
 # Внутренние сервисы: 60с каждый, браузер ждёт до 200с за цепочку из трёх.
 INTERNAL_TIMEOUT = float(os.getenv("INTERNAL_TIMEOUT", "60"))
+
+# Настройки SMTP для отправки реальной почты
+SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
+SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+SMTP_USER = os.getenv("SMTP_USER", "")
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
+SMTP_FROM = os.getenv("SMTP_FROM", "noreply@university.ru")
 
 
 @asynccontextmanager
@@ -77,6 +89,48 @@ async def health():
     return {"status": "ok", "sessions": len(sessions)}
 
 
+# Асинхронная зависимость для получения сессии БД
+async def get_db():
+    async with SessionLocal() as session:
+        yield session
+
+
+# Схемы аутентификации и управления пользователями
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+class UserResponse(BaseModel):
+    email: str
+    firstName: str = ""
+    lastName: str = ""
+    name: str = ""
+    first_name: str = ""
+    last_name: str = ""
+    role: str
+    id: int | str = 1
+    user_id: int | str = 1
+
+class LoginResponse(BaseModel):
+    success: bool
+    token: str
+    user: UserResponse
+
+class CreateUserRequest(BaseModel):
+    email: str
+    password: str
+    username: str
+    role: str = "student"
+
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+class MessageResponse(BaseModel):
+    success: bool
+    message: str
+
+
+# Схема чата и документов
 class ChatMessage(ApiModel):
     message: str = Field(max_length=MAX_QUESTION_LENGTH)
     conversation_id: str | None = Field(default=None, min_length=1, max_length=100)
@@ -102,11 +156,145 @@ class Session:
     updated_at: float = field(default_factory=time.monotonic)
 
 
-# Для локального MVP: один worker. Общее хранилище потребуется при масштабировании.
 sessions: dict[str, Session] = {}
 active_sessions: set[str] = set()
 
 
+# Вспомогательная функция отправки email через SMTP
+def send_email_sync(to_email: str, subject: str, body: str):
+    msg = EmailMessage()
+    msg.set_content(body)
+    msg["Subject"] = subject
+    msg["From"] = SMTP_FROM
+    msg["To"] = to_email
+
+    if not SMTP_USER or not SMTP_PASSWORD:
+        logger.warning("SMTP credentials not set. Email simulation active (see logs).")
+        return False
+
+    try:
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
+            server.starttls()
+            server.login(SMTP_USER, SMTP_PASSWORD)
+            server.send_message(msg)
+        return True
+    except Exception as exc:
+        logger.error(f"Failed to send email via SMTP: {exc}")
+        return False
+
+
+# Эндпоинты входа и управления пользователями
+@app.post("/api/auth/login", response_model=LoginResponse)
+async def login(data: LoginRequest, db = Depends(get_db)):
+    normalized_email = data.email.lower().strip()
+    result = await db.execute(select(UserDB).where(UserDB.email == normalized_email))
+    user = result.scalars().first()
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Пользователь с таким email не найден. Обратитесь в деканат для регистрации учетной записи."
+        )
+    
+    if user.password_hash != data.password:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Неверный пароль. Пожалуйста, проверьте правильность ввода."
+        )
+        
+    name_parts = user.username.split(" ", 1)
+    first_name = name_parts[0]
+    last_name = name_parts[1] if len(name_parts) > 1 else ""
+
+    role_str = user.role.value if hasattr(user.role, "value") else str(user.role)
+
+    return {
+        "success": True,
+        "token": f"fake-jwt-token-{user.user_id}-{int(time.time())}",
+        "user": {
+            "email": user.email,
+            "firstName": first_name,
+            "lastName": last_name,
+            "name": user.username,
+            "first_name": first_name,
+            "last_name": last_name,
+            "role": role_str,
+            "id": user.user_id,
+            "user_id": user.user_id
+        }
+    }
+
+
+@app.post("/api/admin/users", response_model=MessageResponse)
+async def admin_create_user(data: CreateUserRequest, db = Depends(get_db)):
+    normalized_email = data.email.lower().strip()
+    
+    existing = await db.execute(select(UserDB).where(UserDB.email == normalized_email))
+    if existing.scalars().first():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Пользователь с таким email уже существует в базе деканата."
+        )
+    
+    try:
+        from backend.models import UserRole
+        role_val = UserRole(data.role) if hasattr(UserRole, "__call__") or isinstance(UserRole, type) else data.role
+    except Exception:
+        role_val = data.role
+
+    new_user = UserDB(
+        email=normalized_email,
+        password_hash=data.password,
+        username=data.username,
+        role=role_val
+    )
+    db.add(new_user)
+    await db.commit()
+
+    return {
+        "success": True,
+        "message": f"Пользователь {normalized_email} успешно создан деканатом."
+    }
+
+
+@app.post("/api/auth/forgot-password", response_model=MessageResponse)
+async def forgot_password(data: ForgotPasswordRequest, db = Depends(get_db)):
+    normalized_email = data.email.lower().strip()
+    result = await db.execute(select(UserDB).where(UserDB.email == normalized_email))
+    user = result.scalars().first()
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Указанный email не зарегистрирован в базе деканата."
+        )
+        
+    # Генерируем новый постоянный случайный пароль (8 символов)
+    alphabet = string.ascii_letters + string.digits
+    new_password = ''.join(secrets.choice(alphabet) for _ in range(8))
+    
+    # Обновляем пароль в базе данных PostgreSQL
+    user.password_hash = new_password
+    await db.commit()
+
+    email_body = (
+        f"Здравствуйте, {user.username}!\n\n"
+        f"Был запрошен сброс пароля для вашей учетной записи в Онлайн-деканате.\n"
+        f"Ваш новый постоянный пароль для входа: {new_password}\n\n"
+        f"Используйте его для авторизации в системе."
+    )
+
+    # Отправляем через SMTP и выводим в логи бэкенда для тестирования
+    await run_in_threadpool(send_email_sync, normalized_email, "Восстановление пароля — Онлайн-деканат", email_body)
+    print(f"\n[NEW PERMANENT PASSWORD for {normalized_email}]: {new_password}\n")
+
+    return {
+        "success": True,
+        "message": "Новый постоянный пароль успешно сгенерирован и отправлен на ваш email."
+    }
+
+
+# Вспомогательные функции логики документов
 def validate_question(question: str) -> str:
     question = question.strip()
     if not question:
@@ -217,28 +405,28 @@ def parse_service(model: type[BaseModel], data: dict, service: str):
 
 
 async def get_answer(question: str, conversation_id: str, session: Session,
-                     document: Document | None) -> ApiResponse:
+                     database_document: Document | None) -> ApiResponse:
     response = await send_request(BACKEND2_URL, json={
         "question": question,
         "conversation_id": conversation_id,
-        "document": document.model_dump() if document else None,
+        "document": database_document.model_dump() if database_document else None,
         "history": session.history,
     })
     answer = parse_service(ServiceAnswer, response, "Backend 2")
     if not answer.answer.strip():
         raise HTTPException(status_code=502, detail="Backend 2 не вернул ответ")
-    result = ApiResponse(**answer.model_dump(), conversation_id=conversation_id, document=document)
-    # Сохраняем историю только после проверки всего ответа сервиса.
+    result = ApiResponse(**answer.model_dump(), conversation_id=conversation_id, document=database_document)
+    
     session.history = (session.history + [
         {"role": "user", "content": question},
         {"role": "assistant", "content": answer.answer},
     ])[-MAX_HISTORY_MESSAGES:]
-    session.document = document
+    session.document = database_document
     session.updated_at = time.monotonic()
     sessions[conversation_id] = session
     return result
 
-
+# Эндпоинты чата и анализа
 @app.post("/chat", response_model=ApiResponse)
 async def chat(data: ChatMessage):
     question = validate_question(data.message)
@@ -270,7 +458,7 @@ async def analyze(
                 extract_payload["document_type"] = document_type
             extracted = parse_service(ExtractedDocument,
                                       await send_request(ML2_URL, json=extract_payload), "ML 2")
-            document = Document(
+            database_document = Document(
                 type=extracted.document_type or document_type,
                 fields=extracted.fields,
                 ocr_text=ocr.text,
@@ -278,6 +466,6 @@ async def analyze(
                 image=ocr.image,
                 visual_features=ocr.visual_features,
             )
-            return await get_answer(question, conversation_id, session, document)
+            return await get_answer(question, conversation_id, session, database_document)
     finally:
         await file.close()

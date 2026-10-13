@@ -1,5 +1,6 @@
 "Общий контракт API-шлюза, сервиса правил и ORM-модели для PostgreSQL"
 
+import enum
 from datetime import datetime
 from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
@@ -173,3 +174,8 @@ class AuditLogDB(Base):
 
   admin = relationship("UserDB", foreign_keys=[admin_id])
   target_document = relationship("DocumentDB", foreign_keys=[target_document_id])
+
+
+class UserRole(str, enum.Enum):
+    STUDENT = "student"
+    ADMIN = "admin"
