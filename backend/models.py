@@ -1,5 +1,11 @@
 """Общий контракт API-шлюза и сервиса правил."""
 
+<<<<<<< Updated upstream
+=======
+import enum
+from sqlalchemy.orm import Mapped, mapped_column
+from datetime import datetime
+>>>>>>> Stashed changes
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 from typing import Literal
 
@@ -42,5 +48,145 @@ class ServiceAnswer(ApiModel):
 
 
 class ApiResponse(ServiceAnswer):
+<<<<<<< Updated upstream
     conversation_id: str
     document: Document | None = None
+=======
+  conversation_id: str
+  document: Document | None = None
+
+
+# SQLAlchemy ORM модели для PostgreSQL (Личный кабинет и Админка) 
+
+
+class UserDB(Base):
+  __tablename__ = "users"
+
+  user_id = Column(Integer, primary_key=True, index=True)
+  username = Column(String(100), unique=True, nullable=False)
+  email = Column(String(255), unique=True, nullable=False)
+  password_hash = Column(String(255), nullable=False)
+  role = Column(
+      String(50), default="student", nullable=False
+  )  # 'student', 'admin'
+  created_at = Column(
+      TIMESTAMP(timezone=True), server_default=func.now(), nullable=False
+  )
+
+  documents = relationship(
+      "DocumentDB", back_populates="user", cascade="all, delete"
+  )
+  requests = relationship(
+      "RequestDB", back_populates="user", cascade="all, delete"
+  )
+
+
+class DocumentDB(Base):
+  __tablename__ = "documents"
+
+  document_id = Column(Integer, primary_key=True, index=True)
+  user_id = Column(
+      Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False
+  )
+  file_path = Column(String(512), nullable=False)
+  document_type = Column(String(100))
+  status = Column(
+      String(50), default="pending", nullable=False
+  )  # 'pending', 'approved', 'rejected', 'missing_fields'
+  uploaded_at = Column(
+      TIMESTAMP(timezone=True), server_default=func.now(), nullable=False
+  )
+
+  user = relationship("UserDB", back_populates="documents")
+  fields = relationship(
+      "ExtractedFieldDB", back_populates="document", cascade="all, delete"
+  )
+  requests = relationship("RequestDB", back_populates="document")
+
+
+class ExtractedFieldDB(Base):
+  __tablename__ = "extracted_fields"
+
+  field_id = Column(Integer, primary_key=True, index=True)
+  document_id = Column(
+      Integer,
+      ForeignKey("documents.document_id", ondelete="CASCADE"),
+      nullable=False,
+  )
+  field_name = Column(String(100), nullable=False)
+  field_value = Column(Text)
+  bounding_box = Column(JSON)  # Координаты для подсветки на фронтенде
+
+  document = relationship("DocumentDB", back_populates="fields")
+
+
+class RuleDB(Base):
+  __tablename__ = "rules"
+
+  rule_id = Column(Integer, primary_key=True, index=True)
+  section_number = Column(String(50), nullable=False)
+  title = Column(String(255))
+  content = Column(Text, nullable=False)
+
+
+class RequestDB(Base):
+  __tablename__ = "requests"
+
+  request_id = Column(Integer, primary_key=True, index=True)
+  user_id = Column(
+      Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False
+  )
+  document_id = Column(
+      Integer, ForeignKey("documents.document_id", ondelete="SET NULL")
+  )
+  question_text = Column(Text, nullable=False)
+  answer_text = Column(Text)
+  status = Column(String(50), default="resolved", nullable=False)
+  created_at = Column(
+      TIMESTAMP(timezone=True), server_default=func.now(), nullable=False
+  )
+
+  user = relationship("UserDB", back_populates="requests")
+  document = relationship("DocumentDB", back_populates="requests")
+
+
+class AuditLogDB(Base):
+  __tablename__ = "audit_logs"
+
+  log_id = Column(Integer, primary_key=True, index=True)
+  admin_id = Column(
+      Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False
+  )
+  target_document_id = Column(
+      Integer, ForeignKey("documents.document_id", ondelete="SET NULL")
+  )
+  action_type = Column(String(100), nullable=False)
+  comment = Column(Text)
+  created_at = Column(
+      TIMESTAMP(timezone=True), server_default=func.now(), nullable=False
+  )
+
+  admin = relationship("UserDB", foreign_keys=[admin_id])
+  target_document = relationship("DocumentDB", foreign_keys=[target_document_id])
+  
+  import enum
+from sqlalchemy import String, Enum as SQLEnum
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+class Base(DeclarativeBase):
+    pass
+
+class UserRole(str, enum.Enum):
+    STUDENT = "student"
+    ADMIN = "admin"
+
+class UserModel(Base):
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
+    password: Mapped[str] = mapped_column(String(255), nullable=False) # Пароль, заведенный деканатом
+    first_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    last_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    role: Mapped[UserRole] = mapped_column(SQLEnum(UserRole), default=UserRole.STUDENT, nullable=False)
+>>>>>>> Stashed changes
