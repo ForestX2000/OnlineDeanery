@@ -9,7 +9,7 @@ import { DocumentResult } from "./components/DocumentResult";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
 import DocumentDetailsPage from "./pages/DocumentDetailsPage";
-import { ThemeProvider } from "next-themes";
+import { ThemeProvider } from "./context/ThemeProvider";
 
 function ResultPage() {
   const result = useAppStore((state) => state.result);
@@ -33,7 +33,7 @@ function UploadRoute() {
 
 export default function App() {
   return (
-    <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} storageKey="online-deanery-theme">
+    <ThemeProvider>
       <BrowserRouter>
         <Routes>
         {/* Все страницы оборачиваются в Layout */}
