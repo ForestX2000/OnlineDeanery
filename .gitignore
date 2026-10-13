@@ -22,6 +22,9 @@ data/
 *.png
 *.jpg
 mws_data/
+# Стартовые правила и шаблон Положения — часть контракта, а не данные.
+!backend/data/rules.json
+!backend/data/*.template.json
 
 # ML weights and training artefacts live outside git (see YOLO_MODEL_PATH).
 *.pt
