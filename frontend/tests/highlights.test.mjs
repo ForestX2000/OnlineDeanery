@@ -44,6 +44,13 @@ test("invalid sources, confidence, fields and pages are ignored without hiding v
   assert.equal(documentHighlights([...invalid, box], image).length, 1)
 })
 
+test("classical color seal boxes are highlighted like yolo ones", () => {
+  const color = { ...box, field: "stamp", text: "Печать", source: "color", confidence: 0.85 }
+  const found = documentHighlights([color], image)
+  assert.equal(found.length, 1)
+  assert.equal(found[0].field, "stamp")
+})
+
 test("PDFs never become image previews, even if supplied with an image filename", () => {
   assert.equal(canPreviewImage({ name: "scan.pdf", type: "application/pdf" }), false)
   assert.equal(canPreviewImage({ name: "scan.png", type: "application/pdf" }), false)
