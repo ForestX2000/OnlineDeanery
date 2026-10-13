@@ -1,14 +1,14 @@
 export const MAX_FILE_SIZE = 10 * 1024 * 1024
 export const MAX_QUESTION_LENGTH = 5000
 
-export const DOCUMENT_LABELS = {
-  study_certificate: "Справка об обучении",
-  academic_leave: "Заявление на академический отпуск",
-  internship_certificate: "Справка о практике",
-} as const
-
-export type DocumentType = keyof typeof DOCUMENT_LABELS
+export type DocumentType = string
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue }
+
+export interface DocumentTypeOption {
+  id: string
+  label: string
+  required_fields?: Array<{ name: string; label: string }>
+}
 
 export interface Source {
   type: string
@@ -27,7 +27,7 @@ export interface DocumentCoordinate {
   text: string
   bbox: [number, number, number, number]
   confidence: number | null
-  source: "yolo" | "spotting" | "tesseract" | "color"
+  source: "yolo" | "spotting" | "tesseract" | "tesseract_supplement" | "color"
   page: 1
 }
 
@@ -70,6 +70,7 @@ export interface RequestHistoryItem {
   question: string
   answer: string | null
   status: "processing" | "resolved" | "failed" | string
+  document_type?: string | null
   created_at: string
   user_email: string
   user_name: string

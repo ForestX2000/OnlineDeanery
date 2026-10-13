@@ -159,6 +159,7 @@ class RequestDB(Base):
   )
   question_text = Column(Text, nullable=False)
   answer_text = Column(Text)
+  document_type = Column(String(100))
   status = Column(String(50), default="resolved", nullable=False)
   created_at = Column(
       TIMESTAMP(timezone=True), server_default=func.now(), nullable=False

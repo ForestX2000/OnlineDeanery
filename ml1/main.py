@@ -44,7 +44,9 @@ async def ocr(file: UploadFile = File(...),
         except ValueError as exc:
             raise HTTPException(400, str(exc)) from exc
         try:
-            result = await run_in_threadpool(run_ocr, prepared.pixels)
+            result = await run_in_threadpool(
+                run_ocr, prepared.ocr_pixels if prepared.ocr_pixels is not None else prepared.pixels,
+            )
         except requests.Timeout as exc:
             raise HTTPException(504, "Превышено время ожидания OCR-модели") from exc
         except requests.ConnectionError as exc:

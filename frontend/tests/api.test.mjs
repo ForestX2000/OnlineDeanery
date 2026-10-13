@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { afterEach, test } from "node:test"
-import { analyzeDocument, ApiError, forgotPasswordRequest, loginRequest, MAX_FILE_SIZE, sendMessage, validateFile } from "../api/index.ts"
+import { analyzeDocument, ApiError, forgotPasswordRequest, getDocumentTypes, loginRequest, MAX_FILE_SIZE, sendMessage, validateFile } from "../api/index.ts"
 
 const originalFetch = globalThis.fetch
 afterEach(() => { globalThis.fetch = originalFetch })
@@ -44,6 +44,21 @@ test("automatic classification omits the document type and new conversation ID",
     return Response.json(answer)
   }
   await analyzeDocument({ file: new File(["image"], "photo.PNG"), question: "Вопрос?" })
+})
+
+test("document types and their field labels come from the configuration", async () => {
+  const catalog = { items: [{ id: "custom_invoice", label: "Счёт", required_fields: [
+    { name: "invoice_number", label: "Номер счёта" },
+  ] }] }
+  globalThis.fetch = async (url, init) => {
+    assert.equal(url, "http://localhost:8000/document-types")
+    assert.ok(init.signal instanceof AbortSignal)
+    return Response.json(catalog)
+  }
+  assert.deepEqual(await getDocumentTypes(), catalog.items)
+
+  globalThis.fetch = async () => Response.json({ items: [{ id: "broken", label: "Broken", required_fields: "not-an-array" }] })
+  await assert.rejects(getDocumentTypes(), (error) => error instanceof ApiError && error.status === 502)
 })
 
 test("invalid input is rejected before making a request", async () => {

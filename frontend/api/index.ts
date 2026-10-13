@@ -1,5 +1,5 @@
 import { MAX_FILE_SIZE, MAX_QUESTION_LENGTH } from "./types.ts"
-import type { AnalysisResult, DocumentData, DocumentType, LoginResult, RequestHistoryItem } from "./types.ts"
+import type { AnalysisResult, DocumentData, DocumentType, DocumentTypeOption, LoginResult, RequestHistoryItem } from "./types.ts"
 import { isDocumentImage } from "./highlights.ts"
 
 export * from "./types.ts"
@@ -283,6 +283,39 @@ export async function getRequestHistory(token: string): Promise<RequestHistoryIt
     throw new ApiError("Сервер вернул некорректную историю запросов", 502)
   }
   return body as RequestHistoryItem[]
+}
+
+export async function getDocumentTypes(): Promise<DocumentTypeOption[]> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 15_000)
+  try {
+    const response = await fetch(`${API_URL}/document-types`, { signal: controller.signal })
+    const body: unknown = await response.json().catch(() => null)
+    if (!response.ok) throw new ApiError(errorDetail(body) || `Ошибка сервера (${response.status})`, response.status)
+    if (!isRecord(body) || !Array.isArray(body.items) || !body.items.every((item: unknown) =>
+      isRecord(item) && typeof item.id === "string" && typeof item.label === "string" &&
+      (item.required_fields === undefined || (Array.isArray(item.required_fields) && item.required_fields.every((field: unknown) =>
+        isRecord(field) && typeof field.name === "string" && typeof field.label === "string"))))) {
+      throw new ApiError("Сервер вернул некорректный список типов документов", 502)
+    }
+    const items = body.items as Array<Record<string, unknown>>
+    return items.map((item) => ({
+      id: item.id as string,
+      label: item.label as string,
+      required_fields: Array.isArray(item.required_fields)
+        ? (item.required_fields as Array<Record<string, unknown>>).map((field) => ({
+          name: field.name as string,
+          label: field.label as string,
+        }))
+        : undefined,
+    }))
+  } catch (error) {
+    if (error instanceof ApiError) throw error
+    if (controller.signal.aborted) throw new ApiError("Не удалось загрузить типы документов")
+    throw new ApiError("Не удалось подключиться к серверу. Проверьте соединение и доступность backend.")
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 export async function forgotPasswordRequest(email: string): Promise<string> {

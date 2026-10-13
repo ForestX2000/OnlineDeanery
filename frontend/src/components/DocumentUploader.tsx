@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { useNavigate } from "react-router-dom";
 import {
@@ -15,11 +15,7 @@ import {
 
 import { useAppStore } from "../store/useAppStore";
 import type { AnalysisResult, DocumentType } from "../../api";
-import { analyzeDocument, sendMessage, MAX_FILE_SIZE, MAX_QUESTION_LENGTH, DOCUMENT_LABELS } from "../../api";
-
-const DOC_TYPES = (Object.entries(DOCUMENT_LABELS) as Array<[DocumentType, string]>).map(
-  ([value, label]) => ({ value, label }),
-);
+import { analyzeDocument, getDocumentTypes, sendMessage, MAX_FILE_SIZE, MAX_QUESTION_LENGTH } from "../../api";
 
 const pause = (ms: number) => new Promise<void>((resolve) => window.setTimeout(resolve, ms));
 
@@ -38,9 +34,21 @@ export default function DocumentUploader() {
 
   const [file, setFile] = useState<File | null>(null);
   const [docType, setDocType] = useState<DocumentType | "">("");
+  const [documentTypes, setDocumentTypes] = useState<Array<{ id: string; label: string }>>([]);
+  const [typeLoadError, setTypeLoadError] = useState("");
   const [question, setQuestion] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    getDocumentTypes()
+      .then((types) => { if (active) setDocumentTypes(types); })
+      .catch((reason: unknown) => {
+        if (active) setTypeLoadError(reason instanceof Error ? reason.message : "Не удалось загрузить типы документов.");
+      });
+    return () => { active = false; };
+  }, []);
 
   const onDrop = useCallback((files: File[]) => {
     setError("");
@@ -185,15 +193,16 @@ export default function DocumentUploader() {
             className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-sm outline-none transition focus:border-[#159957] focus:ring-4 focus:ring-emerald-50"
           >
             <option value="">Определить автоматически</option>
-            {DOC_TYPES.map((item) => (
-              <option key={item.value} value={item.value}>
+            {documentTypes.map((item) => (
+              <option key={item.id} value={item.id}>
                 {item.label}
               </option>
             ))}
           </select>
+          {typeLoadError && <p role="status" className="mt-2 text-xs text-amber-700">{typeLoadError} Доступно автоопределение типа.</p>}
           {!file && docType && (
             <p className="mt-2 text-xs text-amber-700">
-              Тип «{DOCUMENT_LABELS[docType]}» применится к следующему файлу. Вопрос без файла идёт только по Положению.
+              Тип «{documentTypes.find((item) => item.id === docType)?.label ?? docType}» применится к следующему файлу. Вопрос без файла идёт только по Положению.
             </p>
           )}
         </div>

@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
-from typing import Literal
+from typing import Any
 
 import httpx
 from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile, Depends, status
@@ -25,7 +25,7 @@ from PIL import Image, UnidentifiedImageError
 from pydantic import BaseModel, Field, JsonValue, ValidationError
 from pypdf import PdfReader
 from pypdf.errors import PdfReadError
-from sqlalchemy import delete, select
+from sqlalchemy import delete, inspect, select, text
 
 from backend.models import ApiModel, ApiResponse, Document, DocumentImage, ServiceAnswer
 from backend.database import engine, Base, SessionLocal
@@ -44,7 +44,10 @@ MIME_TYPES = {"JPEG": "image/jpeg", "PNG": "image/png", "PDF": "application/pdf"
 ML1_URL = os.getenv("ML1_URL", "http://host.docker.internal:8001/ocr")
 ML2_URL = os.getenv("ML2_URL", "http://localhost:8003/extract")
 BACKEND2_URL = os.getenv("BACKEND2_URL", "http://localhost:8002/answer")
-DocumentType = Literal["study_certificate", "academic_leave", "internship_certificate"]
+DOCUMENT_TYPES_URL = os.getenv(
+    "DOCUMENT_TYPES_URL",
+    f"{BACKEND2_URL.rsplit('/', 1)[0]}/document-types",
+)
 logger = logging.getLogger(__name__)
 # Даём OCR-сервису завершить распознавание и оставляем время на ответ.
 INTERNAL_TIMEOUT = float(os.getenv("INTERNAL_TIMEOUT", "300"))
@@ -63,6 +66,11 @@ async def lifespan(app: FastAPI):
     try:
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+            def ensure_request_document_type(sync_conn):
+                columns = {column["name"] for column in inspect(sync_conn).get_columns("requests")}
+                if "document_type" not in columns:
+                    sync_conn.execute(text("ALTER TABLE requests ADD COLUMN document_type VARCHAR(100)"))
+            await conn.run_sync(ensure_request_document_type)
         logger.info("Таблицы БД готовы: %s", list(Base.metadata.tables.keys()))
     except Exception as exc:
         logger.warning("БД недоступна, работа без персистентности: %s", exc)
@@ -177,6 +185,7 @@ class RequestHistoryItem(ApiModel):
     question: str
     answer: str | None
     status: str
+    document_type: str | None = None
     created_at: datetime
     user_email: str
     user_name: str
@@ -291,6 +300,7 @@ async def request_history(
             question=request.question_text,
             answer=request.answer_text,
             status=request.status,
+            document_type=request.document_type,
             created_at=request.created_at,
             user_email=user.email,
             user_name=user.username,
@@ -455,13 +465,16 @@ async def validate_file(file: UploadFile) -> tuple[bytes, str]:
     return content, MIME_TYPES[file_format]
 
 
-async def send_request(url: str, **kwargs) -> dict:
-    service = {ML1_URL: "OCR (ML 1)", ML2_URL: "Extract (ML 2)", BACKEND2_URL: "Backend 2"}.get(url, "внутренний сервис")
+async def send_request(url: str, *, method: str = "POST", **kwargs) -> dict:
+    service = {ML1_URL: "OCR (ML 1)", ML2_URL: "Extract (ML 2)",
+               BACKEND2_URL: "Backend 2", DOCUMENT_TYPES_URL: "конфигурация типов документов"}.get(url, "внутренний сервис")
     try:
-        response = await app.state.http_client.post(url, **kwargs)
+        response = await app.state.http_client.request(method, url, **kwargs)
         try:
             response.raise_for_status()
         except httpx.HTTPStatusError as exc:
+            if response.status_code == 504:
+                raise HTTPException(status_code=504, detail=f"Превышено время ожидания сервиса {service}") from exc
             # Пробрасываем тело upstream для отладки, обрезаем до 500 символов.
             try:
                 detail = response.text[:500]
@@ -482,6 +495,37 @@ async def send_request(url: str, **kwargs) -> dict:
     if not isinstance(result, dict):
         raise HTTPException(status_code=502, detail="Сервис вернул неверный формат ответа")
     return result
+
+
+@app.get("/document-types")
+async def configured_document_types():
+    return await send_request(DOCUMENT_TYPES_URL, method="GET")
+
+
+async def get_document_type_definition(document_type: str | None) -> dict[str, Any] | None:
+    if not document_type:
+        return None
+    catalog = await send_request(DOCUMENT_TYPES_URL, method="GET")
+    items = catalog.get("items")
+    if not isinstance(items, list):
+        raise HTTPException(status_code=502, detail="Конфигурация типов документов имеет неверный формат")
+    for item in items:
+        if isinstance(item, dict) and item.get("id") == document_type:
+            return item
+    raise HTTPException(status_code=422, detail="Выбранный тип документа отсутствует в конфигурации")
+
+
+def request_status_for_result(result: ApiResponse) -> str:
+    if result.document is None or result.verification is None:
+        return "failed"
+    if (result.verification.status != "complete" or result.verification.missing_fields
+            or result.verification.issues):
+        return "failed"
+    return "resolved"
+
+
+def request_status_for_exception(exc: Exception) -> str:
+    return "timeout" if isinstance(exc, HTTPException) and exc.status_code == 504 else "failed"
 
 
 def parse_service(model: type[BaseModel], data: dict, service: str):
@@ -514,10 +558,13 @@ async def get_answer(question: str, conversation_id: str, session: Session,
     return result
 
 
-async def begin_request_record(db, user: UserDB | None, question: str) -> int | None:
+async def begin_request_record(
+    db, user: UserDB | None, question: str, document_type: str | None = None
+) -> int | None:
     if user is None:
         return None
-    record = RequestDB(user_id=user.user_id, question_text=question, status="processing")
+    record = RequestDB(user_id=user.user_id, question_text=question,
+                       document_type=document_type, status="processing")
     db.add(record)
     await db.commit()
     await db.refresh(record)
@@ -525,7 +572,8 @@ async def begin_request_record(db, user: UserDB | None, question: str) -> int | 
 
 
 async def finish_request_record(
-    db, request_id: int | None, status_value: str, answer: str | None = None
+    db, request_id: int | None, status_value: str, answer: str | None = None,
+    document_type: str | None = None,
 ) -> None:
     if request_id is None:
         return
@@ -534,14 +582,17 @@ async def finish_request_record(
         return
     record.status = status_value
     record.answer_text = answer
+    if document_type is not None:
+        record.document_type = document_type
     await db.commit()
 
 
 async def finish_request_record_in_new_session(
-    request_id: int | None, status_value: str, answer: str | None = None
+    request_id: int | None, status_value: str, answer: str | None = None,
+    document_type: str | None = None,
 ) -> None:
     async with SessionLocal() as history_db:
-        await finish_request_record(history_db, request_id, status_value, answer)
+        await finish_request_record(history_db, request_id, status_value, answer, document_type)
 
 # Эндпоинты чата и анализа
 @app.post("/chat", response_model=ApiResponse)
@@ -557,8 +608,8 @@ async def chat(
             result = await get_answer(question, conversation_id, session, session.document)
         await finish_request_record(db, request_id, "resolved", result.answer)
         return result
-    except Exception:
-        await finish_request_record(db, request_id, "failed")
+    except Exception as exc:
+        await finish_request_record(db, request_id, request_status_for_exception(exc))
         raise
 
 
@@ -567,14 +618,15 @@ async def analyze(
     file: UploadFile = File(...),
     question: str = Form(..., max_length=MAX_QUESTION_LENGTH),
     conversation_id: str | None = Form(None, min_length=1, max_length=100),
-    document_type: DocumentType | None = Form(None),
+    document_type: str | None = Form(None, max_length=100),
     rotation: int = Form(0, ge=0, le=270, multiple_of=90),
     current_user: UserDB | None = Depends(get_optional_user),
     db=Depends(get_db),
 ):
     try:
         question = validate_question(question)
-        request_id = await begin_request_record(db, current_user, question)
+        type_definition = await get_document_type_definition(document_type)
+        request_id = await begin_request_record(db, current_user, question, document_type)
         try:
             with use_session(conversation_id) as (conversation_id, session):
                 content, mime = await validate_file(file)
@@ -588,6 +640,7 @@ async def analyze(
                 extract_payload = {"ocr_result": ocr_payload}
                 if document_type:
                     extract_payload["document_type"] = document_type
+                    extract_payload["field_definitions"] = type_definition.get("required_fields", [])
                 extracted = parse_service(ExtractedDocument,
                                           await send_request(ML2_URL, json=extract_payload), "ML 2")
                 database_document = Document(
@@ -599,10 +652,12 @@ async def analyze(
                     visual_features=ocr.visual_features,
                 )
                 result = await get_answer(question, conversation_id, session, database_document)
-            await finish_request_record(db, request_id, "resolved", result.answer)
+            await finish_request_record(db, request_id, request_status_for_result(result),
+                                        result.answer, result.document.type if result.document else None)
             return result
-        except Exception:
-            await finish_request_record(db, request_id, "failed")
+        except Exception as exc:
+            await finish_request_record(db, request_id, request_status_for_exception(exc),
+                                        document_type=document_type)
             raise
     finally:
         await file.close()
@@ -613,13 +668,14 @@ async def analyze_stream(
     file: UploadFile = File(...),
     question: str = Form(..., max_length=MAX_QUESTION_LENGTH),
     conversation_id: str | None = Form(None, min_length=1, max_length=100),
-    document_type: DocumentType | None = Form(None),
+    document_type: str | None = Form(None, max_length=100),
     rotation: int = Form(0, ge=0, le=270, multiple_of=90),
     current_user: UserDB | None = Depends(get_optional_user),
     db=Depends(get_db),
 ):
     question = validate_question(question)
-    request_id = await begin_request_record(db, current_user, question)
+    type_definition = await get_document_type_definition(document_type)
+    request_id = await begin_request_record(db, current_user, question, document_type)
 
     def encode_event(event: dict) -> str:
         return json.dumps(event, ensure_ascii=False, separators=(",", ":")) + "\n"
@@ -641,6 +697,7 @@ async def analyze_stream(
                 extract_payload = {"ocr_result": ocr_payload}
                 if document_type:
                     extract_payload["document_type"] = document_type
+                    extract_payload["field_definitions"] = type_definition.get("required_fields", [])
                 extracted = parse_service(ExtractedDocument,
                                           await send_request(ML2_URL, json=extract_payload), "ML 2")
                 database_document = Document(
@@ -657,14 +714,18 @@ async def analyze_stream(
                 })
                 yield encode_event({"type": "progress", "stage": "answer"})
                 result = await get_answer(question, active_conversation_id, session, database_document)
-            await finish_request_record_in_new_session(request_id, "resolved", result.answer)
+            await finish_request_record_in_new_session(
+                request_id, request_status_for_result(result), result.answer,
+                result.document.type if result.document else None,
+            )
             yield encode_event({"type": "result", "result": result.model_dump(mode="json")})
         except HTTPException as exc:
-            await finish_request_record_in_new_session(request_id, "failed")
+            await finish_request_record_in_new_session(request_id, request_status_for_exception(exc),
+                                                       document_type=document_type)
             yield encode_event({"type": "error", "detail": exc.detail, "status": exc.status_code})
         except Exception:
             logger.exception("Не удалось завершить потоковый анализ документа")
-            await finish_request_record_in_new_session(request_id, "failed")
+            await finish_request_record_in_new_session(request_id, "failed", document_type=document_type)
             yield encode_event({"type": "error", "detail": "Не удалось завершить обработку документа.", "status": 500})
         finally:
             await file.close()

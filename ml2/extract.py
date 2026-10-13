@@ -224,16 +224,57 @@ def extract_program(text: str) -> str:
     return "не найдено"
 
 
-def extract_fields(text: str, doc_type: str) -> dict[str, Any]:
+def extract_configured_value(text: str, definition: dict[str, Any]) -> str | None:
+    """Read a value following a field label/alias supplied by the rules config."""
+    aliases = [definition.get("label", ""), *definition.get("aliases", [])]
+    lines = text.splitlines()
+    for line_index, line in enumerate(lines):
+        for alias in aliases:
+            if not isinstance(alias, str) or not alias.strip():
+                continue
+            label_pattern = re.escape(alias.strip()).replace(r"\ ", r"\s+")
+            match = re.search(rf"(?<!\w){label_pattern}(?!\w)\s*[:：#№–—-]?\s*(.*)$",
+                              line, re.IGNORECASE)
+            if not match:
+                continue
+            candidate = match.group(1).strip(" \t:：#№–—-")
+            if not candidate and line_index + 1 < len(lines):
+                candidate = lines[line_index + 1].strip(" \t:：#№–—-")
+            if not candidate:
+                continue
+
+            kind = definition.get("kind", "text")
+            if kind == "date":
+                found = re.search(r"(?<!\d)(?:\d{1,2}[./-]\d{1,2}[./-]\d{2,4}|\d{4}-\d{2}-\d{2})(?!\d)", candidate)
+                return found.group(0) if found else None
+            if kind == "boolean":
+                found = re.search(r"(?i)\b(да|нет|есть|присутствует|отсутствует|найдено|не\s+обнаружено)\b", candidate)
+                return found.group(0) if found else None
+            return candidate.rstrip(".,;:") or None
+    return None
+
+
+def extract_fields(text: str, doc_type: str,
+                   field_definitions: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     fields: dict[str, Any] = {}
-    wanted = FIELDS_BY_TYPE.get(doc_type, [])
+    configured = {item.get("name"): item for item in (field_definitions or [])
+                  if isinstance(item, dict) and isinstance(item.get("name"), str)}
+    known_type = doc_type in FIELDS_BY_TYPE
+    wanted = FIELDS_BY_TYPE.get(doc_type)
+    if wanted is None:
+        wanted = list(configured)
 
     for field in wanted:
         if field in ("signature", "stamp"):
             fields[field] = "не найдено"
             continue
 
-        value = extract_field(text, PATTERNS.get(field, []))
+        if not known_type and field in configured:
+            value = extract_configured_value(text, configured[field])
+        else:
+            value = extract_field(text, PATTERNS.get(field, []))
+            if not value and field in configured:
+                value = extract_configured_value(text, configured[field])
 
         # спец-нормализация
         if field == "study_form":

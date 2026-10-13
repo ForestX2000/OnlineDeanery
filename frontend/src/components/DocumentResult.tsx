@@ -1,6 +1,6 @@
-import { useRef, useState } from "react"
-import { ApiError, DOCUMENT_LABELS, MAX_QUESTION_LENGTH, sendMessage } from "../../api"
-import type { DocumentType, JsonValue } from "../../api"
+import { useEffect, useRef, useState } from "react"
+import { ApiError, getDocumentTypes, MAX_QUESTION_LENGTH, sendMessage } from "../../api"
+import type { JsonValue } from "../../api"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -45,10 +45,6 @@ const VERIFICATION_LABELS = new Map<string, string>([
   ["unknown", "Недостаточно данных для проверки"],
 ])
 
-function fieldLabel(field: string): string {
-  return FIELD_LABELS.get(field) ?? field.replace(/_/g, " ")
-}
-
 function formatValue(value: JsonValue, field: string): string {
   if (["signature", "stamp"].includes(field)) {
     if (value === null) return "Не проверено"
@@ -80,8 +76,29 @@ export function DocumentResult() {
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [expired, setExpired] = useState(false)
+  const [documentLabels, setDocumentLabels] = useState<Record<string, string>>({})
+  const [configuredFieldLabels, setConfiguredFieldLabels] = useState<Record<string, string>>({})
   const submitting = useRef(false)
   const data = result
+
+  useEffect(() => {
+    let active = true
+    getDocumentTypes()
+      .then((types) => {
+        if (active) {
+          setDocumentLabels(Object.fromEntries(types.map((item) => [item.id, item.label])))
+          setConfiguredFieldLabels(Object.fromEntries(types.flatMap((item) =>
+            (item.required_fields ?? []).map((field) => [field.name, field.label] as const))))
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setDocumentLabels({})
+          setConfiguredFieldLabels({})
+        }
+      })
+    return () => { active = false }
+  }, [])
 
   if (!data && !isProcessing && !processingError) return null
 
@@ -104,9 +121,10 @@ export function DocumentResult() {
   const activeField = hoveredField ?? selectedField
   const selectField = (field: string) => setSelectedField((current) => current === field ? null : field)
   const verification = data?.verification
+  const fieldLabel = (field: string) => configuredFieldLabels[field] ?? FIELD_LABELS.get(field) ?? field.replace(/_/g, " ")
   const documentLabel = document?.type
-    ? DOCUMENT_LABELS[document.type as DocumentType] ?? document.type
-    : processingDocType ? DOCUMENT_LABELS[processingDocType] : "Тип документа"
+    ? documentLabels[document.type] ?? document.type
+    : processingDocType ? documentLabels[processingDocType] ?? processingDocType : "Тип документа"
   const handleFollowUp = async (event: React.FormEvent) => {
     event.preventDefault()
     if (!data || !question.trim() || submitting.current || expired) return

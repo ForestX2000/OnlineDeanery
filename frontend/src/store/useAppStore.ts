@@ -1,9 +1,8 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
-import type { AnalysisResult, DocumentData } from "../../api";
+import type { AnalysisResult, DocumentData, DocumentType } from "../../api";
 import { canPreviewImage } from "../../api/highlights.ts";
 
-export type DocumentType = "study_certificate" | "academic_leave" | "internship_certificate";
 export type UserRole = "student" | "admin";
 
 export interface User {

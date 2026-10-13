@@ -64,6 +64,20 @@ async def health(request: Request):
             "clauses": len(base.clauses), "document_types": list(base.document_types)}
 
 
+@app.get("/document-types")
+async def document_types(request: Request):
+    """Expose document types and field schemas directly from the rules config."""
+    base = request.app.state.knowledge_base
+    return {"items": [
+        {
+            "id": name,
+            "label": rule.label,
+            "required_fields": [field.model_dump(mode="json") for field in rule.required_fields],
+        }
+        for name, rule in base.document_types.items()
+    ]}
+
+
 @app.post("/answer", response_model=ServiceAnswer)
 async def answer(data: AnswerRequest, request: Request):
     question = data.question.strip()

@@ -63,5 +63,34 @@ docker compose logs ml2 --tail=30
 docker compose logs llama --tail=10
 ```
 
+## Добавление нового типа документа без изменений кода
+
+Добавьте запись в `document_types` файла `backend/data/rules.json`. Для каждого поля укажите `name`, `label`, `aliases`, `reference` и `kind` (`text`, `date` или `boolean`). Значения распознаются по подписи или синониму на той же строке либо на следующей. Если тип должен ссылаться на конкретное правило, добавьте его идентификатор в `document_types` соответствующего пункта в `clauses`.
+
+Пример записи типа:
+
+```json
+"custom_invoice": {
+  "label": "Счёт",
+  "aliases": ["Счёт на оплату"],
+  "required_fields": [
+    {
+      "name": "invoice_number",
+      "label": "Номер счёта",
+      "aliases": ["Регистрационный номер"],
+      "reference": "4.1",
+      "kind": "text",
+      "must_be_true": false
+    }
+  ]
+}
+```
+
+Каталог типов и названия полей загружаются из этого файла. После изменения конфигурации перезапустите `rules`:
+
+```powershell
+docker compose restart rules
+```
+
 Частые причины: `llama` еще грузит модели (`listening` нет в логе),
 старый бандл в браузере (лечится `Ctrl+F5`), нет `models/*.gguf`.

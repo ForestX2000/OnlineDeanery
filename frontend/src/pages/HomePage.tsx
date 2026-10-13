@@ -30,6 +30,27 @@ const UNIVERSITY_NEWS = [
   },
 ];
 
+function PlatformFeatures() {
+  return (
+    <section className="mt-8 rounded-3xl bg-[#1b2b44] p-5 text-white shadow-lg sm:mt-10 sm:p-7">
+      <div className="grid gap-4 md:grid-cols-2">
+        <article className="rounded-2xl bg-[#263c5d] p-6 sm:p-7">
+          <h3 className="text-xl font-bold text-[#ff9c4a] sm:text-2xl">Новый тип документа без кода</h3>
+          <p className="mt-3 max-w-xl text-sm leading-6 text-slate-200 sm:text-base sm:leading-7">
+            Добавьте тип и поля в конфигурацию — сервис покажет его в списке и будет искать значения по описаниям и синонимам.
+          </p>
+        </article>
+        <article className="rounded-2xl bg-[#263c5d] p-6 sm:p-7">
+          <h3 className="text-xl font-bold text-[#ff9c4a] sm:text-2xl">Обработка сложных снимков</h3>
+          <p className="mt-3 max-w-xl text-sm leading-6 text-slate-200 sm:text-base sm:leading-7">
+            Выравнивание наклона и коррекция контраста помогают распознаванию. Результат зависит от резкости, освещения и размера текста.
+          </p>
+        </article>
+      </div>
+    </section>
+  );
+}
+
 export default function HomePage() {
   const { isAuthenticated, user } = useAppStore();
 
@@ -53,6 +74,8 @@ export default function HomePage() {
               Загрузить новый документ
             </Link>
           </div>
+
+          <PlatformFeatures />
 
           <div>
             <div className="mb-4 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
@@ -186,6 +209,10 @@ export default function HomePage() {
               ))}
             </div>
           </div>
+        </section>
+
+        <section className="mx-auto max-w-6xl px-4 pb-12 sm:px-6 sm:pb-16">
+          <PlatformFeatures />
         </section>
       </main>
     </div>

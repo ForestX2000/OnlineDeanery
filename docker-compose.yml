@@ -7,6 +7,8 @@ services:
     command: ["python", "-m", "uvicorn", "backend.logic:app", "--host", "0.0.0.0", "--port", "8002"]
     ports:
       - "8002:8002"
+    volumes:
+      - ./backend/data/rules.json:/app/backend/data/rules.json:ro
     healthcheck:
       test:
         - CMD

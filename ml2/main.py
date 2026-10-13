@@ -1,6 +1,6 @@
 from typing import Any
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, JsonValue
+from pydantic import BaseModel, Field, JsonValue
 
 from ml2.classify import classify
 from ml2.extract import extract_fields
@@ -12,6 +12,7 @@ from ml2.visual import apply_visual_features, link_coordinates
 class ExtractRequest(BaseModel):
     ocr_result: dict[str, Any]
     document_type: str | None = None
+    field_definitions: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class ExtractResponse(BaseModel):
@@ -54,7 +55,7 @@ def extract(data: ExtractRequest):
         return ExtractResponse(document_type=None, fields={})
 
     # 1. regex + правила (быстро, всегда работает)
-    fields = extract_fields(text, doc_type)
+    fields = extract_fields(text, doc_type, data.field_definitions)
     apply_visual_features(fields, data.ocr_result.get("visual_features"))
 
     # 2. LLM-исправление для «сложных» полей (только если LLM доступна)

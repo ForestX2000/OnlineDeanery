@@ -65,7 +65,7 @@ def link_coordinates(coordinates, fields: dict) -> list[dict]:
     for index, item in enumerate(coordinates):
         if not isinstance(item, dict):
             continue
-        if item.get("source") not in {"spotting", "tesseract"}:
+        if item.get("source") not in {"spotting", "tesseract", "tesseract_supplement"}:
             other_boxes.append(item)
             continue
         text = item.get("text")

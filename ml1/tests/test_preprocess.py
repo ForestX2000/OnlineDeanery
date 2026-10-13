@@ -5,7 +5,7 @@ import cv2
 import numpy as np
 from PIL import Image, ImageDraw
 
-from ml1.preprocess import estimate_rotation, preprocess
+from ml1.preprocess import estimate_rotation, estimate_skew, prepare_image, preprocess
 
 
 def encode(image: Image.Image, **kwargs) -> bytes:
@@ -160,6 +160,26 @@ class OrientationTests(unittest.TestCase):
         sideways = encode(text_page().transpose(Image.Transpose.ROTATE_90))
         # Явные 180/270 применяются как есть, эвристика не вмешивается.
         self.assertEqual(preprocess(sideways, rotation=180).shape, (600, 400, 3))
+
+
+class DeskewTests(unittest.TestCase):
+    def test_corrects_thirty_degree_photo_and_maps_boxes_back(self):
+        page = Image.new("RGB", (1000, 700), "white")
+        draw = ImageDraw.Draw(page)
+        for y in range(80, 650, 45):
+            draw.line((80, y, 920, y), fill="black", width=3)
+        rotated = page.rotate(30, resample=Image.Resampling.BICUBIC,
+                              expand=True, fillcolor="white")
+
+        prepared = prepare_image(encode(rotated))
+
+        self.assertGreater(prepared.pixels.shape[1], prepared.pixels.shape[0])
+        self.assertEqual(estimate_skew(cv2.cvtColor(prepared.pixels, cv2.COLOR_BGR2GRAY)), 0)
+        bbox = prepared.original_bbox([0, 0, prepared.pixels.shape[1], prepared.pixels.shape[0]])
+        self.assertGreater(bbox[2], bbox[0])
+        self.assertGreater(bbox[3], bbox[1])
+        self.assertLessEqual(bbox[2], prepared.width)
+        self.assertLessEqual(bbox[3], prepared.height)
 
 
 class PdfTests(unittest.TestCase):
