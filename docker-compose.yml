@@ -132,9 +132,9 @@ services:
       - ./models:/models:ro
     command:
       - -m
-      - /models/PaddleOCR-VL-1.5.gguf
+      - /models/PaddleOCR-VL-1.6-GGUF.gguf
       - --mmproj
-      - /models/PaddleOCR-VL-1.5-mmproj.gguf
+      - /models/PaddleOCR-VL-1.6-GGUF-mmproj.gguf
       - --host
       - 0.0.0.0
       - --port

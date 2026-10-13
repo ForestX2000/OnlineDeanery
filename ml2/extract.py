@@ -26,7 +26,7 @@ PATTERNS: dict[str, list[str]] = {
     ],
     "university": [
         r"«([^»]{5,120}?(?:университет|институт|академия|колледж)[^»]*?)»",
-        r"([А-ЯЁ][а-яё]+\s+государственн\w+\s+(?:техническ\w+\s+)?(?:университет\w*|колледж\w*)?)",
+        r"([А-ЯЁ][а-яё]+\s+государственн\w+\s+(?:техническ\w+\s+)?(?:университет\w*|колледж\w*))",
         r"([А-ЯЁ]{2,8}(?:ГУ|ГТУ|ГАУ|ПГУ|ТУ|ИУ|АСУ))\b",
     ],
     "program": [
@@ -143,14 +143,28 @@ def _date_after_label(text: str, label: str) -> tuple[str, str, date | None] | N
     return None
 
 
+def _enrollment_date(text: str) -> tuple[str, str, date | None] | None:
+    """Use only a date written directly after an admission-date statement."""
+    patterns = (
+        r"\b\u0434\u0430\u0442\u0430\s+\u0437\u0430\u0447\u0438\u0441\u043b\u0435\u043d\u0438\w*\b",
+        r"\b\u0437\u0430\u0447\u0438\u0441\u043b\u0435\u043d\w*\s+(?:\u0441|\u043d\u0430|\u0432)\b",
+    )
+    for pattern in patterns:
+        for match in re.finditer(pattern, text, re.IGNORECASE):
+            # Avoid borrowing an order, issue, or completion date from nearby text.
+            tail = text[match.end():match.end() + 60].splitlines()[0]
+            candidate = re.match(rf"\s*[:#\u2116\u2013\u2014-]?\s*({_DATE_TOKEN})", tail)
+            if candidate:
+                parsed = _parse_date_token(candidate.group(1))
+                if parsed:
+                    return parsed
+    return None
+
+
 def _study_period_details(text: str) -> tuple[str, str | None]:
     """Извлекает подтверждённые границы периода и объясняет восстановление даты."""
     notes: list[str] = []
-    enrollment = (
-        _date_after_label(text, r"\bдата\s+(?:зачислени\w*|дивслени\w*|дислени\w*|исчислени\w*)")
-        or _date_after_label(text, r"\bзачислен\w*\s+(?:с|на|в)\b")
-        or _date_after_label(text, r"\b(?:зачислени\w*|дивслени\w*|дислени\w*|исчислени\w*)")
-    )
+    enrollment = _enrollment_date(text)
 
     start = end = None
     range_pattern = rf"\bс\s*({_DATE_TOKEN})[^\n]{{0,50}}?\b(?:по|до)\s*({_DATE_TOKEN})"
@@ -180,6 +194,8 @@ def _study_period_details(text: str) -> tuple[str, str | None]:
         notes.append(f"Дата окончания распознана частично ({end[0]}); недостающие части не подставлялись.")
     elif start and not end:
         notes.append("Полную дату окончания обучения не удалось распознать.")
+    if end and not start and not enrollment:
+        notes.append("Дата зачисления не распознана; начало периода не восстановлено.")
     if start and start[1] != "day" and not enrollment:
         notes.append(f"Дата начала распознана частично ({start[0]}).")
 

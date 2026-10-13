@@ -2,12 +2,12 @@ $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 # Host-режим (без Docker): сервер рядом, модели из ./models.
 $candidates = @(
-  "$root\models\PaddleOCR-VL-1.5.gguf",
-  "C:\models\PaddleOCR-VL-1.5.gguf"
+  "$root\models\PaddleOCR-VL-1.6-GGUF.gguf",
+  "C:\models\PaddleOCR-VL-1.6-GGUF.gguf"
 ) | Where-Object { Test-Path $_ }
 $mmprojCandidates = @(
-  "$root\models\PaddleOCR-VL-1.5-mmproj.gguf",
-  "C:\models\PaddleOCR-VL-1.5-mmproj.gguf"
+  "$root\models\PaddleOCR-VL-1.6-GGUF-mmproj.gguf",
+  "C:\models\PaddleOCR-VL-1.6-GGUF-mmproj.gguf"
 ) | Where-Object { Test-Path $_ }
 if (!$candidates -or !$mmprojCandidates) { Write-Error "GGUF/mmproj not found. Run scripts/install_llama.ps1 first (./models)."; exit 1 }
 $model = $candidates | Select-Object -First 1

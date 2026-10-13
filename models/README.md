@@ -1,11 +1,11 @@
 # Модели llama-server (не в git, только .gitkeep)
 
-Для одной команды `docker compose up --build` положите сюда 2 файла (~1-2 ГБ):
+Для OCR в Docker или на CPU через llama.cpp нужны 2 файла (~1,82 ГБ):
 
-- `PaddleOCR-VL-1.5.gguf`
-- `PaddleOCR-VL-1.5-mmproj.gguf`
+- `PaddleOCR-VL-1.6-GGUF.gguf`
+- `PaddleOCR-VL-1.6-GGUF-mmproj.gguf`
 
-Источник: HuggingFace `PaddlePaddle/PaddleOCR-VL-1.5-GGUF`.
+Источник: Hugging Face `PaddlePaddle/PaddleOCR-VL-1.6-GGUF`.
 
 Быстро (PowerShell, из корня репо):
 

@@ -9,8 +9,8 @@ if (!(Test-Path $zip)) {
 Expand-Archive $zip C:\llama -Force
 Get-ChildItem C:\llama -Recurse -Filter llama-server.exe | Select-Object FullName
 $files = @{
-  "$root\models\PaddleOCR-VL-1.5.gguf" = "https://huggingface.co/PaddlePaddle/PaddleOCR-VL-1.5-GGUF/resolve/main/PaddleOCR-VL-1.5.gguf"
-  "$root\models\PaddleOCR-VL-1.5-mmproj.gguf" = "https://huggingface.co/PaddlePaddle/PaddleOCR-VL-1.5-GGUF/resolve/main/PaddleOCR-VL-1.5-mmproj.gguf"
+  "$root\models\PaddleOCR-VL-1.6-GGUF.gguf" = "https://huggingface.co/PaddlePaddle/PaddleOCR-VL-1.6-GGUF/resolve/main/PaddleOCR-VL-1.6-GGUF.gguf"
+  "$root\models\PaddleOCR-VL-1.6-GGUF-mmproj.gguf" = "https://huggingface.co/PaddlePaddle/PaddleOCR-VL-1.6-GGUF/resolve/main/PaddleOCR-VL-1.6-GGUF-mmproj.gguf"
 }
 foreach ($path in $files.Keys) {
   if (!(Test-Path $path)) {
