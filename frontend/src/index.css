@@ -15,14 +15,14 @@
 
 html.dark {
   color-scheme: dark;
-  color: #e2e8f0;
-  background: #0f172a;
+  color: #e7f0e9;
+  background: #101812;
 }
 
 html.dark body,
 html.dark #root {
-  color: #e2e8f0;
-  background-color: #0f172a;
+  color: #e7f0e9;
+  background-color: #101812;
 }
 
 /* Recolor existing shared utility surfaces while keeping the brand accents. */
@@ -31,11 +31,11 @@ html.dark [class~="bg-[#f4f7f4]"],
 html.dark [class~="bg-[#f9fcf9]"],
 html.dark .bg-slate-50,
 html.dark .bg-slate-100 {
-  background-color: #1e293b;
+  background-color: #1b2720;
 }
 
 html.dark .bg-emerald-50 {
-  background-color: #123328;
+  background-color: #183527;
 }
 
 html.dark [class*="text-[#1e293b]"],
@@ -45,29 +45,37 @@ html.dark .text-slate-600,
 html.dark .text-slate-500,
 html.dark .text-slate-900,
 html.dark .text-slate-950 {
-  color: #e2e8f0;
+  color: #e7f0e9;
+}
+
+html.dark [class*="text-[#087b45]"] {
+  color: #55c98a;
 }
 
 html.dark [class*="border-[#1e293b]"],
 html.dark .border-slate-100,
 html.dark .border-slate-200,
 html.dark .border-slate-300 {
-  border-color: rgb(148 163 184 / 25%);
+  border-color: rgb(137 164 145 / 25%);
 }
 
 html.dark [class*="bg-white/"] {
-  background-color: rgb(30 41 59 / 85%);
+  background-color: rgb(27 39 32 / 88%);
+}
+
+html.dark [class~="hover:bg-[#f4f7f4]"]:hover {
+  background-color: #26382c;
 }
 
 html.dark input,
 html.dark textarea,
 html.dark select {
-  color: #e2e8f0;
+  color: #e7f0e9;
 }
 
 html.dark input::placeholder,
 html.dark textarea::placeholder {
-  color: #94a3b8;
+  color: #9bad9f;
 }
 
 * {
