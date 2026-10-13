@@ -33,22 +33,8 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           
          
-          <Route 
-            path="/upload" 
-            element={
-              <ProtectedRoute>
-                <UploadPage />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/result" 
-            element={
-              <ProtectedRoute>
-                <ResultPage />
-              </ProtectedRoute>
-            } 
-          />
+          <Route path="/upload" element={<UploadPage />} />
+          <Route path="/result" element={<ResultPage />} />
           <Route 
             path="/profile" 
             element={
