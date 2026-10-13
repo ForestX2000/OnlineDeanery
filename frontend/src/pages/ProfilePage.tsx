@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   AlertTriangle,
+  ChevronDown,
   CheckCircle2,
   Clock3,
   FileText,
@@ -170,22 +171,50 @@ export default function ProfilePage() {
                 const status = requestStatus(item.status);
                 const StatusIcon = status.icon;
                 return (
-                  <article key={item.request_id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-500">
-                        <time dateTime={item.created_at}>{formatDate(item.created_at)}</time>
-                        {isAdmin && <span>{item.user_name} · {item.user_email}</span>}
+                  <article key={item.request_id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:border-[#087b45]/30 hover:shadow-md">
+                    <details className="group">
+                      <summary className="flex cursor-pointer list-none flex-col gap-3 p-5 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#159957] sm:flex-row sm:items-center sm:justify-between [&::-webkit-details-marker]:hidden">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-500">
+                            <time dateTime={item.created_at}>{formatDate(item.created_at)}</time>
+                            {isAdmin && <span className="truncate">{item.user_name} · {item.user_email}</span>}
+                          </div>
+                          <p className="mt-3 line-clamp-2 whitespace-pre-wrap break-words font-semibold text-slate-800">{item.question}</p>
+                        </div>
+                        <div className="flex shrink-0 items-center justify-between gap-3 sm:justify-end">
+                          <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${status.style}`}>
+                            <StatusIcon size={14} /> {status.label}
+                          </span>
+                          <ChevronDown size={18} className="text-slate-400 transition-transform group-open:rotate-180" aria-hidden="true" />
+                        </div>
+                      </summary>
+                      <div className="space-y-5 border-t border-slate-100 px-5 py-5 sm:px-6">
+                        <dl className="grid gap-4 text-sm sm:grid-cols-2">
+                          <div>
+                            <dt className="font-medium text-slate-500">Дата запроса</dt>
+                            <dd className="mt-1 text-slate-800">{formatDate(item.created_at)}</dd>
+                          </div>
+                          <div>
+                            <dt className="font-medium text-slate-500">Статус</dt>
+                            <dd className="mt-1 inline-flex items-center gap-1.5 text-slate-800"><StatusIcon size={15} className={status.style.split(" ").filter((part) => part.startsWith("text-")).join(" ")} />{status.label}</dd>
+                          </div>
+                          {isAdmin && <div className="sm:col-span-2">
+                            <dt className="font-medium text-slate-500">Пользователь</dt>
+                            <dd className="mt-1 break-words text-slate-800">{item.user_name} · {item.user_email}</dd>
+                          </div>}
+                        </dl>
+                        <div>
+                          <h3 className="text-sm font-semibold text-[#087b45]">Вопрос</h3>
+                          <p className="mt-2 whitespace-pre-wrap break-words text-slate-800">{item.question}</p>
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-semibold text-slate-500">Ответ</h3>
+                          {item.answer
+                            ? <p className="mt-2 whitespace-pre-wrap break-words leading-7 text-slate-700">{item.answer}</p>
+                            : <p className="mt-2 text-sm text-slate-500">{item.status === "processing" ? "Запрос ещё обрабатывается." : "Ответ не сохранён."}</p>}
+                        </div>
                       </div>
-                      <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${status.style}`}>
-                        <StatusIcon size={14} /> {status.label}
-                      </span>
-                    </div>
-                    <h3 className="mt-4 text-sm font-semibold uppercase tracking-wide text-[#087b45]">Вопрос</h3>
-                    <p className="mt-1 whitespace-pre-wrap break-words text-slate-800">{item.question}</p>
-                    {item.answer && <>
-                      <h3 className="mt-4 text-sm font-semibold uppercase tracking-wide text-slate-500">Ответ</h3>
-                      <p className="mt-1 whitespace-pre-wrap break-words text-slate-700">{item.answer}</p>
-                    </>}
+                    </details>
                   </article>
                 );
               })}
