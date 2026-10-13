@@ -27,7 +27,7 @@ export interface DocumentCoordinate {
   text: string
   bbox: [number, number, number, number]
   confidence: number | null
-  source: "yolo" | "spotting" | "color"
+  source: "yolo" | "spotting" | "tesseract" | "color"
   page: 1
 }
 
