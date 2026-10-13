@@ -18,7 +18,7 @@ class RulesTests(unittest.TestCase):
         return Document(type=kind, fields=fields)
 
     def test_content_question_lists_document_fields(self):
-        for question in ["Что написано в документе?", "О чём говорится в справке?", "Перескажи документ"]:
+        for question in ["Что написано в документе?", "Что там написано?", "О чём говорится в справке?", "Перескажи документ"]:
             with self.subTest(question=question):
                 result = answer_question(self.base, question, self.complete("study_certificate"), [])
                 self.assertNotIn("Ответа нет", result["answer"])
