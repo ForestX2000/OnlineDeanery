@@ -24,7 +24,7 @@ services:
       context: .
       dockerfile: backend/Dockerfile
     environment:
-      INTERNAL_TIMEOUT: ${INTERNAL_TIMEOUT:-210}
+      INTERNAL_TIMEOUT: ${INTERNAL_TIMEOUT:-300}
       BACKEND2_URL: http://rules:8002/answer
       ML1_URL: "${ML1_URL:-http://host.docker.internal:8001/ocr}"
       ML2_URL: "${ML2_URL:-http://host.docker.internal:8003/extract}"

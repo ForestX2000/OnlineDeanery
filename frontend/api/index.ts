@@ -5,8 +5,8 @@ import { isDocumentImage } from "./highlights.ts"
 export * from "./types.ts"
 
 const API_URL = (import.meta.env?.VITE_API_URL ?? "http://localhost:8000").replace(/\/+$/, "")
-// Даём завершиться длительной OCR-обработке и последующим этапам анализа.
-const REQUEST_TIMEOUT_MS = 270_000
+// Два прохода OCR могут занять до 270 секунд плюс последующий анализ.
+const REQUEST_TIMEOUT_MS = 390_000
 
 export class ApiError extends Error {
   readonly status: number

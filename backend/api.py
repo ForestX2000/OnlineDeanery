@@ -47,7 +47,7 @@ BACKEND2_URL = os.getenv("BACKEND2_URL", "http://localhost:8002/answer")
 DocumentType = Literal["study_certificate", "academic_leave", "internship_certificate"]
 logger = logging.getLogger(__name__)
 # Даём OCR-сервису завершить распознавание и оставляем время на ответ.
-INTERNAL_TIMEOUT = float(os.getenv("INTERNAL_TIMEOUT", "210"))
+INTERNAL_TIMEOUT = float(os.getenv("INTERNAL_TIMEOUT", "300"))
 
 # Настройки SMTP для отправки реальной почты
 SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")

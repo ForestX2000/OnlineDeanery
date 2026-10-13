@@ -59,21 +59,22 @@ def nms(boxes: np.ndarray, scores: np.ndarray, threshold: float = 0.45) -> list[
     return keep
 
 
-def _ring_support(ink, cx, cy, radius, height, width, samples=64):
+def _ellipse_support(ink, cx, cy, radius_x, radius_y, samples=48):
+    height, width = ink.shape
     angles = np.linspace(0, 2 * math.pi, samples, endpoint=False)
-    xs = np.clip((cx + radius * np.cos(angles)).astype(int), 0, width - 1)
-    ys = np.clip((cy + radius * np.sin(angles)).astype(int), 0, height - 1)
+    xs = (cx + radius_x * np.cos(angles)).astype(int)
+    ys = (cy + radius_y * np.sin(angles)).astype(int)
+    if (xs.min() < 0 or ys.min() < 0 or xs.max() >= width or ys.max() >= height):
+        return 0.0
     return float(ink[ys, xs].mean())
 
 
 def detect_blue_seal(image):
     """Классический поиск круглой синей печати без весов (fallback, не YOLO).
 
-    Российские печати — бледно-синие кольца с текстом: ищем окружность
-    перебором по сетке (доля синих пикселей на окружности), затем уточняем
-    центр/радиус и проверяем, что внутри не сплошная заливка (кольцо, а не
-    логотип). Точность ниже YOLO: срабатывает только при сильном отклике
-    (опора >= 0.6), иначе None («не проверено», не «нет»).
+    Российские печати — часто бледно-синие кольца, и на фото страницы круг
+    может выглядеть овалом из-за перспективы. Подбираем центр и пропорции
+    эллипса, затем локально уточняем границу.
     """
     height, width = image.shape[:2]
     if min(height, width) < 200:
@@ -83,43 +84,49 @@ def detect_blue_seal(image):
         image, (int(width * scale), int(height * scale)), interpolation=cv2.INTER_AREA)
     out_height, out_width = small.shape[:2]
     hsv = cv2.cvtColor(small, cv2.COLOR_BGR2HSV)
-    ink = (cv2.inRange(hsv, np.array([85, 35, 60]),
+    ink = (cv2.inRange(hsv, np.array([80, 30, 40]),
                        np.array([145, 255, 255])) > 0).astype(np.float32)
     if float(ink.mean()) < 0.0005:
         return None
     min_dim = min(out_height, out_width)
-    radii = range(int(min_dim * 0.06), int(min_dim * 0.2) + 1,
+    radii = range(int(min_dim * 0.055), int(min_dim * 0.2) + 1,
                   max(4, int(min_dim * 0.015)))
     step = max(12, int(min_dim * 0.04))
-    best = (0.0, 0.0, 0.0, 0)
+    aspect_ratios = (0.78, 0.9, 1.0, 1.12, 1.25, 1.38)
+    best = (0.0, 0.0, 0.0, 0.0, 0.0)
     for cy in range(step, out_height - step, step):
         for cx in range(step, out_width - step, step):
             for radius in radii:
-                if cx - radius < 0 or cy - radius < 0:
-                    continue
-                if cx + radius >= out_width or cy + radius >= out_height:
-                    continue
-                score = _ring_support(ink, float(cx), float(cy), float(radius),
-                                      out_height, out_width, samples=48)
-                if score > best[0]:
-                    best = (score, float(cx), float(cy), radius)
-    score, cx, cy, radius = best
-    for _ in range(2):  # локальное уточнение центра и радиуса
-        improved = False
+                for aspect in aspect_ratios:
+                    radius_x = radius * math.sqrt(aspect)
+                    radius_y = radius / math.sqrt(aspect)
+                    if (cx - radius_x < 0 or cy - radius_y < 0
+                            or cx + radius_x >= out_width or cy + radius_y >= out_height):
+                        continue
+                    score = _ellipse_support(ink, float(cx), float(cy), radius_x, radius_y)
+                    if score > best[0]:
+                        best = (score, float(cx), float(cy), radius_x, radius_y)
+    score, cx, cy, radius_x, radius_y = best
+    for _ in range(2):  # локальное уточнение центра и радиусов
+        best_candidate = (score, cx, cy, radius_x, radius_y)
         for dcx in (-step / 4, 0.0, step / 4):
             for dcy in (-step / 4, 0.0, step / 4):
                 for dr in (-2.0, 0.0, 2.0):
-                    cand = _ring_support(ink, cx + dcx, cy + dcy, radius + dr,
-                                         out_height, out_width)
-                    if cand > score:
-                        score, cx, cy, radius = cand, cx + dcx, cy + dcy, radius + dr
-                        improved = True
-        if not improved:
+                    cand = _ellipse_support(ink, cx + dcx, cy + dcy,
+                                            radius_x + dr, radius_y + dr)
+                    if cand > best_candidate[0]:
+                        best_candidate = (cand, cx + dcx, cy + dcy,
+                                          radius_x + dr, radius_y + dr)
+        if best_candidate[0] == score:
             break
-    if score < 0.6 or radius <= 0:
+        score, cx, cy, radius_x, radius_y = best_candidate
+    # У печати часто перекрыты подписью и текстом участки контура, поэтому
+    # допускаем разрывы, но требуем синюю линию на внешнем кольце и внутри.
+    inner_support = _ellipse_support(ink, cx, cy, radius_x * 0.68, radius_y * 0.68)
+    if score < 0.3 or inner_support < 0.035 or radius_x <= 0 or radius_y <= 0:
         return None
-    box = [(cx - radius) / scale, (cy - radius) / scale,
-           (cx + radius) / scale, (cy + radius) / scale]
+    box = [(cx - radius_x) / scale, (cy - radius_y) / scale,
+           (cx + radius_x) / scale, (cy + radius_y) / scale]
     box = [round(max(0.0, min(v, bound)), 2)
            for v, bound in zip(box, [width, height, width, height])]
     if box[2] <= box[0] or box[3] <= box[1]:
@@ -250,9 +257,12 @@ def detect_marks(image: np.ndarray) -> dict:
             seal = detect_blue_seal(image)
         except Exception as exc:
             logger.warning("Blue-seal heuristic failed: %s", exc)
-            seal = None
-        if seal is not None:
-            stamp = {"status": "ready", "signature": None, "stamp": True, "boxes": [seal]}
+            stamp = unavailable("error")
+        else:
+            # Эвристика была выполнена: отсутствие уверенной синей печати —
+            # проверенный отрицательный результат, а не «не проверено».
+            stamp = {"status": "ready", "signature": None,
+                     "stamp": seal is not None, "boxes": [seal] if seal else []}
     statuses = {sig["status"], stamp["status"]}
     if statuses == {"disabled"}:
         return unavailable("disabled")

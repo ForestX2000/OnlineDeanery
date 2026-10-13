@@ -26,7 +26,7 @@ PATTERNS: dict[str, list[str]] = {
     ],
     "university": [
         r"«([^»]{5,120}?(?:университет|институт|академия|колледж)[^»]*?)»",
-        r"([А-ЯЁ][а-яё]+\s+государственн\w+\s+(?:техническ\w+|университет\w*))",
+        r"([А-ЯЁ][а-яё]+\s+государственн\w+\s+(?:техническ\w+\s+)?(?:университет\w*|колледж\w*)?)",
         r"([А-ЯЁ]{2,8}(?:ГУ|ГТУ|ГАУ|ПГУ|ТУ|ИУ|АСУ))\b",
     ],
     "program": [
@@ -132,10 +132,11 @@ def _parse_date_token(value: str) -> tuple[str, str, date | None] | None:
 
 
 def _date_after_label(text: str, label: str) -> tuple[str, str, date | None] | None:
-    for match in re.finditer(rf"(?:{label})[^\d\n]{{0,80}}", text, re.IGNORECASE):
-        tail = text[match.end():match.end() + 80].splitlines()[0]
-        candidate = re.search(_DATE_TOKEN, tail)
-        if candidate:
+    for match in re.finditer(label, text, re.IGNORECASE):
+        # Между подписью поля и его датой OCR часто оставляет номер приказа,
+        # поэтому нельзя ограничивать поиск первым числом.
+        tail = text[match.end():match.end() + 140].splitlines()[0]
+        for candidate in re.finditer(_DATE_TOKEN, tail):
             parsed = _parse_date_token(candidate.group(0))
             if parsed:
                 return parsed
@@ -146,8 +147,9 @@ def _study_period_details(text: str) -> tuple[str, str | None]:
     """Извлекает подтверждённые границы периода и объясняет восстановление даты."""
     notes: list[str] = []
     enrollment = (
-        _date_after_label(text, r"\b(?:дата\s+)?(?:зачислени\w*|дивслени\w*|дислени\w*|исчислени\w*)")
+        _date_after_label(text, r"\bдата\s+(?:зачислени\w*|дивслени\w*|дислени\w*|исчислени\w*)")
         or _date_after_label(text, r"\bзачислен\w*\s+(?:с|на|в)\b")
+        or _date_after_label(text, r"\b(?:зачислени\w*|дивслени\w*|дислени\w*|исчислени\w*)")
     )
 
     start = end = None

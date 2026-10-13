@@ -84,7 +84,8 @@ def read_transcription(payload: Any) -> str:
 
 
 def run_vl_ocr(image: np.ndarray, task: str = "OCR:", *,
-               settings: OcrSettings | None = None) -> str:
+               settings: OcrSettings | None = None,
+               timeout: float | None = None) -> str:
     settings = settings or OcrSettings.from_env()
     ok, buf = cv2.imencode(".png", image)
     if not ok:
@@ -107,7 +108,7 @@ def run_vl_ocr(image: np.ndarray, task: str = "OCR:", *,
             "max_tokens": settings.max_tokens,
             "stream": False,
         },
-        timeout=(5, settings.timeout),
+        timeout=(5, settings.timeout if timeout is None else timeout),
     )
     response.raise_for_status()
     try:
@@ -170,20 +171,92 @@ def run_ocr(image: np.ndarray) -> dict[str, Any]:
     if not recognized_text:
         raise OcrResponseError("OCR-модель не вернула распознанный текст")
 
+    spotting_text = recognized_text
     if not boxes:
         logger.info("PaddleOCR-VL returned text without Spotting boxes; deriving line boxes locally")
         boxes = run_tesseract_ocr(image)["boxes"]
+
+    # Spotting provides geometry for the image overlay. OCR is a separate
+    # model task trained to transcribe the page as a whole, so use its text
+    # and retain any lines that Spotting found but OCR omitted.
+    try:
+        settings = OcrSettings.from_env()
+        transcription = run_vl_ocr(
+            image, "OCR:", settings=settings, timeout=min(settings.timeout, 90.0),
+        ).strip()
+        if transcription:
+            recognized_text = _append_unique_lines(transcription, spotting_text.splitlines())
+    except (requests.RequestException, OcrResponseError) as exc:
+        logger.warning("Full-page OCR pass unavailable (%s); keeping Spotting transcription",
+                       type(exc).__name__)
+
+    # PaddleOCR-VL is the primary transcription. A contrast-enhanced local
+    # pass recovers clear lines it omitted (dates, order numbers, headings),
+    # while the overlap check prevents duplicate lines from changing parsing.
+    try:
+        supplement = run_tesseract_ocr(image, enhanced=True)
+        existing_lines = recognized_text.splitlines()
+        existing_tokens = _ocr_tokens(recognized_text)
+        added = 0
+        for box in supplement["boxes"]:
+            line = box["text"].strip()
+            line_tokens = _ocr_tokens(line)
+            if (
+                (box.get("confidence") or 0) < 0.72
+                or len(re.findall(r"[0-9A-Za-zА-Яа-яЁё]", line)) < 6
+                or not line_tokens
+                or len(line_tokens & existing_tokens) / len(line_tokens) >= 0.78
+            ):
+                continue
+            recognized_text += "\n" + line
+            existing_lines.append(line)
+            existing_tokens.update(line_tokens)
+            boxes.append({**box, "source": "tesseract_supplement"})
+            added += 1
+            if added >= 40:
+                break
+        if added:
+            logger.info("Local OCR recovered %d additional high-confidence lines", added)
+    except Exception as exc:
+        logger.warning("Local OCR supplement unavailable (%s)", type(exc).__name__)
     return {"text": recognized_text, "boxes": boxes}
 
 
-def run_tesseract_ocr(image: np.ndarray) -> dict[str, Any]:
+def _ocr_tokens(text: str) -> set[str]:
+    return set(re.findall(r"[0-9A-Za-zА-Яа-яЁё]{2,}", text.casefold()))
+
+
+def _append_unique_lines(text: str, lines: list[str]) -> str:
+    result = text.strip()
+    known = _ocr_tokens(result)
+    for line in lines:
+        line = line.strip()
+        tokens = _ocr_tokens(line)
+        if not tokens or len(tokens & known) / len(tokens) >= 0.78:
+            continue
+        result += "\n" + line
+        known.update(tokens)
+    return result
+
+
+def run_tesseract_ocr(image: np.ndarray, *, enhanced: bool = False) -> dict[str, Any]:
     """Get local OCR text and line boxes as a fallback when Spotting has no geometry."""
     import pytesseract
     from pytesseract import Output
 
-    rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    scale = 1.0
+    if enhanced:
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        contrast = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8)).apply(gray)
+        blurred = cv2.GaussianBlur(contrast, (0, 0), 1.1)
+        sharpened = cv2.addWeighted(contrast, 1.45, blurred, -0.45, 0)
+        scale = min(1.5, max(1.0, 2600 / max(image.shape[:2])))
+        ocr_image = cv2.resize(sharpened, None, fx=scale, fy=scale,
+                               interpolation=cv2.INTER_CUBIC)
+    else:
+        ocr_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     data = pytesseract.image_to_data(
-        rgb, lang="rus+eng", config="--psm 6", output_type=Output.DICT,
+        ocr_image, lang="rus+eng", config="--oem 1 --psm 6", output_type=Output.DICT,
     )
     grouped: dict[tuple[int, int, int], dict[str, Any]] = {}
     for index, raw_text in enumerate(data["text"]):
@@ -196,9 +269,10 @@ def run_tesseract_ocr(image: np.ndarray) -> dict[str, Any]:
             continue
 
         key = (data["block_num"][index], data["par_num"][index], data["line_num"][index])
-        left, top = int(data["left"][index]), int(data["top"][index])
-        right = left + int(data["width"][index])
-        bottom = top + int(data["height"][index])
+        left = round(int(data["left"][index]) / scale)
+        top = round(int(data["top"][index]) / scale)
+        right = round((int(data["left"][index]) + int(data["width"][index])) / scale)
+        bottom = round((int(data["top"][index]) + int(data["height"][index])) / scale)
         line = grouped.setdefault(key, {
             "words": [], "left": left, "top": top, "right": right, "bottom": bottom,
             "confidences": [],
