@@ -135,6 +135,10 @@ services:
       - "8080"
       - --temp
       - "0"
+      # PaddleOCR-VL's Spotting task requires the 1,605,632-pixel input limit
+      # documented by the model card (1,605,632 / 28² = 2,048 image tokens).
+      - --image-max-tokens
+      - "2048"
     restart: unless-stopped
 
 volumes:

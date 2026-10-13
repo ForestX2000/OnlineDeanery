@@ -1,3 +1,5 @@
+import logging
+
 import requests
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.concurrency import run_in_threadpool
@@ -18,6 +20,7 @@ class OcrResponse(BaseModel):
 
 
 app = FastAPI(title="ML 1: OCR")
+logger = logging.getLogger(__name__)
 
 
 # health-check
@@ -47,6 +50,12 @@ async def ocr(file: UploadFile = File(...),
         except requests.ConnectionError as exc:
             raise HTTPException(503, "OCR-модель недоступна. Проверьте llama-server.") from exc
         except requests.RequestException as exc:
+            response = getattr(exc, "response", None)
+            if response is not None:
+                logger.error("llama-server rejected OCR request: HTTP %s %s",
+                             response.status_code, response.reason)
+            else:
+                logger.error("llama-server OCR request failed: %s", type(exc).__name__)
             raise HTTPException(502, "OCR-модель отклонила запрос") from exc
         except OcrResponseError as exc:
             raise HTTPException(502, str(exc)) from exc
