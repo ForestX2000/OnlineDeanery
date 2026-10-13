@@ -73,9 +73,9 @@ class PreparedImage:
 
 def rasterize_pdf_first_page(pdf_bytes: bytes, dpi: int = 200) -> bytes:
     """Render page 0 of a PDF to PNG bytes (PyMuPDF); later pages are ignored."""
-    import fitz
+    import pymupdf
     try:
-        with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
+        with pymupdf.open(stream=pdf_bytes, filetype="pdf") as doc:
             if doc.is_encrypted or len(doc) == 0:
                 raise ValueError("PDF защищён или не содержит страниц")
             page = doc[0]

@@ -1,6 +1,8 @@
 # Онлайн-деканат
 
-Веб-приложение для вопросов о правилах деканата и проверки документов.
+Цифровой секретарь: читает фото студенческого документа (OCR), заполняет
+карточку полей и отвечает на вопрос со ссылкой на пункты правил.
+Пайплайн: распознать текст → разложить данные по полям → ответить со ссылкой.
 
 ## Быстрый запуск через Docker
 
@@ -10,52 +12,86 @@ Node.js и Python на компьютере устанавливать не ну
 ```powershell
 git clone https://github.com/ForestX2000/OnlineDeanery.git
 cd OnlineDeanery
-docker compose up --build
+powershell -ExecutionPolicy Bypass -File scripts/install_llama.ps1
+docker compose up --build -d
 ```
+
+`install_llama.ps1` скачивает `llama-server` и оба `.gguf` в `./models/`
+(в git не входят, см. `models/README.md`). Одна команда поднимает всё,
+включая OCR: отдельный `llama-server.exe` больше не нужен.
 
 После запуска откройте:
 
 - Frontend: <http://localhost:5173>
-- API и Swagger: <http://localhost:8000/docs>
-- Сервис правил и Swagger: <http://localhost:8002/docs>
-- Состояние сервиса правил: <http://localhost:8002/health>
+- API и Swagger: <http://localhost:8000/docs>, здоровье: <http://localhost:8000/health>
+- Сервис правил и Swagger: <http://localhost:8002/docs>, здоровье: <http://localhost:8002/health>
 
-Чтобы оставить контейнеры работающими в фоне, используйте
-`docker compose up --build -d`. Посмотреть логи: `docker compose logs -f`.
-Остановить и удалить контейнеры: `docker compose down`.
+Фон: `docker compose up --build -d`. Логи: `docker compose logs -f [ml1|ml2|backend|rules|llama]`.
+Остановка: `docker compose down`.
 
-В форме можно сразу отправить вопрос **без файла**: Docker Compose запускает
-frontend, API и сервис правил, и этот сценарий работает без дополнительных сервисов.
+Вопрос **без файла** работает сразу (frontend + API + правила).
+С файлом нужны `ml1` (OCR через compose-сервис `llama`) и `ml2` (поля).
+Без `models/*.gguf` сервис `llama` перезапускается, `ml1` вернет `503`.
+PDF растеризуется первой страницей в `ml1` (PyMuPDF).
 
-### Проверка документов
-
-Одна команда поднимает все, включая OCR:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts/install_llama.ps1
-docker compose up --build
-```
-
-`install_llama.ps1` скачивает `llama-server` и оба `.gguf` в `./models/`.
-Сервис OCR (`ml1`, PaddleOCR-VL через compose-сервис `llama`) и извлечение полей (`ml2`)
-входят в репозиторий. Host-режим (`llama-server.exe` рядом) тоже поддерживается:
-`PADDLEOCR_VL_URL=http://host.docker.internal:8080/v1/chat/completions`, см. `scripts/run_llama.ps1`.
-
-- OCR: `http://localhost:8001/ocr` (в compose `ml1:8001` -> сервис `llama:8080`)
-- Extract: `http://localhost:8003/extract` (в compose `ml2:8003`)
-- llama-server: `http://localhost:8080/health` (модели из `./models/`, см. `models/README.md`)
-
-PDF принимается API, но `ml1/preprocess` PDF не растеризует: для PDF используйте
-JPG/PNG первой страницы, либо добавьте растеризацию (`pypdf/fitz/poppler`).
-Без `YOLO_*.onnx` детектор возвращает `signature/stamp=null` («проверка не выполнена»).
-
-Без `models/*.gguf` сервис `llama` будет перезапускаться, `ml1` вернет `503`.
 Если адреса отличаются, создайте `.env` на основе `.env.example` и укажите
-`PADDLEOCR_VL_URL`, `ML1_URL` и `ML2_URL`, затем перезапустите контейнеры:
+`PADDLEOCR_VL_URL`, `ML1_URL`, `ML2_URL`, затем перезапустите:
 
 ```powershell
 Copy-Item .env.example .env
-docker compose up --build
+docker compose up --build -d
 ```
 
-Контракт интеграции и запуск без Docker описаны в [docs/api.md](docs/api.md).
+Контракт интеграции и запуск без Docker — в [docs/api.md](docs/api.md).
+Сценарий 3-минутного демо — в [docs/demo_script.md](docs/demo_script.md).
+
+## Как пользоваться
+
+1. Откройте `http://localhost:5173` → `Загрузить документ`.
+2. Выберите тип (или автоопределение), приложите JPG/PNG/PDF до 10 МБ,
+   впишите вопрос, нажмите кнопку.
+3. На странице результата: таблица полей, ответ секретаря, источники
+   (`п. 3.x` или поле документа), подсветка найденного на фото,
+   форма уточняющего вопроса в том же диалоге.
+
+Три вида ответа: документ в порядке (`complete`), чего-то не хватает
+(`incomplete` + `missing_fields`), ответа нет (честно + `Обратитесь в деканат`).
+Проверка — это комплектность, решение всегда за сотрудником деканата.
+
+## Стек и инструменты
+
+- Frontend: React 19 + TypeScript + Vite + TailwindCSS 4, Zustand, react-dropzone.
+- Backend: Python 3.14 + FastAPI + Pydantic + httpx; PostgreSQL 15 для
+  личного кабинета/админки (API работает и без БД).
+- OCR: PaddleOCR-VL-1.5 (VLM 0.9B) через `llama.cpp llama-server` на CPU,
+  OpenCV-препроцессинг, PyMuPDF для PDF.
+- Извлечение полей: regex + словарь опечаток OCR + опциональная локальная LLM.
+- Подпись: YOLO11s Mels22 (`models/signature.onnx`, экспорт в `models/README.md`).
+  Печать: классика синего кольца без весов (`YOLO_STAMP_HEURISTIC`),
+  своя YOLO-печать подключается через `YOLO_MODEL_PATH`.
+- Правила: детерминированный движок `backend/rules.py` по JSON-базе
+  `backend/data/rules.json` (п. 3.1–3.3 из презентации кейса;
+  настоящее Положение заказчик не предоставил, шаблон —
+  `backend/data/university-rules.template.json`, подключение через `RULES_PATH`
+  без изменения кода). Внешние LLM API не используются.
+
+## results.json для закрытой проверки
+
+```powershell
+python -m tools.make_results --input ./closed --output results.json --api-url http://localhost:8000
+```
+
+`closed/questions.json`: `[{id, file, question, document_type}]`
+(`document_type` опционален). Выход: `[{id, document:{type, fields},
+answer, sources, verification, conversation_id}]`, ошибки — `{id, error}`.
+Пример на демо-документах: `demo_docs/questions.json` → `demo_results.json`
+(демо-PNG генерируются скриптом `python -m tools.make_demo_docs`).
+
+## Проверки
+
+```powershell
+.venv/Scripts/python.exe -m unittest discover -s backend/tests -q
+.venv/Scripts/python.exe -m unittest discover -s ml1/tests -q
+.venv/Scripts/python.exe -m unittest discover -s ml2/tests -q
+cd frontend; npm test; npm run lint; npm run build
+```
