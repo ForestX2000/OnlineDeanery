@@ -7,7 +7,15 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
-      "@": path.resolve(import.meta.dirname, "./src"),
+      "@": path.resolve(__dirname, "./src"),
     },
+  },
+  server: {
+    host: '0.0.0.0',
+    allowedHosts: [
+      'deanery.forestinc.ru',
+      'markedly-rare-basset.cloudpub.ru',
+      '.cloudpub.ru',
+    ],
   },
 })

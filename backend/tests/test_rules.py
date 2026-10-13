@@ -17,6 +17,14 @@ class RulesTests(unittest.TestCase):
                   for field in self.base.document_types[kind].required_fields}
         return Document(type=kind, fields=fields)
 
+    def test_content_question_lists_document_fields(self):
+        for question in ["Что написано в документе?", "Что там написано?", "О чём говорится в справке?", "Перескажи документ"]:
+            with self.subTest(question=question):
+                result = answer_question(self.base, question, self.complete("study_certificate"), [])
+                self.assertNotIn("Ответа нет", result["answer"])
+                self.assertIn("Содержание документа", result["answer"])
+                self.assertTrue(any(item["type"] == "документ" for item in result["sources"]))
+
     def test_other_intents_are_not_answered_by_field_presence(self):
         document = self.complete()
         for question in ["Какая стоимость курса?", "Кто должен ставить подпись?",
@@ -90,7 +98,7 @@ class RulesTests(unittest.TestCase):
     def test_date_order_can_be_configured(self):
         data = self.base.model_dump()
         data["document_types"]["academic_leave"]["date_orders"] = [{
-            "start": "start_date", "end": "end_date", "reference": "Поля заявления на академический отпуск",
+            "start": "start_date", "end": "end_date", "reference": "3.2",
         }]
         base = KnowledgeBase.model_validate(data)
         document = self.complete()

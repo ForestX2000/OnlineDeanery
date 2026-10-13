@@ -7,6 +7,8 @@
   печать conf 0.513 (бокс грубый, см. CONTEXT.md).
 Без файла весов источник возвращает status disabled/error, а поля —
 None («проверка не выполнена»), а не «печати нет» (см. ml2/visual.py).
+Исключение: печать без YOLO ищется классикой detect_blue_seal (синее кольцо);
+срабатывает только при сильном отклике, иначе stamp остаётся None.
 """
 
 import ast
@@ -55,6 +57,76 @@ def nms(boxes: np.ndarray, scores: np.ndarray, threshold: float = 0.45) -> list[
         iou = intersection / np.maximum(area_a + area_b - intersection, 1e-9)
         order = rest[iou <= threshold]
     return keep
+
+
+def _ring_support(ink, cx, cy, radius, height, width, samples=64):
+    angles = np.linspace(0, 2 * math.pi, samples, endpoint=False)
+    xs = np.clip((cx + radius * np.cos(angles)).astype(int), 0, width - 1)
+    ys = np.clip((cy + radius * np.sin(angles)).astype(int), 0, height - 1)
+    return float(ink[ys, xs].mean())
+
+
+def detect_blue_seal(image):
+    """Классический поиск круглой синей печати без весов (fallback, не YOLO).
+
+    Российские печати — бледно-синие кольца с текстом: ищем окружность
+    перебором по сетке (доля синих пикселей на окружности), затем уточняем
+    центр/радиус и проверяем, что внутри не сплошная заливка (кольцо, а не
+    логотип). Точность ниже YOLO: срабатывает только при сильном отклике
+    (опора >= 0.6), иначе None («не проверено», не «нет»).
+    """
+    height, width = image.shape[:2]
+    if min(height, width) < 200:
+        return None
+    scale = min(1.0, 800.0 / max(height, width))
+    small = image if scale == 1.0 else cv2.resize(
+        image, (int(width * scale), int(height * scale)), interpolation=cv2.INTER_AREA)
+    out_height, out_width = small.shape[:2]
+    hsv = cv2.cvtColor(small, cv2.COLOR_BGR2HSV)
+    ink = (cv2.inRange(hsv, np.array([85, 35, 60]),
+                       np.array([145, 255, 255])) > 0).astype(np.float32)
+    if float(ink.mean()) < 0.0005:
+        return None
+    min_dim = min(out_height, out_width)
+    radii = range(int(min_dim * 0.06), int(min_dim * 0.2) + 1,
+                  max(4, int(min_dim * 0.015)))
+    step = max(12, int(min_dim * 0.04))
+    best = (0.0, 0.0, 0.0, 0)
+    for cy in range(step, out_height - step, step):
+        for cx in range(step, out_width - step, step):
+            for radius in radii:
+                if cx - radius < 0 or cy - radius < 0:
+                    continue
+                if cx + radius >= out_width or cy + radius >= out_height:
+                    continue
+                score = _ring_support(ink, float(cx), float(cy), float(radius),
+                                      out_height, out_width, samples=48)
+                if score > best[0]:
+                    best = (score, float(cx), float(cy), radius)
+    score, cx, cy, radius = best
+    for _ in range(2):  # локальное уточнение центра и радиуса
+        improved = False
+        for dcx in (-step / 4, 0.0, step / 4):
+            for dcy in (-step / 4, 0.0, step / 4):
+                for dr in (-2.0, 0.0, 2.0):
+                    cand = _ring_support(ink, cx + dcx, cy + dcy, radius + dr,
+                                         out_height, out_width)
+                    if cand > score:
+                        score, cx, cy, radius = cand, cx + dcx, cy + dcy, radius + dr
+                        improved = True
+        if not improved:
+            break
+    if score < 0.6 or radius <= 0:
+        return None
+    box = [(cx - radius) / scale, (cy - radius) / scale,
+           (cx + radius) / scale, (cy + radius) / scale]
+    box = [round(max(0.0, min(v, bound)), 2)
+           for v, bound in zip(box, [width, height, width, height])]
+    if box[2] <= box[0] or box[3] <= box[1]:
+        return None
+    return {"field": "stamp", "text": "Печать", "bbox": box,
+            "confidence": round(min(0.9, 0.35 + score * 0.6), 6),
+            "source": "color", "page": 1}
 
 
 class SignatureStampDetector:
@@ -172,6 +244,15 @@ def detect_marks(image: np.ndarray) -> dict:
         return unavailable("error")
     sig = _run_source(image, "YOLO_SIG_MODEL_PATH", frozenset({"signature"}), threshold)
     stamp = _run_source(image, "YOLO_MODEL_PATH", frozenset({"stamp"}), threshold)
+    if stamp["status"] == "disabled" and os.getenv("YOLO_STAMP_HEURISTIC", "1") == "1":
+        # YOLO-весов печати нет: классический поиск синего кольца, только True.
+        try:
+            seal = detect_blue_seal(image)
+        except Exception as exc:
+            logger.warning("Blue-seal heuristic failed: %s", exc)
+            seal = None
+        if seal is not None:
+            stamp = {"status": "ready", "signature": None, "stamp": True, "boxes": [seal]}
     statuses = {sig["status"], stamp["status"]}
     if statuses == {"disabled"}:
         return unavailable("disabled")

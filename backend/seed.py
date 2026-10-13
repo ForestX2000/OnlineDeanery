@@ -24,24 +24,21 @@ async def seed_database():
             users = [
                 UserDB(
                     email="student@university.ru",
-                    password="123456",
-                    first_name="Иван",
-                    last_name="Студентов",
-                    role=UserRole.STUDENT
+                    username="Иван Студентов",
+                    password_hash="123456",
+                    role=UserRole.STUDENT.value,
                 ),
                 UserDB(
                     email="admin@university.ru",
-                    password="admin123",
-                    first_name="Алексей",
-                    last_name="Админов",
-                    role=UserRole.ADMIN
+                    username="Алексей Админов",
+                    password_hash="admin123",
+                    role=UserRole.ADMIN.value,
                 ),
                 UserDB(
                     email="test@university.ru",
-                    password="test123",
-                    first_name="Мария",
-                    last_name="Петрова",
-                    role=UserRole.STUDENT
+                    username="Мария Петрова",
+                    password_hash="test123",
+                    role=UserRole.STUDENT.value,
                 )
             ]
             

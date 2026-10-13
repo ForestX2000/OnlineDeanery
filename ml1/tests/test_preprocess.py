@@ -162,5 +162,25 @@ class OrientationTests(unittest.TestCase):
         self.assertEqual(preprocess(sideways, rotation=180).shape, (600, 400, 3))
 
 
+class PdfTests(unittest.TestCase):
+    def test_pdf_first_page_rasterizes_to_pixels(self):
+        from ml1.preprocess import prepare_image, rasterize_pdf_first_page
+        page = Image.new("RGB", (200, 300), "white")
+        stream = BytesIO()
+        page.save(stream, format="PDF")
+        pdf = stream.getvalue()
+        self.assertTrue(pdf.startswith(b"%PDF-"))
+        png = rasterize_pdf_first_page(pdf)
+        self.assertTrue(png.startswith(b"\x89PNG"))
+        prepared = prepare_image(pdf)
+        self.assertEqual(prepared.pixels.ndim, 3)
+        self.assertGreater(prepared.width, 0)
+
+    def test_broken_pdf_is_rejected(self):
+        from ml1.preprocess import prepare_image
+        with self.assertRaises(ValueError):
+            prepare_image(b"%PDF-broken")
+
+
 if __name__ == "__main__":
     unittest.main()

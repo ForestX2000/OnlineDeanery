@@ -1,6 +1,7 @@
-﻿import os
+import os
 import time
 import uuid
+import logging
 import warnings
 import secrets
 import string
@@ -22,16 +23,9 @@ from pypdf import PdfReader
 from pypdf.errors import PdfReadError
 from sqlalchemy import select
 
-<<<<<<< Updated upstream
 from backend.models import ApiModel, ApiResponse, Document, DocumentImage, ServiceAnswer
-=======
 from backend.database import engine, Base, SessionLocal
 from backend.models import UserDB, DocumentDB, ExtractedFieldDB, RuleDB, RequestDB, AuditLogDB
-from backend.models import ApiModel, ApiResponse, Document, ServiceAnswer
-
-import logging
-logger = logging.getLogger(__name__)
->>>>>>> Stashed changes
 
 MAX_FILE_SIZE = 10 * 1024 * 1024
 MAX_QUESTION_LENGTH = 5000
@@ -41,10 +35,15 @@ SESSION_TTL_SECONDS = 3600
 MAX_HISTORY_MESSAGES = 20
 ALLOWED_FORMATS = {".jpg": "JPEG", ".jpeg": "JPEG", ".png": "PNG", ".pdf": "PDF"}
 MIME_TYPES = {"JPEG": "image/jpeg", "PNG": "image/png", "PDF": "application/pdf"}
-ML1_URL = os.getenv("ML1_URL", "http://localhost:8001/ocr")
+
+# Настройки URL сервисов
+ML1_URL = os.getenv("ML1_URL", "http://host.docker.internal:8001/ocr")
 ML2_URL = os.getenv("ML2_URL", "http://localhost:8003/extract")
 BACKEND2_URL = os.getenv("BACKEND2_URL", "http://localhost:8002/answer")
 DocumentType = Literal["study_certificate", "academic_leave", "internship_certificate"]
+logger = logging.getLogger(__name__)
+# Внутренние сервисы: 60с каждый, браузер ждёт до 200с за цепочку из трёх.
+INTERNAL_TIMEOUT = float(os.getenv("INTERNAL_TIMEOUT", "60"))
 
 # Настройки SMTP для отправки реальной почты
 SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
@@ -56,23 +55,22 @@ SMTP_FROM = os.getenv("SMTP_FROM", "noreply@university.ru")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-<<<<<<< Updated upstream
-=======
-    print("Старт инициализации базы данных")
-    print("Зарегистрированные в Base модели:", list(Base.metadata.tables.keys()))
-    
-    # Автоматическое создание таблиц в БД при старте
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    print("Таблицы успешно созданы или уже существуют")
-
-    # HTTP клиент с настройкой таймаута
->>>>>>> Stashed changes
-    async with httpx.AsyncClient(timeout=180) as client:
+    # БД опциональна: без DATABASE_URL/недоступного Postgres API работает на памяти сессий.
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        logger.info("Таблицы БД готовы: %s", list(Base.metadata.tables.keys()))
+    except Exception as exc:
+        logger.warning("БД недоступна, работа без персистентности: %s", exc)
+    async with httpx.AsyncClient(timeout=INTERNAL_TIMEOUT) as client:
         app.state.http_client = client
         yield
     sessions.clear()
     active_sessions.clear()
+    try:
+        await engine.dispose()
+    except Exception:
+        pass
 
 
 app = FastAPI(title="Онлайн-деканат API", lifespan=lifespan)
@@ -81,9 +79,14 @@ app.add_middleware(
     allow_origins=[origin.strip() for origin in os.getenv(
         "CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173"
     ).split(",") if origin.strip()],
-    allow_methods=["GET", "POST", "PUT", "DELETE"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type"],
 )
+
+
+@app.get("/health")
+async def health():
+    return {"status": "ok", "sessions": len(sessions)}
 
 
 # Асинхронная зависимость для получения сессии БД
@@ -127,7 +130,7 @@ class MessageResponse(BaseModel):
     message: str
 
 
-# Схема чата и документов 
+# Схема чата и документов
 class ChatMessage(ApiModel):
     message: str = Field(max_length=MAX_QUESTION_LENGTH)
     conversation_id: str | None = Field(default=None, min_length=1, max_length=100)
@@ -312,7 +315,7 @@ def use_session(conversation_id: str | None):
             raise HTTPException(status_code=404, detail="Диалог не найден или срок его хранения истёк")
         session = sessions[conversation_id]
     else:
-        if len(sessions.keys() | active_sessions) >= MAX_SESSIONS:
+        if len(set(sessions) | active_sessions) >= MAX_SESSIONS:
             raise HTTPException(status_code=503, detail="Слишком много активных диалогов. Попробуйте позже")
         conversation_id, session = str(uuid.uuid4()), Session()
     if conversation_id in active_sessions:
@@ -369,12 +372,22 @@ async def send_request(url: str, **kwargs) -> dict:
     service = {ML1_URL: "OCR (ML 1)", ML2_URL: "Extract (ML 2)", BACKEND2_URL: "Backend 2"}.get(url, "внутренний сервис")
     try:
         response = await app.state.http_client.post(url, **kwargs)
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            # Пробрасываем тело upstream для отладки, обрезаем до 500 символов.
+            try:
+                detail = response.text[:500]
+            except Exception:
+                detail = ""
+            logger.warning("Сервис %s вернул %s: %s", service, response.status_code, detail)
+            raise HTTPException(
+                status_code=502,
+                detail=f"{service} вернул ошибку {response.status_code}" + (f": {detail}" if detail else ""),
+            ) from exc
         result = response.json()
     except httpx.TimeoutException as exc:
-        raise HTTPException(status_code=504, detail="Превышено время ожидания сервиса") from exc
-    except httpx.HTTPStatusError as exc:
-        raise HTTPException(status_code=502, detail="Внутренний сервис вернул ошибку") from exc
+        raise HTTPException(status_code=504, detail=f"Превышено время ожидания сервиса {service} ({INTERNAL_TIMEOUT:g}с)") from exc
     except httpx.RequestError as exc:
         raise HTTPException(status_code=503, detail=f"Сервис {service} недоступен. Проверьте его запуск и адрес подключения.") from exc
     except ValueError as exc:

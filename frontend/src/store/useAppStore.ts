@@ -14,12 +14,6 @@ export interface User {
 }
 
 interface AppState {
-  step: "upload" | "processing" | "result"
-  file: File | null
-  docType: DocumentType | ""
-  question: string
-  result: AnalysisResult | null
-  error: string | null
   step: "upload" | "processing" | "result";
   file: File | null;
   docType: DocumentType | "";
@@ -27,11 +21,15 @@ interface AppState {
   result: AnalysisResult | null;
   error: string | null;
   preview: { url: string; name: string; conversationId: string } | null;
+  isAuthenticated: boolean;
+  user: User | null;
 
   setStep: (step: AppState["step"]) => void;
   setFormData: (data: { file: File | null; docType: DocumentType | ""; question: string }) => void;
   setResult: (result: AnalysisResult, sourceFile?: File | null) => void;
   setError: (error: string | null) => void;
+  login: (user: User) => void;
+  logout: () => void;
   reset: () => void;
 }
 

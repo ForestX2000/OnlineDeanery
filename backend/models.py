@@ -1,29 +1,39 @@
-"""Общий контракт API-шлюза и сервиса правил."""
+"Общий контракт API-шлюза, сервиса правил и ORM-модели для PostgreSQL"
 
-<<<<<<< Updated upstream
-=======
 import enum
-from sqlalchemy.orm import Mapped, mapped_column
 from datetime import datetime
->>>>>>> Stashed changes
-from pydantic import BaseModel, ConfigDict, Field, JsonValue
 from typing import Literal
+from pydantic import BaseModel, ConfigDict, Field, JsonValue
+from sqlalchemy import (
+    JSON,
+    TIMESTAMP,
+    Column,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    func,
+)
+from sqlalchemy.orm import relationship
+from backend.database import Base
+
+# Существующие Pydantic-модели (контракты API и тестов)
 
 
 class ApiModel(BaseModel):
-    model_config = ConfigDict(strict=True)
+  model_config = ConfigDict(strict=True)
 
 
 class Source(ApiModel):
-    type: str
-    reference: str
-    url: str | None = None
+  type: str
+  reference: str
+  url: str | None = None
 
 
 class Verification(ApiModel):
-    status: str
-    missing_fields: list[str] = Field(default_factory=list)
-    issues: list[str] = Field(default_factory=list)
+  status: str
+  missing_fields: list[str] = Field(default_factory=list)
+  issues: list[str] = Field(default_factory=list)
 
 
 class DocumentImage(ApiModel):
@@ -42,16 +52,12 @@ class Document(ApiModel):
 
 
 class ServiceAnswer(ApiModel):
-    answer: str = Field(min_length=1)
-    sources: list[Source] = Field(default_factory=list)
-    verification: Verification | None = None
+  answer: str = Field(min_length=1)
+  sources: list[Source] = Field(default_factory=list)
+  verification: Verification | None = None
 
 
 class ApiResponse(ServiceAnswer):
-<<<<<<< Updated upstream
-    conversation_id: str
-    document: Document | None = None
-=======
   conversation_id: str
   document: Document | None = None
 
@@ -168,25 +174,8 @@ class AuditLogDB(Base):
 
   admin = relationship("UserDB", foreign_keys=[admin_id])
   target_document = relationship("DocumentDB", foreign_keys=[target_document_id])
-  
-  import enum
-from sqlalchemy import String, Enum as SQLEnum
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
-class Base(DeclarativeBase):
-    pass
 
 class UserRole(str, enum.Enum):
     STUDENT = "student"
     ADMIN = "admin"
-
-class UserModel(Base):
-    __tablename__ = "users"
-
-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
-    password: Mapped[str] = mapped_column(String(255), nullable=False) # Пароль, заведенный деканатом
-    first_name: Mapped[str] = mapped_column(String(100), nullable=False)
-    last_name: Mapped[str] = mapped_column(String(100), nullable=False)
-    role: Mapped[UserRole] = mapped_column(SQLEnum(UserRole), default=UserRole.STUDENT, nullable=False)
->>>>>>> Stashed changes

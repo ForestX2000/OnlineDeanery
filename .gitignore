@@ -18,10 +18,10 @@ venv/
 Thumbs.db
 *.log
 
-data/
+/data/
 *.png
 *.jpg
-mws_data/
+/mws_data/
 
 # ML weights and training artefacts live outside git (see YOLO_MODEL_PATH).
 *.pt

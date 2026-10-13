@@ -1,0 +1,32 @@
+{
+  "_comment": "Шаблон настоящего Положения. Заказчик Положение не предоставил — сейчас используется backend/data/rules.json (п. 3.1-3.3 из презентации). Когда появится документ: скопируйте этот шаблон в university-rules.json, заполните clauses по реальным пунктам, укажите RULES_PATH и перезапустите Backend 2. Код менять не нужно.",
+  "title": "Положение вуза о приёме документов",
+  "source_type": "положение",
+  "scope_note": "",
+  "clauses": [
+    {
+      "id": "3.1",
+      "text": "Текст пункта 3.1 из настоящего Положения.",
+      "topics": ["справка обучение", "перевод"],
+      "document_types": ["study_certificate"],
+      "url": null
+    }
+  ],
+  "document_types": {
+    "study_certificate": {
+      "label": "Справка об обучении",
+      "aliases": ["справка об учебе"],
+      "required_fields": [
+        {
+          "name": "student_name",
+          "label": "ФИО студента",
+          "aliases": ["fio", "фио"],
+          "reference": "3.1",
+          "kind": "text",
+          "must_be_true": false
+        }
+      ],
+      "date_orders": []
+    }
+  }
+}

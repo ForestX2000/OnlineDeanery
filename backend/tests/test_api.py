@@ -112,7 +112,8 @@ class ApiTests(unittest.TestCase):
 
     def test_unknown_expired_and_busy_sessions(self):
         self.assertEqual(self.client.post("/chat", json={"message": "?", "conversation_id": "missing"}).status_code, 404)
-        api.sessions["expired"] = api.Session(updated_at=0)
+        import time as _time
+        api.sessions["expired"] = api.Session(updated_at=_time.monotonic() - api.SESSION_TTL_SECONDS - 1)
         self.assertEqual(self.client.post("/chat", json={"message": "?", "conversation_id": "expired"}).status_code, 404)
         api.sessions["busy"] = api.Session()
         api.active_sessions.add("busy")

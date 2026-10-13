@@ -22,7 +22,7 @@ export function documentHighlights(coordinates: unknown, image: unknown): Highli
   if (!isDocumentImage(image) || !Array.isArray(coordinates)) return []
   return coordinates.flatMap((value: unknown) => {
     if (!isRecord(value) || (value.field !== null && (typeof value.field !== "string" || !value.field.trim())) ||
-        typeof value.text !== "string" || !["yolo", "spotting"].includes(value.source as string) ||
+        typeof value.text !== "string" || !["yolo", "spotting", "color"].includes(value.source as string) ||
         value.page !== 1 || !Array.isArray(value.bbox) || value.bbox.length !== 4 ||
         !value.bbox.every((n: unknown) => typeof n === "number" && Number.isFinite(n)) ||
         !(value.confidence === null || (typeof value.confidence === "number" &&

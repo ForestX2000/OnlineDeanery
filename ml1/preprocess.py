@@ -71,16 +71,35 @@ class PreparedImage:
                 for v, bound in zip(box, [self.width, self.height, self.width, self.height])]
 
 
+def rasterize_pdf_first_page(pdf_bytes: bytes, dpi: int = 200) -> bytes:
+    """Render page 0 of a PDF to PNG bytes (PyMuPDF); later pages are ignored."""
+    import pymupdf
+    try:
+        with pymupdf.open(stream=pdf_bytes, filetype="pdf") as doc:
+            if doc.is_encrypted or len(doc) == 0:
+                raise ValueError("PDF защищён или не содержит страниц")
+            page = doc[0]
+            pix = page.get_pixmap(dpi=dpi)
+            return pix.tobytes("png")
+    except ValueError:
+        raise
+    except Exception as exc:
+        raise ValueError("Не удалось растеризовать PDF") from exc
+
+
 def prepare_image(image_bytes: bytes, rotation: int = 0) -> PreparedImage:
     """Return uint8 BGR pixels; apply clockwise rotation after EXIF orientation.
-
     White paper is not glare. Preserve the source resolution, colors, and strokes
     instead of applying inpainting, contrast normalization, or guessed deskew.
     rotation=0 включает авто-определение бокового фото (estimate_rotation);
     явные 90/180/270 применяются как есть и эвристику обходят.
+    PDF растеризуется первой страницей (см. rasterize_pdf_first_page).
     """
     if type(rotation) is not int or rotation not in (0, 90, 180, 270):
         raise ValueError("Поворот должен быть 0, 90, 180 или 270 градусов")
+    if image_bytes[:5] == b"%PDF-":
+        # Кейс требует PDF: растеризуем первую страницу (остальные игнорируем).
+        image_bytes = rasterize_pdf_first_page(image_bytes)
 
     try:
         with Image.open(BytesIO(image_bytes)) as source:
