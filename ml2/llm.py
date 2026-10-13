@@ -4,7 +4,7 @@ import re
 
 import requests
 
-LLM_URL = os.getenv("LLM_URL", "http://host.docker.internal:8081/v1/chat/completions")
+LLM_URL = os.getenv("LLM_URL", "")
 # CPU LLM (Qwen 1-2 мин/запрос) вешает /analyze: короткий таймаут + fallback на regex.
 # Пустой LLM_URL отключает вызов. Переопределяется через env, по умолчанию 12с.
 LLM_TIMEOUT = float(os.getenv("LLM_TIMEOUT", "12"))

@@ -40,10 +40,11 @@ PATTERNS: dict[str, list[str]] = {
         # handled отдельно в extract_study_period
     ],
     "document_number": [
+        r"\d{2}\.\d{2}\.\d{4}\s*(?:г\.?\s*)?(?:№|N[oо]?\.?|#)\s*([\dА-Яа-яЁё\-\./]+)",
         r"№\s*([\dА-Яа-я\-\./]+)",
     ],
     "issue_date": [
-        r"(\d{2}\.\d{2}\.\d{4})\s+г\.\s+№",
+        r"(?<!\d)(\d{2}\.\d{2}\.\d{4})\s*(?:г\.?\s*)?(?:№|N[oо]?\.?|#)",
         r"дата\s+выдачи[:\s]*(\d{2}\.\d{2}\.\d{4})",
     ],
     "group": [
@@ -132,11 +133,18 @@ def extract_study_period(text: str) -> str:
 
 def extract_program(text: str) -> str:
     """Код специальности + название после него."""
-    m = re.search(r"(\d{2}\.\d{2}\.\d{2})\s+([А-ЯЁ][а-яё][^\n]{3,120})", text, re.MULTILINE)
-    if m:
-        return f"{m.group(1)} {m.group(2).strip().rstrip('.')}"
-    m = re.search(r"(\d{2}\.\d{2}\.\d{2})", text)
-    return m.group(1) if m else "не найдено"
+    matches = re.finditer(
+        r"(?<!\d)(\d{2}\.\d{2}\.\d{2})(?!\.\d{2})\s+([А-ЯЁа-яё][^\n]{3,120})",
+        text,
+        re.IGNORECASE | re.MULTILINE,
+    )
+    for match in matches:
+        title = match.group(2).strip()
+        # OCR sometimes sees a short date (e.g. 10.06.20 г.) as a code.
+        if re.match(r"(?i)^г(?:од)?(?:\.|\s|$)", title):
+            continue
+        return f"{match.group(1)} {title.rstrip('.')}"
+    return "не найдено"
 
 
 def extract_fields(text: str, doc_type: str) -> dict[str, Any]:

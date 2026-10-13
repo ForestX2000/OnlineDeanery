@@ -95,6 +95,9 @@ services:
       context: .
       dockerfile: ml2/Dockerfile
     container_name: deanery_ml2
+    environment:
+      LLM_URL: ${LLM_URL:-}
+      LLM_TIMEOUT: ${LLM_TIMEOUT:-12}
     ports:
       - "8003:8003"
     restart: unless-stopped
