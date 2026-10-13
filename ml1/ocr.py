@@ -170,17 +170,6 @@ def run_ocr(image: np.ndarray) -> dict[str, Any]:
     if not recognized_text:
         raise OcrResponseError("OCR-модель не вернула распознанный текст")
 
-    # Spotting provides grounded line boxes, while OCR is more reliable for a
-    # complete transcription of dense page text. Keep both as extraction input.
-    try:
-        full_text = run_vl_ocr(image, "OCR:")
-    except (requests.RequestException, OcrResponseError) as exc:
-        logger.warning("PaddleOCR-VL full transcription failed (%s); keeping Spotting text",
-                       type(exc).__name__)
-    else:
-        if full_text and len(full_text) >= max(80, len(recognized_text) // 3):
-            recognized_text = f"{full_text}\n{recognized_text}"
-
     if not boxes:
         logger.info("PaddleOCR-VL returned text without Spotting boxes; deriving line boxes locally")
         boxes = run_tesseract_ocr(image)["boxes"]
