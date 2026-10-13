@@ -294,6 +294,17 @@ def contextual_question(question: str, history: list) -> str:
     return question
 
 
+def is_content_question(question: str) -> bool:
+    # Просьба пересказать/содержать документ: отвечаем извлечёнными полями как источником.
+    # Узкий список, чтобы не задевать стоимость/продление/подлинность (тесты test_rules).
+    text = normalize(question)
+    return bool(re.search(
+        r"что\s+(написано|указано|сказано|говорится)|о\s+чем\s+(говорится|документ|справка|заявление)|"
+        r"перескажи|краткое\s+содержание|содержание\s+документа|прочитай\s+(документ|справку|заявление)|"
+        r"текст\s+документа|что\s+в\s+документе",
+        text))
+
+
 NO_ANSWER_TEXT = "Ответа нет: в загруженных правилах и полях документа не найдено достаточно информации для ответа на этот вопрос. Обратитесь в деканат."
 
 
@@ -315,6 +326,22 @@ def answer_question(base: KnowledgeBase, question: str, document, history: list,
     clauses = (retrieve(base, question, search_type) if selected_clause_ids is None else
                [clause for clause in base.clauses if clause.id in selected_clause_ids])
     parts = []
+    # Просьба о содержании: перечисляем все извлечённые поля как источник-документ.
+    if document is not None and rule is not None and is_content_question(question):
+        content = []
+        for field in rule.required_fields:
+            value, conflict = field_value(document.fields, field)
+            if conflict:
+                text = "распознаны противоречивые значения"
+            elif is_missing(value, field.kind):
+                text = "не найдено"
+            elif field.kind == "boolean" and as_boolean(value) is not None:
+                text = "есть" if as_boolean(value) else "нет"
+            else:
+                text = str(value)
+            content.append(f"{field.label} — {text}.")
+        parts.append("Содержание документа по извлечённым полям:\n" + "\n".join(content))
+        sources.append({"type": "документ", "reference": "Поля документа", "url": None})
     # Вопрос о конкретном поле можно ответить по документу и без нормативной базы.
     if document is not None and rule is not None and not is_completeness_question(question):
         for field in rule.required_fields:
