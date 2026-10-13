@@ -25,7 +25,7 @@ def link_coordinates(coordinates, fields: dict) -> list[dict]:
     for item in coordinates:
         if not isinstance(item, dict):
             continue
-        if item.get("source") != "spotting":
+        if item.get("source") not in {"spotting", "tesseract"}:
             linked.append(item)
             continue
         text = item.get("text")

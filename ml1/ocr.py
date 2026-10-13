@@ -1,6 +1,7 @@
 """Deterministic PaddleOCR-VL inference through a local llama.cpp server."""
 
 import base64
+import logging
 import math
 import os
 import re
@@ -11,6 +12,7 @@ import cv2
 import numpy as np
 import requests
 
+logger = logging.getLogger(__name__)
 
 _LOCATION_TOKEN = re.compile(r"<\|LOC_(\d{1,4})\|>")
 
@@ -117,7 +119,15 @@ def run_vl_ocr(image: np.ndarray, task: str = "OCR:", *,
 
 def run_ocr(image: np.ndarray) -> dict[str, Any]:
     """Read text and line boxes from PaddleOCR-VL's grounded Spotting task."""
-    raw = run_vl_ocr(image, "Spotting:")
+    try:
+        raw = run_vl_ocr(image, "Spotting:")
+    except (requests.RequestException, OcrResponseError) as exc:
+        logger.warning("PaddleOCR-VL request failed (%s); using local text detection",
+                       type(exc).__name__)
+        fallback = run_tesseract_ocr(image)
+        if not fallback["text"]:
+            raise OcrResponseError("OCR-модель недоступна, а локальное распознавание не нашло текст") from exc
+        return fallback
     tokens = list(_LOCATION_TOKEN.finditer(raw))
     width, height = image.shape[1], image.shape[0]
     boxes = []
@@ -159,5 +169,59 @@ def run_ocr(image: np.ndarray) -> dict[str, Any]:
         recognized_text = _LOCATION_TOKEN.sub("", raw).strip()
     if not recognized_text:
         raise OcrResponseError("OCR-модель не вернула распознанный текст")
+    if not boxes:
+        logger.info("PaddleOCR-VL returned text without Spotting boxes; deriving line boxes locally")
+        boxes = run_tesseract_ocr(image)["boxes"]
     return {"text": recognized_text, "boxes": boxes}
+
+
+def run_tesseract_ocr(image: np.ndarray) -> dict[str, Any]:
+    """Get local OCR text and line boxes as a fallback when Spotting has no geometry."""
+    import pytesseract
+    from pytesseract import Output
+
+    rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    data = pytesseract.image_to_data(
+        rgb, lang="rus+eng", config="--psm 6", output_type=Output.DICT,
+    )
+    grouped: dict[tuple[int, int, int], dict[str, Any]] = {}
+    for index, raw_text in enumerate(data["text"]):
+        text = raw_text.strip()
+        try:
+            confidence = float(data["conf"][index])
+        except (TypeError, ValueError):
+            continue
+        if not text or confidence < 0:
+            continue
+
+        key = (data["block_num"][index], data["par_num"][index], data["line_num"][index])
+        left, top = int(data["left"][index]), int(data["top"][index])
+        right = left + int(data["width"][index])
+        bottom = top + int(data["height"][index])
+        line = grouped.setdefault(key, {
+            "words": [], "left": left, "top": top, "right": right, "bottom": bottom,
+            "confidences": [],
+        })
+        line["words"].append(text)
+        line["left"] = min(line["left"], left)
+        line["top"] = min(line["top"], top)
+        line["right"] = max(line["right"], right)
+        line["bottom"] = max(line["bottom"], bottom)
+        line["confidences"].append(confidence / 100)
+
+    boxes = []
+    text_lines = []
+    for line in grouped.values():
+        text = " ".join(line["words"])
+        text_lines.append(text)
+        boxes.append({
+            "field": None,
+            "text": text,
+            "bbox": [line["left"], line["top"], line["right"], line["bottom"]],
+            "confidence": round(sum(line["confidences"]) / len(line["confidences"]), 4),
+            "source": "tesseract",
+            "page": 1,
+        })
+
+    return {"text": "\n".join(text_lines), "boxes": boxes}
 
