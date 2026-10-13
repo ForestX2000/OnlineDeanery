@@ -316,7 +316,7 @@ export default function DocumentUploader() {
               <div className="neon-scan-line" aria-hidden="true" />
             </div>
           ) : (
-            <div className="flex items-center gap-3 rounded-xl border border-lime-300 bg-lime-50 p-4 text-sm text-emerald-950 shadow-[0_0_14px_rgba(132,255,35,0.24)]">
+            <div className="flex items-center gap-3 rounded-xl border border-[#159957]/40 bg-[#087b45]/5 p-4 text-sm text-[#1e293b] shadow-[0_0_14px_rgba(8,123,69,0.16)]">
               <FileText size={20} className="shrink-0 text-emerald-700" />
               <span>Обрабатываем файл {file.name}</span>
             </div>

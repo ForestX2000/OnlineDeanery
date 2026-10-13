@@ -123,7 +123,7 @@ export function DocumentResult() {
         </CardHeader>
         <CardContent>
           {photo && <ImageHighlight key={photo.url} imageUrl={photo.url} name={photo.name}
-            image={document.image} highlights={highlights} activeField={activeField} selectedField={selectedField}
+            image={document.image} fields={document.fields} highlights={highlights} activeField={activeField} selectedField={selectedField}
             onHoverField={setHoveredField} onSelectField={selectField} fieldLabel={fieldLabel} />}
           <Table>
             <TableHeader>
@@ -134,7 +134,7 @@ export function DocumentResult() {
             </TableHeader>
             <TableBody>
               {Object.entries(document.fields).map(([key, value]) => (
-                <TableRow key={key} className={activeField === key && highlightedFields.has(key) ? "bg-lime-100/70" : undefined}
+                <TableRow key={key} className={activeField === key && highlightedFields.has(key) ? "bg-[#087b45]/10" : undefined}
                   onMouseEnter={() => { if (highlightedFields.has(key)) setHoveredField(key) }}
                   onMouseLeave={() => setHoveredField(null)}>
                   <TableCell className="font-medium">
