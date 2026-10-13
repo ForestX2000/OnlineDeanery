@@ -9,4 +9,4 @@ COPY backend backend
 
 EXPOSE 8000 8002
 
-CMD ["python", "-m", "uvicorn", "backend.api:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "-c", "python -m backend.init_db; python -m uvicorn backend.api:app --host 0.0.0.0 --port 8000"]
