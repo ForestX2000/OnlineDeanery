@@ -123,7 +123,7 @@ export function DocumentResult() {
         </CardHeader>
         <CardContent>
           {photo && <ImageHighlight key={photo.url} imageUrl={photo.url} name={photo.name}
-            image={document.image} fields={document.fields} highlights={highlights} activeField={activeField} selectedField={selectedField}
+            image={document.image} highlights={highlights} activeField={activeField} selectedField={selectedField}
             onHoverField={setHoveredField} onSelectField={selectField} fieldLabel={fieldLabel} />}
           <Table>
             <TableHeader>

@@ -3,12 +3,16 @@
 import base64
 import math
 import os
+import re
 from dataclasses import dataclass
 from typing import Any
 
 import cv2
 import numpy as np
 import requests
+
+
+_LOCATION_TOKEN = re.compile(r"<\|LOC_(\d{1,4})\|>")
 
 
 class OcrResponseError(RuntimeError):
@@ -112,6 +116,48 @@ def run_vl_ocr(image: np.ndarray, task: str = "OCR:", *,
 
 
 def run_ocr(image: np.ndarray) -> dict[str, Any]:
-    # OCR: returns transcription, not grounding. Do not invent boxes/confidence.
-    return {"text": run_vl_ocr(image), "boxes": []}
+    """Read text and line boxes from PaddleOCR-VL's grounded Spotting task."""
+    raw = run_vl_ocr(image, "Spotting:")
+    tokens = list(_LOCATION_TOKEN.finditer(raw))
+    width, height = image.shape[1], image.shape[0]
+    boxes = []
+    text_lines = []
+    content_cursor = 0
+
+    for index in range(0, len(tokens) - 7, 8):
+        group = tokens[index:index + 8]
+        line = raw[content_cursor:group[0].start()].strip()
+        # Spotting emits four (x, y) corners as LOC tokens normalized to 0..1000.
+        values = [int(token.group(1)) for token in group]
+        content_cursor = group[-1].end()
+        if line:
+            text_lines.append(line)
+        if not line or any(value > 1000 for value in values):
+            continue
+
+        xs, ys = values[0::2], values[1::2]
+        x1, y1 = min(xs) * width / 1000, min(ys) * height / 1000
+        x2, y2 = max(xs) * width / 1000, max(ys) * height / 1000
+        if x2 <= x1 or y2 <= y1:
+            continue
+
+        boxes.append({
+            "field": None,
+            "text": line,
+            "bbox": [round(x1, 2), round(y1, 2), round(x2, 2), round(y2, 2)],
+            "confidence": None,
+            "source": "spotting",
+            "page": 1,
+        })
+
+    # Keep text that has no complete coordinate sequence instead of dropping it.
+    trailing = _LOCATION_TOKEN.sub("", raw[content_cursor:]).strip()
+    if trailing:
+        text_lines.append(trailing)
+    recognized_text = "\n".join(text_lines).strip()
+    if not recognized_text:
+        recognized_text = _LOCATION_TOKEN.sub("", raw).strip()
+    if not recognized_text:
+        raise OcrResponseError("OCR-модель не вернула распознанный текст")
+    return {"text": recognized_text, "boxes": boxes}
 
