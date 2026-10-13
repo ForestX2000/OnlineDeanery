@@ -90,7 +90,7 @@ class RulesTests(unittest.TestCase):
     def test_date_order_can_be_configured(self):
         data = self.base.model_dump()
         data["document_types"]["academic_leave"]["date_orders"] = [{
-            "start": "start_date", "end": "end_date", "reference": "Поля заявления на академический отпуск",
+            "start": "start_date", "end": "end_date", "reference": "3.2",
         }]
         base = KnowledgeBase.model_validate(data)
         document = self.complete()
