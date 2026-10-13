@@ -86,13 +86,10 @@ export default function DocumentUploader() {
       const result = file
         ? await analyzeDocument({ file, docType, question: formData.question })
         : await sendMessage(formData.question);
-      console.log("[uploader] got result", result.conversation_id);
       // Приводим тип, чтобы удовлетворить строгую проверку TypeScript при конфликте определений
       setResult(result as unknown as AnalysisResult);
-      console.log("[uploader] stored, navigating to /result");
       navigate("/result");
     } catch (err) {
-      console.error("[uploader] submit failed", err);
       const errorMessage = err instanceof Error ? err.message : "Не удалось обработать документ. Попробуйте ещё раз.";
       setError(errorMessage);
       setStep("upload");
