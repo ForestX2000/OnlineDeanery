@@ -38,8 +38,8 @@ def field_match_score(name: str, value: str, text: str) -> float:
         if matching_dates:
             return len(matching_dates) / len(dates)
 
-    target_tokens = [token for token in re.findall(r"[a-zа-яё0-9]+", target) if len(token) >= 3]
-    candidate_tokens = [token for token in re.findall(r"[a-zа-яё0-9]+", candidate) if len(token) >= 3]
+    target_tokens = [token for token in re.findall(r"[^\W_]+", target) if len(token) >= 3]
+    candidate_tokens = [token for token in re.findall(r"[^\W_]+", candidate) if len(token) >= 3]
     if target_tokens and candidate_tokens:
         matched = 0
         for token in target_tokens:
@@ -73,7 +73,7 @@ def link_coordinates(coordinates, fields: dict) -> list[dict]:
             continue
 
         for name, value in fields.items():
-            if not isinstance(value, str) or value == "не найдено":
+            if not isinstance(value, str) or normalize(value) == "не найдено":
                 continue
             score = field_match_score(name, value, text)
             if score < 0.72:
