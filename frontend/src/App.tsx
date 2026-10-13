@@ -9,6 +9,7 @@ import { DocumentResult } from "./components/DocumentResult";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
 import DocumentDetailsPage from "./pages/DocumentDetailsPage";
+import { ThemeProvider } from "next-themes";
 
 function ResultPage() {
   const result = useAppStore((state) => state.result);
@@ -32,8 +33,9 @@ function UploadRoute() {
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <Routes>
+    <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} storageKey="online-deanery-theme">
+      <BrowserRouter>
+        <Routes>
         {/* Все страницы оборачиваются в Layout */}
         <Route element={<Layout />}>
           <Route path="/" element={<HomePage />} />
@@ -61,7 +63,8 @@ export default function App() {
           
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
-      </Routes>
-    </BrowserRouter>
+        </Routes>
+      </BrowserRouter>
+    </ThemeProvider>
   );
 }

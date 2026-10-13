@@ -2,6 +2,7 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import { BookOpen, LogOut, LogIn } from "lucide-react";
 import { logoutRequest } from "../../api";
 import { useAppStore } from "@/store/useAppStore";
+import ThemeToggle from "./ThemeToggle";
 
 export default function Header() {
   const user = useAppStore((state) => state.user);
@@ -46,7 +47,8 @@ export default function Header() {
           </div>
         </Link>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <ThemeToggle />
           {isAuthenticated && user ? (
             <>
               <Link

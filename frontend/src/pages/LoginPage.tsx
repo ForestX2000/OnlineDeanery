@@ -3,6 +3,7 @@ import { BookOpen, Mail, Lock, ArrowRight, ArrowLeft, CheckCircle2 } from "lucid
 import { useState } from "react";
 import { useAppStore, UserRole } from "@/store/useAppStore";
 import { forgotPasswordRequest, loginRequest } from "../../api";
+import ThemeToggle from "../components/ThemeToggle";
 
 
 interface LocationState {
@@ -63,7 +64,8 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[#f4f7f4] flex items-center justify-center px-5 py-10">
+    <main className="relative min-h-screen bg-[#f4f7f4] flex items-center justify-center px-5 py-10">
+      <ThemeToggle className="absolute right-4 top-4 sm:right-6 sm:top-6" />
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
           <div className="inline-flex items-center justify-center rounded-2xl bg-[#087b45] p-4 text-white mb-4">
