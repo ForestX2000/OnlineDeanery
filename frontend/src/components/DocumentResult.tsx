@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ImageHighlight } from "@/components/ImageHighlight"
+import { OrientedImageFrame } from "@/components/OrientedImageFrame"
 import { documentHighlights } from "../../api/highlights"
 
 const FIELD_LABELS = new Map<string, string>([
@@ -173,11 +174,11 @@ export function DocumentResult() {
             ) : (
               <figure id="document-preview" className="mb-6">
                 <div className="neon-document-frame overflow-hidden rounded-2xl bg-[#04130a]">
-                  <div className="relative">
+                  <OrientedImageFrame image={document?.image} className="relative w-full">
                     <img src={photo.url} alt={`Загруженный документ: ${photo.name}`} className="block h-auto w-full"
                       style={{ imageOrientation: "from-image" }} />
                     {isProcessing && processingStage !== "answer" && <div className="neon-scan-line" aria-hidden="true" />}
-                  </div>
+                  </OrientedImageFrame>
                 </div>
               </figure>
             ))}
