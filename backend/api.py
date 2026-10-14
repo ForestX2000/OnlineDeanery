@@ -32,6 +32,17 @@ from backend.models import ApiModel, ApiResponse, Document, DocumentImage, Servi
 from backend.database import engine, Base, SessionLocal
 from backend.models import UserDB, DocumentDB, ExtractedFieldDB, RuleDB, RequestDB, AuditLogDB, AuthTokenDB
 
+import bcrypt
+
+def hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+def verify_password(password: str, password_hash: str) -> bool:
+    try:
+        return bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8"))
+    except (ValueError, TypeError):
+        return False
+
 MAX_FILE_SIZE = 10 * 1024 * 1024
 MAX_QUESTION_LENGTH = 5000
 MAX_IMAGE_PIXELS = 25_000_000
@@ -60,6 +71,7 @@ SMTP_USER = os.getenv("SMTP_USER", "")
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
 SMTP_FROM = os.getenv("SMTP_FROM", "noreply@university.ru")
 
+<<<<<<< HEAD
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password[:72].encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
@@ -68,6 +80,42 @@ def verify_password(password: str, password_hash: str) -> bool:
         return bcrypt.checkpw(password[:72].encode("utf-8"), password_hash.encode("utf-8"))
     except (ValueError, TypeError):
         return False
+=======
+async def auto_seed_users():
+    import bcrypt
+    from sqlalchemy import select
+    from backend.database import SessionLocal
+    from backend.models import UserDB, UserRole
+
+    async with SessionLocal() as session:
+        result = await session.execute(select(UserDB))
+        if result.scalars().first():
+            return  # пользователи уже есть
+        users = [
+            UserDB(
+                email="student@university.ru",
+                username="Иван Студентов",
+                password_hash=bcrypt.hashpw(b"123456", bcrypt.gensalt()).decode(),
+                role=UserRole.STUDENT.value,
+            ),
+            UserDB(
+                email="admin@university.ru",
+                username="Алексей Админов",
+                password_hash=bcrypt.hashpw(b"admin123", bcrypt.gensalt()).decode(),
+                role=UserRole.ADMIN.value,
+            ),
+            UserDB(
+                email="test@university.ru",
+                username="Мария Петрова",
+                password_hash=bcrypt.hashpw(b"test123", bcrypt.gensalt()).decode(),
+                role=UserRole.STUDENT.value,
+            ),
+        ]
+        session.add_all(users)
+        await session.commit()
+        logger.info("Автосид: создано %d тестовых пользователей", len(users))
+
+>>>>>>> 25924df4262f8879d3e07f120fa3c6255fe5c883
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -81,6 +129,9 @@ async def lifespan(app: FastAPI):
                     sync_conn.execute(text("ALTER TABLE requests ADD COLUMN document_type VARCHAR(100)"))
             await conn.run_sync(ensure_request_document_type)
         logger.info("Таблицы БД готовы: %s", list(Base.metadata.tables.keys()))
+
+        await auto_seed_users()
+
     except Exception as exc:
         logger.warning("БД недоступна, работа без персистентности: %s", exc)
     async with httpx.AsyncClient(timeout=INTERNAL_TIMEOUT) as client:
@@ -430,11 +481,19 @@ async def admin_create_user(
         raise HTTPException(status_code=400, detail="Недопустимая роль. Допустимо: student, admin.")
 
     new_user = UserDB(
+<<<<<<< HEAD
         email=normalized_email,
         username=normalized_username,
         password_hash=hash_password(data.password),
         role=role_val,
+=======
+    email=normalized_email,
+    password_hash=hash_password(data.password),
+    username=data.username,
+    role=role_val
+>>>>>>> 25924df4262f8879d3e07f120fa3c6255fe5c883
     )
+
     db.add(new_user)
     await db.commit()
     await db.refresh(new_user)
@@ -531,7 +590,7 @@ async def forgot_password(data: ForgotPasswordRequest, db = Depends(get_db)):
     # Генерируем новый постоянный случайный пароль (8 символов)
     alphabet = string.ascii_letters + string.digits
     new_password = ''.join(secrets.choice(alphabet) for _ in range(8))
-    
+    user.password_hash = hash_password(new_password)
     # Обновляем пароль в базе данных PostgreSQL
     user.password_hash = hash_password(new_password)
     await db.commit()
