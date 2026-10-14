@@ -32,16 +32,53 @@ from backend.models import ApiModel, ApiResponse, Document, DocumentImage, Servi
 from backend.database import engine, Base, SessionLocal
 from backend.models import UserDB, DocumentDB, ExtractedFieldDB, RuleDB, RequestDB, AuditLogDB, AuthTokenDB
 
-import bcrypt
 
+# ==== Хеширование пароля ====
 def hash_password(password: str) -> str:
-    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+    # bcrypt принимает только первые 72 байта
+    return bcrypt.hashpw(password[:72].encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
 
 def verify_password(password: str, password_hash: str) -> bool:
     try:
-        return bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8"))
+        return bcrypt.checkpw(password[:72].encode("utf-8"), password_hash.encode("utf-8"))
     except (ValueError, TypeError):
         return False
+
+
+# ==== Автосид тестовых пользователей ====
+async def auto_seed_users():
+    """Создаёт тестовых пользователей, если БД пустая."""
+    from backend.models import UserRole
+
+    async with SessionLocal() as session:
+        result = await session.execute(select(UserDB))
+        if result.scalars().first():
+            return  # пользователи уже есть
+        users = [
+            UserDB(
+                email="student@university.ru",
+                username="Иван Студентов",
+                password_hash=hash_password("123456"),
+                role=UserRole.STUDENT.value,
+            ),
+            UserDB(
+                email="admin@university.ru",
+                username="Алексей Админов",
+                password_hash=hash_password("admin123"),
+                role=UserRole.ADMIN.value,
+            ),
+            UserDB(
+                email="test@university.ru",
+                username="Мария Петрова",
+                password_hash=hash_password("test123"),
+                role=UserRole.STUDENT.value,
+            ),
+        ]
+        session.add_all(users)
+        await session.commit()
+        logger.info("Автосид: создано %d тестовых пользователей", len(users))
+
 
 MAX_FILE_SIZE = 10 * 1024 * 1024
 MAX_QUESTION_LENGTH = 5000
@@ -52,7 +89,6 @@ MAX_HISTORY_MESSAGES = 20
 ALLOWED_FORMATS = {".jpg": "JPEG", ".jpeg": "JPEG", ".png": "PNG", ".pdf": "PDF"}
 MIME_TYPES = {"JPEG": "image/jpeg", "PNG": "image/png", "PDF": "application/pdf"}
 
-# Настройки URL сервисов
 ML1_URL = os.getenv("ML1_URL", "http://host.docker.internal:8001/ocr")
 ML2_URL = os.getenv("ML2_URL", "http://localhost:8003/extract")
 BACKEND2_URL = os.getenv("BACKEND2_URL", "http://localhost:8002/answer")
@@ -61,72 +97,26 @@ DOCUMENT_TYPES_URL = os.getenv(
     f"{BACKEND2_URL.rsplit('/', 1)[0]}/document-types",
 )
 logger = logging.getLogger(__name__)
-# Даём OCR-сервису завершить распознавание и оставляем время на ответ.
 INTERNAL_TIMEOUT = float(os.getenv("INTERNAL_TIMEOUT", "300"))
 
-# Настройки SMTP для отправки реальной почты
 SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
 SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
 SMTP_USER = os.getenv("SMTP_USER", "")
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
 SMTP_FROM = os.getenv("SMTP_FROM", "noreply@university.ru")
 
-<<<<<<< HEAD
-def hash_password(password: str) -> str:
-    return bcrypt.hashpw(password[:72].encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
-
-def verify_password(password: str, password_hash: str) -> bool:
-    try:
-        return bcrypt.checkpw(password[:72].encode("utf-8"), password_hash.encode("utf-8"))
-    except (ValueError, TypeError):
-        return False
-=======
-async def auto_seed_users():
-    import bcrypt
-    from sqlalchemy import select
-    from backend.database import SessionLocal
-    from backend.models import UserDB, UserRole
-
-    async with SessionLocal() as session:
-        result = await session.execute(select(UserDB))
-        if result.scalars().first():
-            return  # пользователи уже есть
-        users = [
-            UserDB(
-                email="student@university.ru",
-                username="Иван Студентов",
-                password_hash=bcrypt.hashpw(b"123456", bcrypt.gensalt()).decode(),
-                role=UserRole.STUDENT.value,
-            ),
-            UserDB(
-                email="admin@university.ru",
-                username="Алексей Админов",
-                password_hash=bcrypt.hashpw(b"admin123", bcrypt.gensalt()).decode(),
-                role=UserRole.ADMIN.value,
-            ),
-            UserDB(
-                email="test@university.ru",
-                username="Мария Петрова",
-                password_hash=bcrypt.hashpw(b"test123", bcrypt.gensalt()).decode(),
-                role=UserRole.STUDENT.value,
-            ),
-        ]
-        session.add_all(users)
-        await session.commit()
-        logger.info("Автосид: создано %d тестовых пользователей", len(users))
-
->>>>>>> 25924df4262f8879d3e07f120fa3c6255fe5c883
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # БД опциональна: без DATABASE_URL/недоступного Postgres API работает на памяти сессий.
     try:
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+
             def ensure_request_document_type(sync_conn):
                 columns = {column["name"] for column in inspect(sync_conn).get_columns("requests")}
                 if "document_type" not in columns:
                     sync_conn.execute(text("ALTER TABLE requests ADD COLUMN document_type VARCHAR(100)"))
+
             await conn.run_sync(ensure_request_document_type)
         logger.info("Таблицы БД готовы: %s", list(Base.metadata.tables.keys()))
 
@@ -134,6 +124,7 @@ async def lifespan(app: FastAPI):
 
     except Exception as exc:
         logger.warning("БД недоступна, работа без персистентности: %s", exc)
+
     async with httpx.AsyncClient(timeout=INTERNAL_TIMEOUT) as client:
         app.state.http_client = client
         yield
@@ -151,7 +142,7 @@ app.add_middleware(
     allow_origins=[origin.strip() for origin in os.getenv(
         "CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173"
     ).split(",") if origin.strip()],
-    allow_methods=["GET", "POST"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE"],
     allow_headers=["Content-Type", "Authorization"],
 )
 
@@ -161,7 +152,6 @@ async def health():
     return {"status": "ok", "sessions": len(sessions)}
 
 
-# Асинхронная зависимость для получения сессии БД
 async def get_db():
     async with SessionLocal() as session:
         yield session
@@ -198,6 +188,7 @@ async def get_required_user(
         raise HTTPException(status_code=401, detail="Войдите в аккаунт, чтобы открыть историю запросов.")
     return user
 
+
 async def require_admin(
     current_user: UserDB = Depends(get_required_user),
 ) -> UserDB:
@@ -210,12 +201,29 @@ async def require_admin(
         )
     return current_user
 
-class UserListItem(BaseModel):
-    user_id: int
-    username: str
+
+# ==== Схемы ====
+class LoginRequest(BaseModel):
     email: str
+    password: str
+
+
+class UserResponse(BaseModel):
+    email: str
+    firstName: str = ""
+    lastName: str = ""
+    name: str = ""
+    first_name: str = ""
+    last_name: str = ""
     role: str
-    created_at: datetime
+    id: int | str = 1
+    user_id: int | str = 1
+
+
+class LoginResponse(BaseModel):
+    success: bool
+    token: str
+    user: UserResponse
 
 
 class CreateUserRequest(BaseModel):
@@ -231,42 +239,24 @@ class UpdateUserRequest(BaseModel):
     password: str | None = None
     role: str | None = None
 
-# Схемы аутентификации и управления пользователями
-class LoginRequest(BaseModel):
-    email: str
-    password: str
-
-class UserResponse(BaseModel):
-    email: str
-    firstName: str = ""
-    lastName: str = ""
-    name: str = ""
-    first_name: str = ""
-    last_name: str = ""
-    role: str
-    id: int | str = 1
-    user_id: int | str = 1
-
-class LoginResponse(BaseModel):
-    success: bool
-    token: str
-    user: UserResponse
-
-class CreateUserRequest(BaseModel):
-    email: str
-    password: str
-    username: str
-    role: str = "student"
 
 class ForgotPasswordRequest(BaseModel):
     email: str
+
 
 class MessageResponse(BaseModel):
     success: bool
     message: str
 
 
-# Схема чата и документов
+class UserListItem(BaseModel):
+    user_id: int
+    username: str
+    email: str
+    role: str
+    created_at: datetime
+
+
 class ChatMessage(ApiModel):
     message: str = Field(max_length=MAX_QUESTION_LENGTH)
     conversation_id: str | None = Field(default=None, min_length=1, max_length=100)
@@ -307,7 +297,6 @@ sessions: dict[str, Session] = {}
 active_sessions: set[str] = set()
 
 
-# Вспомогательная функция отправки email через SMTP
 def send_email_sync(to_email: str, subject: str, body: str):
     msg = EmailMessage()
     msg.set_content(body)
@@ -330,25 +319,25 @@ def send_email_sync(to_email: str, subject: str, body: str):
         return False
 
 
-# Эндпоинты входа и управления пользователями
+# ==== Auth ====
 @app.post("/api/auth/login", response_model=LoginResponse)
-async def login(data: LoginRequest, db = Depends(get_db)):
+async def login(data: LoginRequest, db=Depends(get_db)):
     normalized_email = data.email.lower().strip()
     result = await db.execute(select(UserDB).where(UserDB.email == normalized_email))
     user = result.scalars().first()
-    
+
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Пользователь с таким email не найден. Обратитесь в деканат для регистрации учетной записи."
         )
-    
+
     if not verify_password(data.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Неверный пароль. Пожалуйста, проверьте правильность ввода."
         )
-        
+
     name_parts = user.username.split(" ", 1)
     first_name = name_parts[0]
     last_name = name_parts[1] if len(name_parts) > 1 else ""
@@ -414,14 +403,45 @@ async def logout(
     return {"success": True, "message": "Вы вышли из аккаунта."}
 
 
-# ==== Admin: users CRUD ====
+@app.post("/api/auth/forgot-password", response_model=MessageResponse)
+async def forgot_password(data: ForgotPasswordRequest, db=Depends(get_db)):
+    normalized_email = data.email.lower().strip()
+    result = await db.execute(select(UserDB).where(UserDB.email == normalized_email))
+    user = result.scalars().first()
 
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Указанный email не зарегистрирован в базе деканата."
+        )
+
+    alphabet = string.ascii_letters + string.digits
+    new_password = ''.join(secrets.choice(alphabet) for _ in range(8))
+    user.password_hash = hash_password(new_password)
+    await db.commit()
+
+    email_body = (
+        f"Здравствуйте, {user.username}!\n\n"
+        f"Был запрошен сброс пароля для вашей учетной записи в Онлайн-деканате.\n"
+        f"Ваш новый постоянный пароль для входа: {new_password}\n\n"
+        f"Используйте его для авторизации в системе."
+    )
+
+    await run_in_threadpool(send_email_sync, normalized_email, "Восстановление пароля — Онлайн-деканат", email_body)
+    print(f"\n[NEW PERMANENT PASSWORD for {normalized_email}]: {new_password}\n")
+
+    return {
+        "success": True,
+        "message": "Новый постоянный пароль успешно сгенерирован и отправлен на ваш email."
+    }
+
+
+# ==== Admin: users CRUD ====
 @app.get("/api/admin/users", response_model=list[UserListItem])
 async def admin_list_users(
     _: UserDB = Depends(require_admin),
     db=Depends(get_db),
 ):
-    """Список всех пользователей (только для админа)."""
     result = await db.execute(select(UserDB).order_by(UserDB.user_id))
     users = result.scalars().all()
     return [
@@ -460,38 +480,28 @@ async def admin_create_user(
     _: UserDB = Depends(require_admin),
     db=Depends(get_db),
 ):
-    """Создать пользователя (только для админа)."""
     normalized_email = data.email.lower().strip()
     normalized_username = data.username.strip()
 
-    # проверка уникальности email
     existing = await db.execute(select(UserDB).where(UserDB.email == normalized_email))
     if existing.scalars().first():
         raise HTTPException(status_code=400, detail="Email уже занят.")
 
-    # проверка уникальности username
     existing = await db.execute(select(UserDB).where(UserDB.username == normalized_username))
     if existing.scalars().first():
         raise HTTPException(status_code=400, detail="Username уже занят.")
 
-    # роль
+    from backend.models import UserRole
     try:
         role_val = UserRole(data.role).value
     except ValueError:
         raise HTTPException(status_code=400, detail="Недопустимая роль. Допустимо: student, admin.")
 
     new_user = UserDB(
-<<<<<<< HEAD
         email=normalized_email,
         username=normalized_username,
         password_hash=hash_password(data.password),
         role=role_val,
-=======
-    email=normalized_email,
-    password_hash=hash_password(data.password),
-    username=data.username,
-    role=role_val
->>>>>>> 25924df4262f8879d3e07f120fa3c6255fe5c883
     )
 
     db.add(new_user)
@@ -502,7 +512,7 @@ async def admin_create_user(
         user_id=new_user.user_id,
         username=new_user.username,
         email=new_user.email,
-        role=new_user.role,
+        role=new_user.role.value if hasattr(new_user.role, "value") else str(new_user.role),
         created_at=new_user.created_at,
     )
 
@@ -514,7 +524,6 @@ async def admin_update_user(
     _: UserDB = Depends(require_admin),
     db=Depends(get_db),
 ):
-    """Обновить пользователя (только для админа)."""
     user = await db.get(UserDB, user_id)
     if user is None:
         raise HTTPException(status_code=404, detail="Пользователь не найден.")
@@ -539,6 +548,7 @@ async def admin_update_user(
         user.password_hash = hash_password(data.password)
 
     if data.role is not None:
+        from backend.models import UserRole
         try:
             user.role = UserRole(data.role).value
         except ValueError:
@@ -562,7 +572,6 @@ async def admin_delete_user(
     current_user: UserDB = Depends(require_admin),
     db=Depends(get_db),
 ):
-    """Удалить пользователя (только для админа)."""
     if user_id == current_user.user_id:
         raise HTTPException(status_code=400, detail="Нельзя удалить самого себя.")
 
@@ -575,44 +584,8 @@ async def admin_delete_user(
 
     return {"success": True, "message": f"Пользователь {user.email} удалён."}
 
-@app.post("/api/auth/forgot-password", response_model=MessageResponse)
-async def forgot_password(data: ForgotPasswordRequest, db = Depends(get_db)):
-    normalized_email = data.email.lower().strip()
-    result = await db.execute(select(UserDB).where(UserDB.email == normalized_email))
-    user = result.scalars().first()
-    
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Указанный email не зарегистрирован в базе деканата."
-        )
-        
-    # Генерируем новый постоянный случайный пароль (8 символов)
-    alphabet = string.ascii_letters + string.digits
-    new_password = ''.join(secrets.choice(alphabet) for _ in range(8))
-    user.password_hash = hash_password(new_password)
-    # Обновляем пароль в базе данных PostgreSQL
-    user.password_hash = hash_password(new_password)
-    await db.commit()
 
-    email_body = (
-        f"Здравствуйте, {user.username}!\n\n"
-        f"Был запрошен сброс пароля для вашей учетной записи в Онлайн-деканате.\n"
-        f"Ваш новый постоянный пароль для входа: {new_password}\n\n"
-        f"Используйте его для авторизации в системе."
-    )
-
-    # Отправляем через SMTP и выводим в логи бэкенда для тестирования
-    await run_in_threadpool(send_email_sync, normalized_email, "Восстановление пароля — Онлайн-деканат", email_body)
-    print(f"\n[NEW PERMANENT PASSWORD for {normalized_email}]: {new_password}\n")
-
-    return {
-        "success": True,
-        "message": "Новый постоянный пароль успешно сгенерирован и отправлен на ваш email."
-    }
-
-
-# Вспомогательные функции логики документов
+# ==== Документы ====
 def validate_question(question: str) -> str:
     question = question.strip()
     if not question:
@@ -696,7 +669,6 @@ async def send_request(url: str, *, method: str = "POST", **kwargs) -> dict:
         except httpx.HTTPStatusError as exc:
             if response.status_code == 504:
                 raise HTTPException(status_code=504, detail=f"Превышено время ожидания сервиса {service}") from exc
-            # Пробрасываем тело upstream для отладки, обрезаем до 500 символов.
             try:
                 detail = response.text[:500]
             except Exception:
@@ -768,7 +740,7 @@ async def get_answer(question: str, conversation_id: str, session: Session,
     if not answer.answer.strip():
         raise HTTPException(status_code=502, detail="Backend 2 не вернул ответ")
     result = ApiResponse(**answer.model_dump(), conversation_id=conversation_id, document=database_document)
-    
+
     session.history = (session.history + [
         {"role": "user", "content": question},
         {"role": "assistant", "content": answer.answer},
@@ -815,7 +787,7 @@ async def finish_request_record_in_new_session(
     async with SessionLocal() as history_db:
         await finish_request_record(history_db, request_id, status_value, answer, document_type)
 
-# Эндпоинты чата и анализа
+
 @app.post("/chat", response_model=ApiResponse)
 async def chat(
     data: ChatMessage,
