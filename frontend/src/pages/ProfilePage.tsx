@@ -117,6 +117,9 @@ export default function ProfilePage() {
 
 
 
+  const sessionExpired = user !== null && token === null;
+  const visibleError = error ?? (sessionExpired ? "Сессия истекла. Войдите в аккаунт, чтобы открыть историю." : null);
+
   useEffect(() => {
     if (!user) {
       navigate("/login", { replace: true });

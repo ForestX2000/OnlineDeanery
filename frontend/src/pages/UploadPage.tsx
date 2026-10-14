@@ -1,25 +1,8 @@
-import { useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import DocumentUploader from "@/components/DocumentUploader";
-import { useAppStore } from "@/store/useAppStore";
 
 export default function UploadPage() {
-  const navigate = useNavigate();
-  const isAuthenticated = useAppStore((state) => state.isAuthenticated);
-
-
-  useEffect(() => {
-    if (!isAuthenticated) {
-
-      navigate("/login", { replace: true });
-    }
-  }, [isAuthenticated, navigate]);
-
-  if (!isAuthenticated) {
-    return null;
-  }
-
   return (
     <div className="px-5 py-10">
       <div className="mx-auto max-w-4xl">

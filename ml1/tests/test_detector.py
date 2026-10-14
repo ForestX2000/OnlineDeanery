@@ -7,9 +7,9 @@ import numpy as np
 
 from ml1.detector import detect_marks, letterbox, nms, unavailable
 
-SIG_ONNX = r"C:\Users\Nick\AppData\Local\Temp\opencode\kaggle_data\exp640\sig640.onnx"
-STAMP_ONNX = r"C:\Users\Nick\AppData\Local\Temp\opencode\kaggle_data\runs\signature_stamp_v3\weights\best.onnx"
-BATON = r"C:\Users\Nick\Downloads\baton.png"
+SIG_ONNX = os.getenv("TEST_SIG_ONNX", r"C:\Users\Nick\AppData\Local\Temp\opencode\kaggle_data\exp640\sig640.onnx")
+STAMP_ONNX = os.getenv("TEST_STAMP_ONNX", r"C:\Users\Nick\AppData\Local\Temp\opencode\kaggle_data\runs\signature_stamp_v3\weights\best.onnx")
+BATON = os.getenv("TEST_BATON_PNG", r"C:\Users\Nick\Downloads\baton.png")
 WEIGHTS_AVAILABLE = os.path.exists(SIG_ONNX) and os.path.exists(STAMP_ONNX)
 
 

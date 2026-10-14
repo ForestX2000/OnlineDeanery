@@ -1,14 +1,21 @@
+import logging
 import os
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "postgresql+asyncpg://admin:super_password@db:5432/deanery",
-)
+logger = logging.getLogger(__name__)
 
-engine = create_async_engine(DATABASE_URL, echo=True)  
-AsyncSessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+# Без DATABASE_URL движок не создаём: API работает в режиме без БД
+# (история/аккаунты недоступны), а не с захардкоженным паролем.
+DATABASE_URL = os.getenv("DATABASE_URL", "")
+if not DATABASE_URL:
+    logger.warning("DATABASE_URL не задан — работа без персистентности (без БД)")
+
+engine = create_async_engine(DATABASE_URL, echo=False) if DATABASE_URL else None
+AsyncSessionLocal = (
+    async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    if engine is not None else None
+)
 
 
 class Base(DeclarativeBase):
@@ -16,6 +23,9 @@ class Base(DeclarativeBase):
 
 
 async def get_db():
+    if AsyncSessionLocal is None:
+        yield None
+        return
     async with AsyncSessionLocal() as session:
         yield session
 

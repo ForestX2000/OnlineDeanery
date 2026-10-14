@@ -1,57 +1,59 @@
+"""Create the first administrator when bootstrap credentials are configured."""
+
 import asyncio
-import bcrypt
-from backend.database import AsyncSessionLocal, engine, Base
-from backend.models import UserDB, UserRole
+import os
+
+from pydantic import EmailStr, TypeAdapter, ValidationError
 from sqlalchemy import select
 
+from backend.database import AsyncSessionLocal, Base, engine
+from backend.models import UserDB, UserRole
+from backend.security import hash_password
 
-def hash_password(password: str) -> str:
-    """Хеширует пароль через bcrypt напрямую."""
-    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
+async def seed_database() -> None:
+    if engine is None or AsyncSessionLocal is None:
+        print("DATABASE_URL не задан — создание администратора пропущено.")
+        return
 
-async def seed_database():
-    print("--- ЗАПУСК СИДИНГА БАЗЫ ДАННЫХ ---")
+    email = os.getenv("BOOTSTRAP_ADMIN_EMAIL", "").strip()
+    password = os.getenv("BOOTSTRAP_ADMIN_PASSWORD", "")
+    username = os.getenv("BOOTSTRAP_ADMIN_NAME", "Администратор").strip()
+    if not email and not password:
+        print("Начальный администратор не создан: задайте BOOTSTRAP_ADMIN_EMAIL и BOOTSTRAP_ADMIN_PASSWORD.")
+        return
+    if not email or not password:
+        raise ValueError("Для создания администратора нужны BOOTSTRAP_ADMIN_EMAIL и BOOTSTRAP_ADMIN_PASSWORD.")
+    if not 12 <= len(password) <= 256:
+        raise ValueError("BOOTSTRAP_ADMIN_PASSWORD должен содержать от 12 до 256 символов.")
+    if not username or len(username) > 100:
+        raise ValueError("BOOTSTRAP_ADMIN_NAME должен содержать от 1 до 100 символов.")
+    try:
+        email = str(TypeAdapter(EmailStr).validate_python(email)).lower()
+    except ValidationError as exc:
+        raise ValueError("BOOTSTRAP_ADMIN_EMAIL должен быть корректным email.") from exc
 
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    async with engine.begin() as connection:
+        await connection.run_sync(Base.metadata.create_all)
 
     async with AsyncSessionLocal() as session:
-        try:
-            result = await session.execute(select(UserDB))
-            existing_user = result.scalars().first()
+        result = await session.execute(select(UserDB).where(UserDB.email == email))
+        existing = result.scalars().first()
+        if existing is not None:
+            role = getattr(existing.role, "value", existing.role)
+            if role != UserRole.ADMIN.value:
+                raise ValueError("BOOTSTRAP_ADMIN_EMAIL уже занят пользователем без роли admin.")
+            print("Начальный администратор уже существует; пароль не изменён.")
+            return
 
-            if existing_user:
-                print("База данных уже содержит пользователей. Пропускаем сидинг.")
-                return
-
-            users = [
-                UserDB(
-                    email="student@university.ru",
-                    username="Иван Студентов",
-                    password_hash=hash_password("123456"),
-                    role=UserRole.STUDENT.value,
-                ),
-                UserDB(
-                    email="admin@university.ru",
-                    username="Алексей Админов",
-                    password_hash=hash_password("admin123"),
-                    role=UserRole.ADMIN.value,
-                ),
-                UserDB(
-                    email="test@university.ru",
-                    username="Мария Петрова",
-                    password_hash=hash_password("test123"),
-                    role=UserRole.STUDENT.value,
-                ),
-            ]
-
-            session.add_all(users)
-            await session.commit()
-            print("Успешно добавлены тестовые пользователи в базу данных!")
-        except Exception as e:
-            await session.rollback()
-            print(f"Ошибка при сидинге базы данных: {e}")
+        session.add(UserDB(
+            email=email,
+            username=username,
+            password_hash=hash_password(password),
+            role=UserRole.ADMIN.value,
+        ))
+        await session.commit()
+        print("Начальный администратор создан.")
 
 
 if __name__ == "__main__":

@@ -58,7 +58,7 @@ export default function Header() {
                 </div>
                 <div className="hidden text-left sm:block">
                   <p className="text-sm font-semibold text-[#1e293b]">
-                    {user.lastName} {user.firstName[0]}.
+                    {user.lastName} {user.firstName?.[0] ?? ""}.
                   </p>
                   <p className="text-xs text-[#1e293b]/60 capitalize">
                     {isAdmin ? "Администратор" : "Студент"}

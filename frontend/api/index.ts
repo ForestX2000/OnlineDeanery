@@ -266,23 +266,51 @@ export async function loginRequest(email: string, password: string): Promise<Log
 }
 
 export async function logoutRequest(token: string): Promise<void> {
-  await fetch(`${API_URL}/api/auth/logout`, { method: "POST", headers: bearerHeaders(token) })
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 30_000)
+  try {
+    const response = await fetch(`${API_URL}/api/auth/logout`, {
+      method: "POST",
+      headers: bearerHeaders(token),
+      signal: controller.signal,
+    })
+    if (!response.ok) {
+      const body: unknown = await response.json().catch(() => null)
+      throw new ApiError(errorDetail(body) || `Ошибка сервера (${response.status})`, response.status)
+    }
+  } catch (error) {
+    if (error instanceof ApiError) throw error
+    if (controller.signal.aborted) throw new ApiError("Время ожидания ответа истекло. Попробуйте ещё раз.")
+    throw new ApiError("Не удалось подключиться к серверу. Проверьте соединение и доступность backend.")
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 export async function getRequestHistory(token: string): Promise<RequestHistoryItem[]> {
-  const response = await fetch(`${API_URL}/api/requests`, { headers: bearerHeaders(token) })
-  const body: unknown = await response.json().catch(() => null)
-  if (!response.ok) {
-    throw new ApiError(errorDetail(body) || `Ошибка сервера (${response.status})`, response.status)
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 30_000)
+  try {
+    const response = await fetch(`${API_URL}/api/requests`, { headers: bearerHeaders(token), signal: controller.signal })
+    const body: unknown = await response.json().catch(() => null)
+    if (!response.ok) {
+      throw new ApiError(errorDetail(body) || `Ошибка сервера (${response.status})`, response.status)
+    }
+    if (!Array.isArray(body) || !body.every((item: unknown) => isRecord(item) &&
+        Number.isInteger(item.request_id) && typeof item.question === "string" &&
+        (item.answer === null || typeof item.answer === "string") && typeof item.status === "string" &&
+        typeof item.created_at === "string" && typeof item.user_email === "string" &&
+        typeof item.user_name === "string")) {
+      throw new ApiError("Сервер вернул некорректную историю запросов", 502)
+    }
+    return body as RequestHistoryItem[]
+  } catch (error) {
+    if (error instanceof ApiError) throw error
+    if (controller.signal.aborted) throw new ApiError("Время ожидания ответа истекло. Попробуйте ещё раз.")
+    throw new ApiError("Не удалось подключиться к серверу. Проверьте соединение и доступность backend.")
+  } finally {
+    clearTimeout(timer)
   }
-  if (!Array.isArray(body) || !body.every((item: unknown) => isRecord(item) &&
-      Number.isInteger(item.request_id) && typeof item.question === "string" &&
-      (item.answer === null || typeof item.answer === "string") && typeof item.status === "string" &&
-      typeof item.created_at === "string" && typeof item.user_email === "string" &&
-      typeof item.user_name === "string")) {
-    throw new ApiError("Сервер вернул некорректную историю запросов", 502)
-  }
-  return body as RequestHistoryItem[]
 }
 
 export async function getDocumentTypes(): Promise<DocumentTypeOption[]> {
