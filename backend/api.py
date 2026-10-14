@@ -105,7 +105,7 @@ app.add_middleware(
     allow_origins=[origin.strip() for origin in os.getenv(
         "CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173"
     ).split(",") if origin.strip()],
-    allow_methods=["GET", "POST"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE"],
     allow_headers=["Content-Type", "Authorization"],
 )
 
@@ -773,7 +773,7 @@ async def get_answer(question: str, conversation_id: str, session: Session,
     if not answer.answer.strip():
         raise HTTPException(status_code=502, detail="Backend 2 не вернул ответ")
     result = ApiResponse(**answer.model_dump(), conversation_id=conversation_id, document=database_document)
-    
+
     session.history = (session.history + [
         {"role": "user", "content": question},
         {"role": "assistant", "content": answer.answer},
