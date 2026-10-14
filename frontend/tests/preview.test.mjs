@@ -40,7 +40,23 @@ test("preview survives conversation followups and is never persisted", () => {
   const saved = JSON.parse(storage.get("online-deanery-storage"))
   assert.equal(saved.state.preview, undefined)
   assert.equal(saved.state.file, undefined)
+  assert.equal(saved.state.result, undefined)
   assert.equal(JSON.stringify(saved).includes("blob:"), false)
+  assert.equal(JSON.stringify(saved).includes("текст"), false)
+})
+
+test("legacy persisted OCR results are removed during migration", async () => {
+  storage.set("online-deanery-storage", JSON.stringify({
+    state: { isAuthenticated: false, result },
+    version: 0,
+  }))
+
+  await useAppStore.persist.rehydrate()
+
+  assert.equal(useAppStore.getState().result, null)
+  const saved = JSON.parse(storage.get("online-deanery-storage"))
+  assert.equal(saved.version, 1)
+  assert.equal(saved.state.result, undefined)
 })
 
 test("replacing the document revokes the old blob and binds the new preview to its conversation", () => {

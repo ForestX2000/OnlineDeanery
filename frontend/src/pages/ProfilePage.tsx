@@ -6,6 +6,7 @@ import {
   ChevronDown,
   FileText,
   GraduationCap,
+  LoaderCircle,
   Mail,
   RefreshCw,
   Search,
@@ -16,11 +17,14 @@ import { ApiError, getDocumentTypes, getRequestHistory } from "../../api";
 import type { DocumentTypeOption, RequestHistoryItem } from "../../api";
 import { useAppStore } from "@/store/useAppStore";
 
-type StatusFilter = "all" | "resolved" | "failed";
+type StatusFilter = "all" | "resolved" | "failed" | "processing";
 
 function requestStatus(status: string) {
   if (status === "resolved") {
     return { label: "Завершено", style: "bg-emerald-50 text-emerald-700", icon: CheckCircle2 };
+  }
+  if (status === "processing") {
+    return { label: "В обработке", style: "bg-amber-50 text-amber-700", icon: LoaderCircle };
   }
   return { label: "Ошибка", style: "bg-red-50 text-red-700", icon: AlertTriangle };
 }
@@ -46,17 +50,19 @@ export default function ProfilePage() {
   const [reloadKey, setReloadKey] = useState(0);
   const [expandedItems, setExpandedItems] = useState<Set<number>>(() => new Set());
 
+  const sessionExpired = user !== null && token === null;
+  const visibleError = error ?? (sessionExpired ? "Сессия истекла. Войдите в аккаунт, чтобы открыть историю." : null);
+
   useEffect(() => {
-    if (!user) {
-      navigate("/login", { replace: true });
-      return;
-    }
-    if (!token) {
-      setError("Сессия истекла. Войдите в аккаунт, чтобы открыть историю.");
+    if (!user || !token) {
+      if (!user) navigate("/login", { replace: true });
       return;
     }
 
     let active = true;
+    // Флаги загрузки перед fetch в эффекте: штатный паттерн загрузки по [user, token, reloadKey],
+    // каскадных рендеров нет — эффект не зависит от loading/error.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     setError(null);
     getRequestHistory(token)
@@ -85,7 +91,7 @@ export default function ProfilePage() {
   const visibleItems = useMemo(() => {
     const term = search.trim().toLocaleLowerCase("ru-RU");
     const labels = new Map(documentTypes.map((item) => [item.id, item.label]));
-    return items.filter((item) => item.status === "resolved" || item.status === "failed")
+    return items
       .filter((item) => statusFilter === "all" || item.status === statusFilter)
       .filter((item) => category === "all"
         || (category === "no-file" ? !item.document_type : item.document_type === category))
@@ -110,6 +116,7 @@ export default function ProfilePage() {
 
   const resolvedCount = items.filter((item) => item.status === "resolved").length;
   const failedCount = items.filter((item) => item.status === "failed").length;
+  const processingCount = items.filter((item) => item.status === "processing").length;
   const toggleExpanded = (requestId: number) => setExpandedItems((current) => {
     const next = new Set(current);
     if (next.has(requestId)) next.delete(requestId);
@@ -152,10 +159,14 @@ export default function ProfilePage() {
         </section>
 
         {isAdmin && (
-          <section className="grid gap-4 sm:grid-cols-3" aria-label="Статистика запросов">
+          <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" aria-label="Статистика запросов">
             <div className="rounded-2xl border border-slate-200 bg-white p-5">
               <p className="text-sm text-slate-500">Всего обработанных запросов</p>
-              <p className="mt-3 text-3xl font-bold text-slate-900">{resolvedCount + failedCount}</p>
+              <p className="mt-3 text-3xl font-bold text-slate-900">{resolvedCount + failedCount + processingCount}</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white p-5">
+              <p className="text-sm text-slate-500">В обработке</p>
+              <p className="mt-3 text-3xl font-bold text-amber-700">{processingCount}</p>
             </div>
             <div className="rounded-2xl border border-slate-200 bg-white p-5">
               <p className="text-sm text-slate-500">Успешно</p>
@@ -173,7 +184,7 @@ export default function ProfilePage() {
             <div>
               <h2 className="text-2xl font-bold text-slate-900">{isAdmin ? "Запросы пользователей" : "История обработки"}</h2>
               <p className="mt-1 text-sm text-slate-500">
-                {isAdmin ? "Нажмите на запись, чтобы открыть вопрос и ответ" : "Завершённые проверки и обработки с ошибками"}
+                {isAdmin ? "Нажмите на запись, чтобы открыть вопрос и ответ" : "Запросы в обработке, завершённые проверки и обработки с ошибками"}
               </p>
             </div>
             <div className="flex items-center gap-3 text-sm text-slate-500">
@@ -206,23 +217,24 @@ export default function ProfilePage() {
               <span className="sr-only">Результат обработки</span>
               <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
                 className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none focus:border-[#159957] focus:ring-4 focus:ring-emerald-50">
-                <option value="all">Завершено с ошибками</option>
+                <option value="all">Все статусы</option>
+                <option value="processing">В обработке</option>
                 <option value="resolved">Завершено</option>
                 <option value="failed">Ошибка</option>
               </select>
             </label>
           </div>
 
-          {error && (
+          {visibleError && (
             <div role="alert" className="mb-5 flex items-center justify-between gap-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-              <span>{error}</span>
-              {error.includes("Войдите") && <button type="button" onClick={() => navigate("/login")} className="shrink-0 font-semibold underline">Войти</button>}
+              <span>{visibleError}</span>
+              {visibleError.includes("Войдите") && <button type="button" onClick={() => navigate("/login")} className="shrink-0 font-semibold underline">Войти</button>}
             </div>
           )}
 
           {loading && items.length === 0 ? (
             <div className="rounded-2xl border border-slate-200 bg-white px-5 py-14 text-center text-slate-500">Загружаем историю…</div>
-          ) : error && items.length === 0 ? null : visibleItems.length ? (
+          ) : visibleError && items.length === 0 ? null : visibleItems.length ? (
             <div className="space-y-4">
               {visibleItems.map((item) => {
                 const status = requestStatus(item.status);

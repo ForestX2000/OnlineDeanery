@@ -16,6 +16,11 @@ powershell -ExecutionPolicy Bypass -File scripts/install_llama.ps1
 docker compose up --build -d
 ```
 
+Чтобы включить вход, историю и администрирование, задайте `BOOTSTRAP_ADMIN_EMAIL`
+и `BOOTSTRAP_ADMIN_PASSWORD` в `.env` до первого запуска (пароль — от 12 символов).
+Без этих значений приложение запускается без начальной учётной записи, а загрузка
+и обработка документов остаются доступны.
+
 `install_llama.ps1` скачивает `llama-server` и оба `.gguf` в `./models/`
 (в git не входят, см. `models/README.md`). Одна команда поднимает всё,
 включая OCR: отдельный `llama-server.exe` больше не нужен.
@@ -63,7 +68,7 @@ docker compose up --build -d
 - Frontend: React 19 + TypeScript + Vite + TailwindCSS 4, Zustand, react-dropzone.
 - Backend: Python 3.14 + FastAPI + Pydantic + httpx; PostgreSQL 15 для
   личного кабинета/админки (API работает и без БД).
-- OCR: PaddleOCR-VL-1.5 (VLM 0.9B) через `llama.cpp llama-server` на CPU,
+- OCR: PaddleOCR-VL-1.6 (VLM 0.9B) через `llama.cpp llama-server` на CPU,
   OpenCV-препроцессинг, PyMuPDF для PDF.
 - Извлечение полей: regex + словарь опечаток OCR + опциональная локальная LLM.
 - Подпись: YOLO11s Mels22 (`models/signature.onnx`, экспорт в `models/README.md`).

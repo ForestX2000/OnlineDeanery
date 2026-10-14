@@ -40,7 +40,7 @@ export function ImageHighlight({ imageUrl, name, image, highlights, activeField,
             const activate = () => { setActiveBox(index); onHoverField(box.field) }
             const deactivate = () => { setActiveBox(null); onHoverField(null) }
             return (
-              <button key={`${box.field ?? box.text}-${box.left}-${box.top}`} type="button" aria-label={description} title={description}
+              <button key={`${index}-${box.field ?? box.text}-${box.left}-${box.top}`} type="button" aria-label={description} title={description}
                 aria-pressed={box.field ? selectedField === box.field : undefined}
                 onMouseEnter={activate} onMouseLeave={deactivate} onFocus={activate} onBlur={deactivate}
                 onClick={() => { if (box.field) onSelectField(box.field) }}

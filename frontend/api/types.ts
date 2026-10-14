@@ -28,7 +28,7 @@ export interface DocumentCoordinate {
   bbox: [number, number, number, number]
   confidence: number | null
   source: "yolo" | "spotting" | "tesseract" | "tesseract_supplement" | "color"
-  page: 1
+  page: number
 }
 
 export interface VisualFeatures {
