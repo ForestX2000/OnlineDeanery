@@ -52,7 +52,9 @@ def extract(data: ExtractRequest):
         doc_type, _ = classify(text)
 
     if doc_type == "неизвестно":
-        return ExtractResponse(document_type=None, fields={})
+        raw_coords = data.ocr_result.get("coordinates")
+        return ExtractResponse(document_type=None, fields={},
+                               coordinates=raw_coords if isinstance(raw_coords, list) else [])
 
     # 1. regex + правила (быстро, всегда работает)
     fields = extract_fields(text, doc_type, data.field_definitions)

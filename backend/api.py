@@ -647,7 +647,7 @@ async def analyze(
                     type=extracted.document_type or document_type,
                     fields=extracted.fields,
                     ocr_text=ocr.text,
-                    coordinates=extracted.coordinates if extracted.coordinates is not None else ocr.coordinates,
+                    coordinates=extracted.coordinates or ocr.coordinates,
                     image=ocr.image,
                     visual_features=ocr.visual_features,
                 )
@@ -704,7 +704,7 @@ async def analyze_stream(
                     type=extracted.document_type or document_type,
                     fields=extracted.fields,
                     ocr_text=ocr.text,
-                    coordinates=extracted.coordinates if extracted.coordinates is not None else ocr.coordinates,
+                    coordinates=extracted.coordinates or ocr.coordinates,
                     image=ocr.image,
                     visual_features=ocr.visual_features,
                 )
