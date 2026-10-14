@@ -25,12 +25,21 @@ from PIL import Image, UnidentifiedImageError
 from pydantic import BaseModel, EmailStr, Field, JsonValue, ValidationError
 from pypdf import PdfReader
 from pypdf.errors import PdfReadError
-from sqlalchemy import delete, inspect, select, text
+from sqlalchemy import delete, func, inspect, select, text
 
 from backend.models import ApiModel, ApiResponse, Document, DocumentImage, ServiceAnswer
 from backend.database import engine, Base, SessionLocal
 from backend.security import hash_password, verify_password, token_ttl_days
-from backend.models import UserDB, DocumentDB, ExtractedFieldDB, RuleDB, RequestDB, AuditLogDB, AuthTokenDB
+from backend.models import (
+    UserDB,
+    UserRole,
+    DocumentDB,
+    ExtractedFieldDB,
+    RuleDB,
+    RequestDB,
+    AuditLogDB,
+    AuthTokenDB,
+)
 
 MAX_FILE_SIZE = 10 * 1024 * 1024
 MAX_QUESTION_LENGTH = 5000
@@ -185,6 +194,13 @@ async def get_required_user(
     return user
 
 
+async def require_admin(current_user: UserDB = Depends(get_required_user)) -> UserDB:
+    role = getattr(current_user.role, "value", current_user.role)
+    if role != UserRole.ADMIN.value:
+        raise HTTPException(status_code=403, detail="Требуются права администратора.")
+    return current_user
+
+
 # Схемы аутентификации и управления пользователями
 class LoginRequest(BaseModel):
     email: EmailStr
@@ -211,6 +227,21 @@ class CreateUserRequest(BaseModel):
     password: str = Field(min_length=12, max_length=256)
     username: str = Field(min_length=1, max_length=100)
     role: Literal["student", "admin"] = "student"
+
+
+class UpdateUserRequest(BaseModel):
+    email: EmailStr | None = None
+    password: str | None = Field(default=None, min_length=12, max_length=256)
+    username: str | None = Field(default=None, min_length=1, max_length=100)
+    role: Literal["student", "admin"] | None = None
+
+
+class UserListItem(BaseModel):
+    user_id: int
+    username: str
+    email: str
+    role: str
+    created_at: datetime
 
 class ForgotPasswordRequest(BaseModel):
     email: EmailStr
@@ -380,14 +411,15 @@ async def logout(
 @app.post("/api/admin/users", response_model=MessageResponse)
 async def admin_create_user(
     data: CreateUserRequest,
-    current_user: UserDB = Depends(get_required_user),
+    _: UserDB = Depends(require_admin),
     db=Depends(get_db),
 ):
     if db is None:
         raise HTTPException(status_code=503, detail="База данных недоступна. Попробуйте позже.")
-    if getattr(current_user.role, "value", current_user.role) != "admin":
-        raise HTTPException(status_code=403, detail="Только администратор может создавать пользователей.")
     normalized_email = data.email.lower().strip()
+    normalized_username = data.username.strip()
+    if not normalized_username:
+        raise HTTPException(status_code=422, detail="Имя пользователя не должно быть пустым.")
 
     existing = await db.execute(select(UserDB).where(UserDB.email == normalized_email))
     if existing.scalars().first():
@@ -396,12 +428,15 @@ async def admin_create_user(
             detail="Пользователь с таким email уже существует в базе деканата."
         )
 
-    from backend.models import UserRole
+    existing = await db.execute(select(UserDB).where(UserDB.username == normalized_username))
+    if existing.scalars().first():
+        raise HTTPException(status_code=400, detail="Имя пользователя уже занято.")
+
     new_user = UserDB(
         email=normalized_email,
         password_hash=hash_password(data.password),
-        username=data.username,
-        role=UserRole(data.role).value
+        username=normalized_username,
+        role=UserRole(data.role).value,
     )
     db.add(new_user)
     await db.commit()
@@ -410,6 +445,125 @@ async def admin_create_user(
         "success": True,
         "message": f"Пользователь {normalized_email} успешно создан деканатом."
     }
+
+
+def _user_list_item(user: UserDB) -> UserListItem:
+    return UserListItem(
+        user_id=user.user_id,
+        username=user.username,
+        email=user.email,
+        role=getattr(user.role, "value", user.role),
+        created_at=user.created_at,
+    )
+
+
+async def _admin_count(db) -> int:
+    result = await db.execute(
+        select(func.count()).select_from(UserDB).where(UserDB.role == UserRole.ADMIN.value)
+    )
+    return result.scalar_one()
+
+
+@app.get("/api/admin/users", response_model=list[UserListItem])
+async def admin_list_users(
+    _: UserDB = Depends(require_admin),
+    db=Depends(get_db),
+):
+    if db is None:
+        raise HTTPException(status_code=503, detail="База данных недоступна. Попробуйте позже.")
+    result = await db.execute(select(UserDB).order_by(UserDB.user_id))
+    return [_user_list_item(user) for user in result.scalars().all()]
+
+
+@app.get("/api/admin/users/{user_id}", response_model=UserListItem)
+async def admin_get_user(
+    user_id: int,
+    _: UserDB = Depends(require_admin),
+    db=Depends(get_db),
+):
+    if db is None:
+        raise HTTPException(status_code=503, detail="База данных недоступна. Попробуйте позже.")
+    user = await db.get(UserDB, user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="Пользователь не найден.")
+    return _user_list_item(user)
+
+
+@app.patch("/api/admin/users/{user_id}", response_model=UserListItem)
+async def admin_update_user(
+    user_id: int,
+    data: UpdateUserRequest,
+    current_admin: UserDB = Depends(require_admin),
+    db=Depends(get_db),
+):
+    if db is None:
+        raise HTTPException(status_code=503, detail="База данных недоступна. Попробуйте позже.")
+    changes = data.model_dump(exclude_unset=True)
+    if not changes:
+        raise HTTPException(status_code=400, detail="Укажите хотя бы одно поле для изменения.")
+    if any(value is None for value in changes.values()):
+        raise HTTPException(status_code=422, detail="Изменяемые поля не должны быть пустыми.")
+
+    user = await db.get(UserDB, user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="Пользователь не найден.")
+
+    if "email" in changes:
+        new_email = str(data.email).strip().lower()
+        duplicate = await db.execute(
+            select(UserDB).where(UserDB.email == new_email, UserDB.user_id != user_id)
+        )
+        if duplicate.scalars().first():
+            raise HTTPException(status_code=400, detail="Email уже занят.")
+        user.email = new_email
+
+    if "username" in changes:
+        new_username = data.username.strip()
+        if not new_username:
+            raise HTTPException(status_code=422, detail="Имя пользователя не должно быть пустым.")
+        duplicate = await db.execute(
+            select(UserDB).where(UserDB.username == new_username, UserDB.user_id != user_id)
+        )
+        if duplicate.scalars().first():
+            raise HTTPException(status_code=400, detail="Имя пользователя уже занято.")
+        user.username = new_username
+
+    if "password" in changes:
+        user.password_hash = hash_password(data.password)
+        await db.execute(delete(AuthTokenDB).where(AuthTokenDB.user_id == user_id))
+
+    if data.role == UserRole.STUDENT.value and getattr(user.role, "value", user.role) == UserRole.ADMIN.value:
+        if await _admin_count(db) <= 1:
+            raise HTTPException(status_code=400, detail="Нельзя снять роль у последнего администратора.")
+    if "role" in changes:
+        user.role = data.role
+
+    await db.commit()
+    await db.refresh(user)
+    return _user_list_item(user)
+
+
+@app.delete("/api/admin/users/{user_id}", response_model=MessageResponse)
+async def admin_delete_user(
+    user_id: int,
+    current_admin: UserDB = Depends(require_admin),
+    db=Depends(get_db),
+):
+    if db is None:
+        raise HTTPException(status_code=503, detail="База данных недоступна. Попробуйте позже.")
+    if user_id == current_admin.user_id:
+        raise HTTPException(status_code=400, detail="Нельзя удалить текущую учетную запись.")
+
+    user = await db.get(UserDB, user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="Пользователь не найден.")
+    if getattr(user.role, "value", user.role) == UserRole.ADMIN.value and await _admin_count(db) <= 1:
+        raise HTTPException(status_code=400, detail="Нельзя удалить последнего администратора.")
+
+    email = user.email
+    await db.delete(user)
+    await db.commit()
+    return {"success": True, "message": f"Пользователь {email} удалён."}
 
 
 @app.post("/api/auth/forgot-password", response_model=MessageResponse)

@@ -40,6 +40,15 @@ class SecurityTests(unittest.TestCase):
         # Без токена — 401, а не создание пользователя.
         self.assertEqual(response.status_code, 401)
 
+    def test_admin_user_management_requires_auth(self):
+        requests = [
+            self.client.get("/api/admin/users"),
+            self.client.get("/api/admin/users/1"),
+            self.client.patch("/api/admin/users/1", json={"username": "Student"}),
+            self.client.delete("/api/admin/users/1"),
+        ]
+        self.assertEqual([response.status_code for response in requests], [401, 401, 401, 401])
+
     def test_weak_password_and_role_rejected(self):
         # Валидация тела — на уровне pydantic-модели (endpoint требует
         # auth раньше body, см. test_admin_create_requires_auth).
@@ -54,6 +63,15 @@ class SecurityTests(unittest.TestCase):
         with self.assertRaises(ValidationError):
             CreateUserRequest(email="not-an-email", password="longenoughpassword",
                               username="Evil", role="student")
+
+    def test_user_update_rejects_weak_password_and_unknown_role(self):
+        from pydantic import ValidationError
+        from backend.api import UpdateUserRequest
+
+        with self.assertRaises(ValidationError):
+            UpdateUserRequest(password="short")
+        with self.assertRaises(ValidationError):
+            UpdateUserRequest(role="superadmin")
 
     def test_login_validation(self):
         response = self.client.post("/api/auth/login", json={
