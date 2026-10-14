@@ -1,4 +1,4 @@
-import os
+﻿import os
 import time
 import uuid
 import logging
@@ -8,6 +8,7 @@ import warnings
 import secrets
 import string
 import smtplib
+import bcrypt
 from email.message import EmailMessage
 from contextlib import asynccontextmanager, contextmanager
 from dataclasses import dataclass, field
@@ -59,6 +60,14 @@ SMTP_USER = os.getenv("SMTP_USER", "")
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
 SMTP_FROM = os.getenv("SMTP_FROM", "noreply@university.ru")
 
+def hash_password(password: str) -> str:
+    return bcrypt.hashpw(password[:72].encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+def verify_password(password: str, password_hash: str) -> bool:
+    try:
+        return bcrypt.checkpw(password[:72].encode("utf-8"), password_hash.encode("utf-8"))
+    except (ValueError, TypeError):
+        return False
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -138,6 +147,38 @@ async def get_required_user(
         raise HTTPException(status_code=401, detail="Войдите в аккаунт, чтобы открыть историю запросов.")
     return user
 
+async def require_admin(
+    current_user: UserDB = Depends(get_required_user),
+) -> UserDB:
+    """Пускает только админов."""
+    role = current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role)
+    if role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Требуются права администратора.",
+        )
+    return current_user
+
+class UserListItem(BaseModel):
+    user_id: int
+    username: str
+    email: str
+    role: str
+    created_at: datetime
+
+
+class CreateUserRequest(BaseModel):
+    email: str
+    password: str
+    username: str
+    role: str = "student"
+
+
+class UpdateUserRequest(BaseModel):
+    username: str | None = None
+    email: str | None = None
+    password: str | None = None
+    role: str | None = None
 
 # Схемы аутентификации и управления пользователями
 class LoginRequest(BaseModel):
@@ -251,7 +292,7 @@ async def login(data: LoginRequest, db = Depends(get_db)):
             detail="Пользователь с таким email не найден. Обратитесь в деканат для регистрации учетной записи."
         )
     
-    if user.password_hash != data.password:
+    if not verify_password(data.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Неверный пароль. Пожалуйста, проверьте правильность ввода."
@@ -322,37 +363,158 @@ async def logout(
     return {"success": True, "message": "Вы вышли из аккаунта."}
 
 
-@app.post("/api/admin/users", response_model=MessageResponse)
-async def admin_create_user(data: CreateUserRequest, db = Depends(get_db)):
+# ==== Admin: users CRUD ====
+
+@app.get("/api/admin/users", response_model=list[UserListItem])
+async def admin_list_users(
+    _: UserDB = Depends(require_admin),
+    db=Depends(get_db),
+):
+    """Список всех пользователей (только для админа)."""
+    result = await db.execute(select(UserDB).order_by(UserDB.user_id))
+    users = result.scalars().all()
+    return [
+        UserListItem(
+            user_id=u.user_id,
+            username=u.username,
+            email=u.email,
+            role=u.role.value if hasattr(u.role, "value") else str(u.role),
+            created_at=u.created_at,
+        )
+        for u in users
+    ]
+
+
+@app.get("/api/admin/users/{user_id}", response_model=UserListItem)
+async def admin_get_user(
+    user_id: int,
+    _: UserDB = Depends(require_admin),
+    db=Depends(get_db),
+):
+    user = await db.get(UserDB, user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="Пользователь не найден.")
+    return UserListItem(
+        user_id=user.user_id,
+        username=user.username,
+        email=user.email,
+        role=user.role.value if hasattr(user.role, "value") else str(user.role),
+        created_at=user.created_at,
+    )
+
+
+@app.post("/api/admin/users", response_model=UserListItem, status_code=201)
+async def admin_create_user(
+    data: CreateUserRequest,
+    _: UserDB = Depends(require_admin),
+    db=Depends(get_db),
+):
+    """Создать пользователя (только для админа)."""
     normalized_email = data.email.lower().strip()
-    
+    normalized_username = data.username.strip()
+
+    # проверка уникальности email
     existing = await db.execute(select(UserDB).where(UserDB.email == normalized_email))
     if existing.scalars().first():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Пользователь с таким email уже существует в базе деканата."
-        )
-    
+        raise HTTPException(status_code=400, detail="Email уже занят.")
+
+    # проверка уникальности username
+    existing = await db.execute(select(UserDB).where(UserDB.username == normalized_username))
+    if existing.scalars().first():
+        raise HTTPException(status_code=400, detail="Username уже занят.")
+
+    # роль
     try:
-        from backend.models import UserRole
-        role_val = UserRole(data.role) if hasattr(UserRole, "__call__") or isinstance(UserRole, type) else data.role
-    except Exception:
-        role_val = data.role
+        role_val = UserRole(data.role).value
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Недопустимая роль. Допустимо: student, admin.")
 
     new_user = UserDB(
         email=normalized_email,
-        password_hash=data.password,
-        username=data.username,
-        role=role_val
+        username=normalized_username,
+        password_hash=hash_password(data.password),
+        role=role_val,
     )
     db.add(new_user)
     await db.commit()
+    await db.refresh(new_user)
 
-    return {
-        "success": True,
-        "message": f"Пользователь {normalized_email} успешно создан деканатом."
-    }
+    return UserListItem(
+        user_id=new_user.user_id,
+        username=new_user.username,
+        email=new_user.email,
+        role=new_user.role,
+        created_at=new_user.created_at,
+    )
 
+
+@app.patch("/api/admin/users/{user_id}", response_model=UserListItem)
+async def admin_update_user(
+    user_id: int,
+    data: UpdateUserRequest,
+    _: UserDB = Depends(require_admin),
+    db=Depends(get_db),
+):
+    """Обновить пользователя (только для админа)."""
+    user = await db.get(UserDB, user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="Пользователь не найден.")
+
+    if data.email is not None:
+        new_email = data.email.lower().strip()
+        if new_email != user.email:
+            existing = await db.execute(select(UserDB).where(UserDB.email == new_email))
+            if existing.scalars().first():
+                raise HTTPException(status_code=400, detail="Email уже занят.")
+            user.email = new_email
+
+    if data.username is not None:
+        new_username = data.username.strip()
+        if new_username != user.username:
+            existing = await db.execute(select(UserDB).where(UserDB.username == new_username))
+            if existing.scalars().first():
+                raise HTTPException(status_code=400, detail="Username уже занят.")
+            user.username = new_username
+
+    if data.password:
+        user.password_hash = hash_password(data.password)
+
+    if data.role is not None:
+        try:
+            user.role = UserRole(data.role).value
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Недопустимая роль.")
+
+    await db.commit()
+    await db.refresh(user)
+
+    return UserListItem(
+        user_id=user.user_id,
+        username=user.username,
+        email=user.email,
+        role=user.role.value if hasattr(user.role, "value") else str(user.role),
+        created_at=user.created_at,
+    )
+
+
+@app.delete("/api/admin/users/{user_id}", response_model=MessageResponse)
+async def admin_delete_user(
+    user_id: int,
+    current_user: UserDB = Depends(require_admin),
+    db=Depends(get_db),
+):
+    """Удалить пользователя (только для админа)."""
+    if user_id == current_user.user_id:
+        raise HTTPException(status_code=400, detail="Нельзя удалить самого себя.")
+
+    user = await db.get(UserDB, user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="Пользователь не найден.")
+
+    await db.delete(user)
+    await db.commit()
+
+    return {"success": True, "message": f"Пользователь {user.email} удалён."}
 
 @app.post("/api/auth/forgot-password", response_model=MessageResponse)
 async def forgot_password(data: ForgotPasswordRequest, db = Depends(get_db)):
@@ -371,7 +533,7 @@ async def forgot_password(data: ForgotPasswordRequest, db = Depends(get_db)):
     new_password = ''.join(secrets.choice(alphabet) for _ in range(8))
     
     # Обновляем пароль в базе данных PostgreSQL
-    user.password_hash = new_password
+    user.password_hash = hash_password(new_password)
     await db.commit()
 
     email_body = (
