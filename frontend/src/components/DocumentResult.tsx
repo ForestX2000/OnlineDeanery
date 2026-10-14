@@ -47,7 +47,7 @@ const VERIFICATION_LABELS = new Map<string, string>([
 
 function formatValue(value: JsonValue, field: string): string {
   if (["signature", "stamp"].includes(field)) {
-    if (value === null) return "Не проверено"
+    if (value === null) return "Не обнаружено"
     if (value === false) return "Не обнаружено"
   }
   if (value === null || value === "") return "не найдено"
