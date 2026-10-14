@@ -34,4 +34,8 @@ Thumbs.db
 weights/
 runs/
 
+# Run artefacts (regenerate via tools/make_results), not source data.
+results.json
+demo_results.json
+
 .venv\

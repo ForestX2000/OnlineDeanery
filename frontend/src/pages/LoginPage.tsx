@@ -188,14 +188,7 @@ export default function LoginPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4 rounded border-[#1e293b]/20 text-[#087b45] focus:ring-[#087b45]/20"
-                    />
-                    <span className="text-sm text-[#1e293b]/70">Запомнить меня</span>
-                  </label>
+                <div className="flex items-center justify-end">
                   <button
                     type="button"
                     onClick={() => setShowForgotPassword(true)}

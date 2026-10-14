@@ -17,13 +17,16 @@ export interface HighlightBox extends DocumentCoordinate {
   height: number
 }
 
-/** Coordinates are already in the EXIF-oriented original image plane. Do not rotate again. */
-export function documentHighlights(coordinates: unknown, image: unknown): HighlightBox[] {
+/** Coordinates are already in the EXIF-oriented original image plane. Do not rotate again.
+ * The overlay shows a single page preview, so only boxes for the requested page
+ * (1 by default) are returned; other pages are skipped explicitly, not silently. */
+export function documentHighlights(coordinates: unknown, image: unknown, page = 1): HighlightBox[] {
   if (!isDocumentImage(image) || !Array.isArray(coordinates)) return []
   return coordinates.flatMap((value: unknown) => {
     if (!isRecord(value) || (value.field !== null && (typeof value.field !== "string" || !value.field.trim())) ||
         typeof value.text !== "string" || !["yolo", "spotting", "tesseract", "tesseract_supplement", "color"].includes(value.source as string) ||
-        value.page !== 1 || !Array.isArray(value.bbox) || value.bbox.length !== 4 ||
+        !Number.isSafeInteger(value.page) || (value.page as number) < 1 || value.page !== page ||
+        !Array.isArray(value.bbox) || value.bbox.length !== 4 ||
         !value.bbox.every((n: unknown) => typeof n === "number" && Number.isFinite(n)) ||
         !(value.confidence === null || (typeof value.confidence === "number" &&
           Number.isFinite(value.confidence) && value.confidence >= 0 && value.confidence <= 1)) ||
@@ -34,7 +37,7 @@ export function documentHighlights(coordinates: unknown, image: unknown): Highli
     return [{
       field: value.field as string | null, text: value.text,
       bbox: [x1, y1, x2, y2] as [number, number, number, number],
-      confidence: value.confidence as number | null, source: value.source as DocumentCoordinate["source"], page: 1 as const,
+      confidence: value.confidence as number | null, source: value.source as DocumentCoordinate["source"], page: value.page as number,
       left: x1 / image.width * 100, top: y1 / image.height * 100,
       width: (x2 - x1) / image.width * 100, height: (y2 - y1) / image.height * 100,
     }]

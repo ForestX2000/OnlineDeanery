@@ -116,11 +116,13 @@ export function DocumentResult() {
       .map((field) => [field, processingDocument?.fields[field] as JsonValue]),
   )
   const displayFields = Object.entries(fields).filter(([key]) => key !== "study_period_note")
+  const verification = data?.verification
   const studyPeriodNote = typeof fields.study_period_note === "string" ? fields.study_period_note : null
+  const studyPeriodNoteCovered = studyPeriodNote !== null &&
+    (verification?.issues.some((issue) => studyPeriodNote.includes(issue)) ?? false)
   const highlightedFields = new Set(photo ? highlights.map((box) => box.field).filter(Boolean) : [])
   const activeField = hoveredField ?? selectedField
   const selectField = (field: string) => setSelectedField((current) => current === field ? null : field)
-  const verification = data?.verification
   const fieldLabel = (field: string) => configuredFieldLabels[field] ?? FIELD_LABELS.get(field) ?? field.replace(/_/g, " ")
   const documentLabel = document?.type
     ? documentLabels[document.type] ?? document.type
@@ -135,8 +137,12 @@ export function DocumentResult() {
       setResult(await sendMessage(question, data.conversation_id, authToken ?? undefined))
       setQuestion("")
     } catch (error) {
-      setExpired(error instanceof ApiError && error.status === 404)
-      setError(error instanceof Error ? error.message : "Не удалось получить ответ")
+      const gone = error instanceof ApiError && error.status === 404
+      const busy = error instanceof ApiError && error.status === 409
+      setExpired(gone)
+      setError(busy
+        ? "Диалог ещё обрабатывает предыдущий вопрос. Подождите несколько секунд и нажмите «Задать вопрос» ещё раз — текст вопроса сохранён."
+        : error instanceof Error ? error.message : "Не удалось получить ответ")
     } finally {
       submitting.current = false
       setPending(false)
@@ -211,7 +217,7 @@ export function DocumentResult() {
                 ))}
               </TableBody>
             </Table>
-            {studyPeriodNote && !verification?.issues.some((issue) => issue.includes(studyPeriodNote)) &&
+            {studyPeriodNote && !studyPeriodNoteCovered &&
               <p role="note" className="mt-3 rounded-lg border border-emerald-200 bg-white/70 px-3 py-2 text-sm text-slate-600">{studyPeriodNote}</p>}
             {!isProcessing && displayFields.length === 0 && <p className="mt-3 text-sm text-slate-600">Поля документа не найдены.</p>}
             {processingError && <div role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{processingError}</div>}

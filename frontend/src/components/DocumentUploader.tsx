@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 
 import { useAppStore } from "../store/useAppStore";
-import type { AnalysisResult, DocumentType } from "../../api";
+import type { DocumentType } from "../../api";
 import { analyzeDocument, getDocumentTypes, sendMessage, MAX_FILE_SIZE, MAX_QUESTION_LENGTH } from "../../api";
 
 const pause = (ms: number) => new Promise<void>((resolve) => window.setTimeout(resolve, ms));
@@ -118,7 +118,7 @@ export default function DocumentUploader() {
           },
         });
         await fieldAnimation;
-        setResult(result as unknown as AnalysisResult, file);
+        setResult(result, file);
       } catch (err) {
         await fieldAnimation;
         failProcessing(err instanceof Error ? err.message : "Не удалось обработать документ. Попробуйте ещё раз.");
@@ -131,7 +131,7 @@ export default function DocumentUploader() {
     setStep("processing");
     try {
       const result = await sendMessage(question.trim(), undefined, authToken ?? undefined);
-      setResult(result as unknown as AnalysisResult);
+      setResult(result);
       navigate("/result");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не удалось получить ответ. Попробуйте ещё раз.");

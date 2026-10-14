@@ -8,7 +8,6 @@ import ProfilePage from "./pages/ProfilePage";
 import { DocumentResult } from "./components/DocumentResult";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
-import DocumentDetailsPage from "./pages/DocumentDetailsPage";
 import { ThemeProvider } from "./context/ThemeProvider";
 
 function ResultPage() {
@@ -42,7 +41,11 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           
          
-          <Route path="/upload" element={<UploadRoute />} />
+          <Route path="/upload" element={
+            <ProtectedRoute>
+              <UploadRoute />
+            </ProtectedRoute>
+          } />
           <Route path="/result" element={<ResultPage />} />
           <Route 
             path="/profile" 
@@ -52,14 +55,6 @@ export default function App() {
               </ProtectedRoute>
             } 
           />
-           <Route
-  path="/documents/:documentId"
-  element={
-    <ProtectedRoute>
-      <DocumentDetailsPage />
-    </ProtectedRoute>
-  }
-/>
           
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

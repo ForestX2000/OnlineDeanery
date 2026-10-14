@@ -120,7 +120,31 @@ export const useAppStore = create<AppState>()(
       name: "online-deanery-storage",
       // zustand 5 не подставляет localStorage сам: без явного storage
       // persist молча ничего не сохраняет (только warning в консоль).
-      storage: createJSONStorage(() => localStorage),
+      // Обёртка с try/catch: переполнение квоты или недоступность
+      // localStorage не должны ронять приложение.
+      storage: createJSONStorage(() => ({
+        getItem: (name) => {
+          try {
+            return localStorage.getItem(name)
+          } catch {
+            return null
+          }
+        },
+        setItem: (name, value) => {
+          try {
+            localStorage.setItem(name, value)
+          } catch {
+            /* Квота исчерпана или хранилище недоступно: работаем без сохранения. */
+          }
+        },
+        removeItem: (name) => {
+          try {
+            localStorage.removeItem(name)
+          } catch {
+            /* Нечего чистить, если хранилище недоступно. */
+          }
+        },
+      })),
       partialize: (state) => ({
         isAuthenticated: state.isAuthenticated,
         authToken: state.authToken,

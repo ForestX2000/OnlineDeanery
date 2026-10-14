@@ -1,10 +1,14 @@
 import asyncio
 from backend.database import AsyncSessionLocal, engine, Base
 from backend.models import UserDB, UserRole
+from backend.security import hash_password
 from sqlalchemy import select
 
 async def seed_database():
     print("--- ЗАПУСК СИДИНГА БАЗЫ ДАННЫХ ---")
+    if engine is None or AsyncSessionLocal is None:
+        print("DATABASE_URL не задан — сидинг пропущен.")
+        return
     
     # Создаем таблицы асинхронно
     async with engine.begin() as conn:
@@ -25,19 +29,19 @@ async def seed_database():
                 UserDB(
                     email="student@university.ru",
                     username="Иван Студентов",
-                    password_hash="123456",
+                    password_hash=hash_password("123456"),
                     role=UserRole.STUDENT.value,
                 ),
                 UserDB(
                     email="admin@university.ru",
                     username="Алексей Админов",
-                    password_hash="admin123",
+                    password_hash=hash_password("admin123"),
                     role=UserRole.ADMIN.value,
                 ),
                 UserDB(
                     email="test@university.ru",
                     username="Мария Петрова",
-                    password_hash="test123",
+                    password_hash=hash_password("test123"),
                     role=UserRole.STUDENT.value,
                 )
             ]
