@@ -34,6 +34,13 @@ RULES: dict[str, list[tuple[str, int]]] = {
 def classify(text: str) -> tuple[str, float]:
     """Возвращает (тип, уверенность 0..1)."""
     low = text.lower()
+    # Школьная справка — не вузовская «справка об обучении» (п. 3.1):
+    # МБОУ/СОШ/ученик/класс без вузовских маркеров — это другой тип,
+    # иначе «обучается + справка» ложно даёт study_certificate 1.0.
+    if re.search(r"школа|мбоу|мбдоу|маоу|сош\b|ученик\b|\b\d{1,2}[а-я]\s+класс", low) and not re.search(
+        r"университет|институт|академия|колледж|вуз|направлени\w*\s+подготовк|зачислен", low
+    ):
+        return "неизвестно", 0.0
     scores: dict[str, int] = {}
     for doc_type, patterns in RULES.items():
         scores[doc_type] = sum(w for p, w in patterns if re.search(p, low))

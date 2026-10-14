@@ -239,16 +239,18 @@ def detect_marks(image: np.ndarray) -> dict:
     stamp = _run_source(image, "YOLO_MODEL_PATH", frozenset({"stamp"}), threshold)
     if stamp["status"] == "disabled" and os.getenv("YOLO_STAMP_HEURISTIC", "1") == "1":
         # YOLO-весов печати нет: классический поиск синего кольца, только True.
+        # Слабая/бледная печать (как на фото школьной справки) не должна
+        # превращаться в уверенное «печати нет»: отсутствие сильного отклика —
+        # это «не подтверждено» (None), а не False.
         try:
             seal = detect_blue_seal(image)
         except Exception as exc:
             logger.warning("Blue-seal heuristic failed: %s", exc)
             stamp = unavailable("error")
         else:
-            # Эвристика была выполнена: отсутствие уверенной синей печати —
-            # проверенный отрицательный результат, а не «не проверено».
             stamp = {"status": "ready", "signature": None,
-                     "stamp": seal is not None, "boxes": [seal] if seal else []}
+                     "stamp": True if seal is not None else None,
+                     "boxes": [seal] if seal else []}
     statuses = {sig["status"], stamp["status"]}
     if statuses == {"disabled"}:
         return unavailable("disabled")

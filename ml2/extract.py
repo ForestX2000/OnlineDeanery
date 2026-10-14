@@ -23,11 +23,14 @@ PATTERNS: dict[str, list[str]] = {
     "student_name": [
         r"([А-ЯЁ][а-яё]+\s+[А-ЯЁ][а-яё]+(?:\s+[А-ЯЁ][а-яё]+)?)\s*\(\d{2}\.\d{2}\.\d{4}",
         r"фио[:\s]+([А-ЯЁ][а-яё]+(?:\s+[А-ЯЁ][а-яё]+){1,2})",
+        r"выдан[ао]?\s+([А-ЯЁ][а-яё]+(?:\s+[А-ЯЁ][а-яё]+){1,2})",
     ],
     "university": [
         r"«([^»]{5,120}?(?:университет|институт|академия|колледж)[^»]*?)»",
         r"([А-ЯЁ][а-яё]+\s+государственн\w+\s+(?:техническ\w+\s+)?(?:университет\w*|колледж\w*))",
-        r"([А-ЯЁ]{2,8}(?:ГУ|ГТУ|ГАУ|ПГУ|ТУ|ИУ|АСУ))\b",
+        # Аббревиатура (ДГТУ и т.п.) ищется отдельно в extract_university
+        # строго заглавными: иначе IGNORECASE ловит окончания обычных слов
+        # («суббо[ту]», «пятницу» и т.п.).
     ],
     "program": [
         r"(\d{2}\.\d{2}\.\d{2})\s+([А-ЯЁ][а-яё][^\n]{3,120})",
@@ -83,6 +86,48 @@ def extract_field(text: str, patterns: list[str]) -> str | None:
             value = m.group(1).strip().rstrip(".,;:")
             if value:
                 return value
+    return None
+
+
+_ABBR_RE = re.compile(r"\b([А-ЯЁ]{2,8}(?:ГУ|ГТУ|ГАУ|ПГУ|ТУ|ИУ|АСУ))\b")
+
+
+def extract_university(text: str) -> str | None:
+    """Название вуза: сначала полные формы, аббревиатура — только ЗАГЛАВНЫМИ.
+
+    Отдельный проход без IGNORECASE: иначе шаблон аббревиатур ловит
+    окончания обычных слов («суббо[ту]», «пятницу»).
+    """
+    for pattern in PATTERNS.get("university", []):
+        m = re.search(pattern, text, re.IGNORECASE | re.MULTILINE)
+        if m:
+            value = m.group(1).strip().rstrip(".,;:")
+            if value:
+                return value
+    for m in _ABBR_RE.finditer(text):
+        # Требуем, чтобы совпадение было написано заглавными
+        # (допускаем скобки/кавычки вокруг, но не «Субботу»).
+        token = m.group(1)
+        if token.isupper():
+            return token
+    return None
+
+
+_SCHOOL_NUMBER_HINT = re.compile(r"школ\w*|сош|мбоу|мбдоу|маоу|лице\w*|гимнази\w*|класс", re.IGNORECASE)
+
+
+def extract_document_number(text: str) -> str | None:
+    """Номер документа, а не № школы («МБОУ СОШ № 28»)."""
+    for pattern in PATTERNS.get("document_number", []):
+        for m in re.finditer(pattern, text, re.IGNORECASE | re.MULTILINE):
+            value = m.group(1).strip().rstrip(".,;:")
+            if not value:
+                continue
+            # Контекст слева: если рядом школа/СОШ/МБОУ — это № школы.
+            left = text[max(0, m.start() - 30):m.start()]
+            if _SCHOOL_NUMBER_HINT.search(left):
+                continue
+            return value
     return None
 
 
@@ -148,17 +193,39 @@ def _enrollment_date(text: str) -> tuple[str, str, date | None] | None:
     patterns = (
         r"\b\u0434\u0430\u0442\u0430\s+\u0437\u0430\u0447\u0438\u0441\u043b\u0435\u043d\u0438\w*\b",
         r"\b\u0437\u0430\u0447\u0438\u0441\u043b\u0435\u043d\w*\s+(?:\u0441|\u043d\u0430|\u0432)\b",
+        r"\bприступил\w*\s+к\s+обучени\w*\b",
+        r"\bначал\w*\s+обучени\w*\b",
+        r"\bпринят\w*\s+(?:в|на)\b",
     )
     for pattern in patterns:
         for match in re.finditer(pattern, text, re.IGNORECASE):
-            # Avoid borrowing an order, issue, or completion date from nearby text.
-            tail = text[match.end():match.end() + 60].splitlines()[0]
-            candidate = re.match(rf"\s*[:#\u2116\u2013\u2014-]?\s*({_DATE_TOKEN})", tail)
-            if candidate:
-                parsed = _parse_date_token(candidate.group(1))
+            # Дата может стоять не сразу («... в МБОУ СОШ № 28 с 01.09.2011»),
+            # поэтому ищем «с ДАТА» в хвосте, а не только в начале.
+            tail = text[match.end():match.end() + 80].splitlines()[0]
+            direct = re.match(rf"\s*[:#\u2116\u2013\u2014-]?\s*({_DATE_TOKEN})", tail)
+            if direct:
+                parsed = _parse_date_token(direct.group(1))
+                if parsed:
+                    return parsed
+            dated = re.search(rf"\b[сc]\s*({_DATE_TOKEN})", tail, re.IGNORECASE)
+            if dated:
+                parsed = _parse_date_token(dated.group(1))
                 if parsed:
                     return parsed
     return None
+
+
+_PERIOD_SKIP_HINT = re.compile(
+    r"каникул|отпуск|расписани|понедельник|вторник|сред[ау]|четверг|пятниц|суббот|воскресен|часов|уроков|перемен",
+    re.IGNORECASE,
+)
+
+
+def _context_of(text: str, pos: int, radius: int = 80) -> str:
+    return text[max(0, pos - radius):pos]
+
+
+_RIGHT_SKIP_HINT = re.compile(r"часов|уроков|перемен", re.IGNORECASE)
 
 
 def _study_period_details(text: str) -> tuple[str, str | None]:
@@ -169,9 +236,24 @@ def _study_period_details(text: str) -> tuple[str, str | None]:
     start = end = None
     range_pattern = rf"\bс\s*({_DATE_TOKEN})[^\n]{{0,50}}?\b(?:по|до)\s*({_DATE_TOKEN})"
     for match in re.finditer(range_pattern, text, re.IGNORECASE):
+        # Пропускаем расписание («с 08.30 до 14.30 часов») и каникулы —
+        # это не период обучения. Метка каникул/расписания стоит ПЕРЕД
+        # диапазоном («Каникулы с...»), поэтому смотрим только левый
+        # контекст + сам фрагмент. Правый контекст проверяем лишь на
+        # «часов/уроков», иначе «Период с...по.... Каникулы с...» в
+        # однострочном OCR-тексте отменит и корректный период.
+        left = _context_of(text, match.start())
+        if _PERIOD_SKIP_HINT.search(left + " " + match.group(0)):
+            continue
+        if _RIGHT_SKIP_HINT.search(text[match.end():match.end() + 20]):
+            continue
         candidate_start = _parse_date_token(match.group(1))
         candidate_end = _parse_date_token(match.group(2))
         if candidate_start and candidate_end:
+            # Время вида 08.30 парсится как day_month — для периода нужны
+            # полные даты, иначе «08.30 – 14.30» станет периодом.
+            if candidate_start[1] != "day" or candidate_end[1] != "day":
+                continue
             start, end = candidate_start, candidate_end
             break
 
@@ -285,6 +367,14 @@ def extract_fields(text: str, doc_type: str,
                 fields["study_period_note"] = note
         elif field == "program":
             value = extract_program(text)
+        elif field == "university":
+            value = extract_university(text)
+            if not value and field in configured:
+                value = extract_configured_value(text, configured[field])
+        elif field == "document_number":
+            value = extract_document_number(text)
+            if not value and field in configured:
+                value = extract_configured_value(text, configured[field])
 
         fields[field] = value or "не найдено"
 
