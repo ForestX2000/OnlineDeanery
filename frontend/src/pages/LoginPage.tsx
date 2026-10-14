@@ -85,7 +85,7 @@ export default function LoginPage() {
                 </div>
                 <h2 className="text-2xl font-bold text-[#1e293b]">Письмо отправлено</h2>
                 <p className="text-[#1e293b]/70">
-                  Мы отправили инструкцию по восстановлению пароля на адрес <br/>
+                  Мы отправили новый пароль на адрес <br/>
                   <span className="font-semibold text-[#1e293b]">{forgotEmail}</span>
                 </p>
                 <button
@@ -111,7 +111,7 @@ export default function LoginPage() {
                 </button>
                 <h2 className="text-2xl font-bold text-[#1e293b] mb-2">Восстановление пароля</h2>
                 <p className="text-sm text-[#1e293b]/70 mb-6">
-                  Введите email, указанный при регистрации. Мы отправим вам ссылку для сброса пароля.
+                  Введите email, указанный при регистрации. Если почта настроена, мы отправим вам новый пароль.
                 </p>
 
                 <form onSubmit={handleForgotPassword} className="space-y-5">
@@ -138,7 +138,7 @@ export default function LoginPage() {
                     disabled={pending}
                     className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-[#087b45] px-6 py-3 font-semibold text-white transition hover:bg-[#065c34] disabled:opacity-60"
                   >
-                    {pending ? "Отправляем..." : "Отправить ссылку"}
+                    {pending ? "Отправляем..." : "Отправить новый пароль"}
                     <ArrowRight size={18} />
                   </button>
                 </form>

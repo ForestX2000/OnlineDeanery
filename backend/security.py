@@ -40,7 +40,9 @@ def verify_password(password: str, stored: str) -> str:
             return "ok" if hmac.compare_digest(expected.hex(), hash_hex) else "invalid"
         except (ValueError, TypeError):
             return "invalid"
-    return "legacy" if hmac.compare_digest(password, stored) else "invalid"
+    return "legacy" if hmac.compare_digest(
+        password.encode("utf-8"), stored.encode("utf-8")
+    ) else "invalid"
 
 
 def token_ttl_days() -> int:

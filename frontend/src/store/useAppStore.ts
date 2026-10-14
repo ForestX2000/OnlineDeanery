@@ -118,6 +118,7 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: "online-deanery-storage",
+      version: 1,
       // zustand 5 не подставляет localStorage сам: без явного storage
       // persist молча ничего не сохраняет (только warning в консоль).
       // Обёртка с try/catch: переполнение квоты или недоступность
@@ -145,11 +146,16 @@ export const useAppStore = create<AppState>()(
           }
         },
       })),
+      migrate: (persistedState) => {
+        if (typeof persistedState !== "object" || persistedState === null) return {};
+        const safeState = { ...(persistedState as Partial<AppState>) };
+        delete safeState.result;
+        return safeState;
+      },
       partialize: (state) => ({
         isAuthenticated: state.isAuthenticated,
         authToken: state.authToken,
         user: state.user,
-        result: state.result,
       }),
     }
   )

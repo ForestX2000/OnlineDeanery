@@ -208,7 +208,7 @@ class LoginResponse(BaseModel):
 
 class CreateUserRequest(BaseModel):
     email: EmailStr
-    password: str = Field(min_length=6, max_length=256)
+    password: str = Field(min_length=12, max_length=256)
     username: str = Field(min_length=1, max_length=100)
     role: Literal["student", "admin"] = "student"
 
@@ -273,17 +273,17 @@ def send_email_sync(to_email: str, subject: str, body: str):
     msg["To"] = to_email
 
     if not SMTP_USER or not SMTP_PASSWORD:
-        logger.warning("SMTP credentials not set. Email simulation active (see logs).")
+        logger.warning("SMTP credentials are not set; recovery email was not sent")
         return False
 
     try:
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as server:
             server.starttls()
             server.login(SMTP_USER, SMTP_PASSWORD)
             server.send_message(msg)
         return True
     except Exception as exc:
-        logger.error(f"Failed to send email via SMTP: {exc}")
+        logger.error("Failed to send email via SMTP: %s", type(exc).__name__)
         return False
 
 
@@ -430,10 +430,6 @@ async def forgot_password(data: ForgotPasswordRequest, db = Depends(get_db)):
     alphabet = string.ascii_letters + string.digits
     new_password = ''.join(secrets.choice(alphabet) for _ in range(12))
 
-    # Храним только хэш.
-    user.password_hash = hash_password(new_password)
-    await db.commit()
-
     email_body = (
         f"Здравствуйте, {user.username}!\n\n"
         f"Был запрошен сброс пароля для вашей учетной записи в Онлайн-деканате.\n"
@@ -441,7 +437,18 @@ async def forgot_password(data: ForgotPasswordRequest, db = Depends(get_db)):
         f"Используйте его для авторизации в системе."
     )
 
-    await run_in_threadpool(send_email_sync, normalized_email, "Восстановление пароля — Онлайн-деканат", email_body)
+    user.password_hash = hash_password(new_password)
+    await db.flush()
+    sent = await run_in_threadpool(
+        send_email_sync, normalized_email, "Восстановление пароля — Онлайн-деканат", email_body
+    )
+    if not sent:
+        await db.rollback()
+        raise HTTPException(
+            status_code=503,
+            detail="Не удалось отправить письмо. Текущий пароль не изменён; обратитесь в деканат.",
+        )
+    await db.commit()
     logger.info("Сброс пароля для %s: письмо отправлено", normalized_email)
 
     return {
@@ -656,6 +663,8 @@ async def finish_request_record_in_new_session(
     request_id: int | None, status_value: str, answer: str | None = None,
     document_type: str | None = None,
 ) -> None:
+    if request_id is None or SessionLocal is None:
+        return
     async with SessionLocal() as history_db:
         await finish_request_record(history_db, request_id, status_value, answer, document_type)
 

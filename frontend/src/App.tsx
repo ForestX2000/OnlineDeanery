@@ -41,11 +41,7 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           
          
-          <Route path="/upload" element={
-            <ProtectedRoute>
-              <UploadRoute />
-            </ProtectedRoute>
-          } />
+          <Route path="/upload" element={<UploadRoute />} />
           <Route path="/result" element={<ResultPage />} />
           <Route 
             path="/profile" 
