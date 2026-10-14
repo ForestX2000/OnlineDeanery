@@ -21,6 +21,9 @@ Thumbs.db
 /data/
 *.png
 *.jpg
+# Демо-документы для сдачи коммитим: жюри клонирует репо с картинками.
+# Перегенерировать: python -m tools.make_demo_docs --output demo_docs
+!demo_docs/*.png
 /mws_data/
 
 # ML weights and training artefacts live outside git (see YOLO_MODEL_PATH).

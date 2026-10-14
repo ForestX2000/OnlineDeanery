@@ -43,6 +43,10 @@ backend-сервиса. Обработка файлов требует OCR (`ml1
 (`./models/*.gguf`, образ `ghcr.io/ggml-org/llama.cpp:server`).
 Для host-режима задайте `PADDLEOCR_VL_URL=http://host.docker.internal:8080/v1/chat/completions`.
 Без моделей/сервиса интерфейс покажет ошибку подключения (503/504), а не тестовый ответ.
+Host-режим `ml1` дополнительно требует установленный Tesseract OCR
+(в Docker он уже в образе: `tesseract-ocr` + `tesseract-ocr-rus`),
+пакет `pytesseract` (`pip install -r ml1/requirements.txt`) и файл
+`rus.traineddata`, доступный через `TESSDATA_PREFIX`.
 Адреса можно задать переменными окружения перед запуском uvicorn:
 
 ```powershell

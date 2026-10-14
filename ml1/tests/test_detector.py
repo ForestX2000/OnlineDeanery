@@ -15,7 +15,8 @@ WEIGHTS_AVAILABLE = os.path.exists(SIG_ONNX) and os.path.exists(STAMP_ONNX)
 
 class MergeTests(unittest.TestCase):
     def setUp(self):
-        self._saved = {k: os.environ.get(k) for k in ("YOLO_MODEL_PATH", "YOLO_SIG_MODEL_PATH")}
+        self._saved = {k: os.environ.get(k) for k in (
+            "YOLO_MODEL_PATH", "YOLO_SIG_MODEL_PATH", "YOLO_STAMP_HEURISTIC")}
 
     def tearDown(self):
         for key, value in self._saved.items():
@@ -27,6 +28,7 @@ class MergeTests(unittest.TestCase):
     def test_no_models_means_not_checked(self):
         os.environ.pop("YOLO_MODEL_PATH", None)
         os.environ.pop("YOLO_SIG_MODEL_PATH", None)
+        os.environ["YOLO_STAMP_HEURISTIC"] = "0"
         result = detect_marks(np.zeros((64, 64, 3), dtype=np.uint8))
         self.assertEqual(result["status"], "disabled")
         self.assertIsNone(result["signature"])

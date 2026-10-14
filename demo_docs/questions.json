@@ -1,5 +1,11 @@
 [
   {
+    "id": "study-01",
+    "file": "study_certificate.png",
+    "question": "Хватит ли этой справки для перевода на 2 курс?",
+    "document_type": "study_certificate"
+  },
+  {
     "id": "leave-01",
     "file": "academic_leave.png",
     "question": "Чего не хватает в заявлении на академический отпуск?",

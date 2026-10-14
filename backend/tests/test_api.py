@@ -25,6 +25,12 @@ class ApiTests(unittest.TestCase):
 
         async def upstream(url, **kwargs):
             self.calls.append((url, kwargs))
+            if url == api.DOCUMENT_TYPES_URL:
+                return {"items": [
+                    {"id": "study_certificate", "required_fields": []},
+                    {"id": "academic_leave", "required_fields": []},
+                    {"id": "internship_certificate", "required_fields": []},
+                ]}
             if url == api.ML1_URL:
                 return {"text": "Иванов", "coordinates": [{"x": 1, "y": 2}]}
             if url == api.ML2_URL:
@@ -63,9 +69,10 @@ class ApiTests(unittest.TestCase):
         response = self.analyze(document_type="academic_leave")
         self.assertEqual(response.status_code, 200, response.text)
         data = response.json()
-        self.assertEqual([url for url, _ in self.calls], [api.ML1_URL, api.ML2_URL, api.BACKEND2_URL])
-        self.assertEqual(self.calls[0][1]["files"]["file"][2], "image/png")
-        self.assertEqual(self.calls[1][1]["json"]["document_type"], "academic_leave")
+        self.assertEqual([url for url, _ in self.calls],
+                         [api.DOCUMENT_TYPES_URL, api.ML1_URL, api.ML2_URL, api.BACKEND2_URL])
+        self.assertEqual(self.calls[1][1]["files"]["file"][2], "image/png")
+        self.assertEqual(self.calls[2][1]["json"]["document_type"], "academic_leave")
         self.assertEqual(data["document"]["fields"]["stamp"], False)
         self.assertEqual(data["document"]["coordinates"], [{"x": 1, "y": 2}])
         self.assertEqual(data["verification"]["missing_fields"], ["issue_date"])
@@ -108,7 +115,8 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(self.client.post("/chat", json={}).status_code, 422)
         self.assertEqual(self.client.post("/chat", json={"message": "x" * 5001}).status_code, 422)
         self.assertEqual(self.analyze(document_type="unknown").status_code, 422)
-        self.assertEqual(self.calls, [])
+        self.assertTrue(all(url == api.DOCUMENT_TYPES_URL for url, _ in self.calls),
+                        "неизвестный тип отклоняется до обращения к ML/Backend2")
 
     def test_unknown_expired_and_busy_sessions(self):
         self.assertEqual(self.client.post("/chat", json={"message": "?", "conversation_id": "missing"}).status_code, 404)

@@ -4,9 +4,10 @@
 Перед записью: `docker compose up --build -d`, дождаться `llama`
 (`docker compose logs llama` → `listening on http://0.0.0.0:8080`),
 открыть `http://localhost:5173`, подготовить файлы:
-`baton.png` (справка, реальное фото), `demo_docs/academic_leave.png`,
+`demo_docs/study_certificate.png`, `demo_docs/academic_leave.png`,
 `demo_docs/internship_certificate.png`
 (`python -m tools.make_demo_docs --output demo_docs`).
+Реальное фото `baton.png` (не в git) — опциональная замена кейса 1.
 
 ## 0:00–0:20 — проблема и сервис (1 слайд устно)
 
@@ -16,7 +17,7 @@
 
 ## 0:20–1:00 — кейс 1: справка об обучении, документ в порядке
 
-1. Загрузить `baton.png`, тип — авто, вопрос: `Хватит ли её для перевода на 2 курс?`
+1. Загрузить `demo_docs/study_certificate.png` (или реальное фото `baton.png`), тип — авто, вопрос: `Хватит ли её для перевода на 2 курс?`
 2. Показать: таблица полей (ФИО, вуз, программа, даты), подсветка подписи
    и печати на фото, ответ со статусом `complete` и источником `п. 3.1`,
    дисклеймер про решение сотрудника.

@@ -1,4 +1,4 @@
-"""Синтетические демо-документы (академ-отпуск, практика) для видео и results.json.
+"""Синтетические демо-документы трёх типов для видео и results.json.
 
 Шаблоны заточены под regex ml2/extract.py. Подпись — росчерк (для YOLO),
 печать — синее кольцо (для классики). Запуск из корня репо:
@@ -57,6 +57,17 @@ PRACTICE_LINES = [
     "Дата выдачи: 01.07.2026, № 77",
 ]
 
+STUDY_LINES = [
+    "СПРАВКА об обучении",
+    "",
+    "ФИО: Иванов Иван Иванович",
+    "Вуз: «Московский государственный университет»",
+    "Направление подготовки: 09.03.01 Информатика и вычислительная техника",
+    "Форма обучения: очная",
+    "Период обучения: с 01.09.2024 по 30.06.2028",
+    "Дата выдачи: 15.07.2024, № 123",
+]
+
 
 def render(lines: list[str], path: Path) -> None:
     face, small = font(34), font(26)
@@ -80,6 +91,7 @@ def main() -> int:
     out.mkdir(parents=True, exist_ok=True)
     render(LEAVE_LINES, out / "academic_leave.png")
     render(PRACTICE_LINES, out / "internship_certificate.png")
+    render(STUDY_LINES, out / "study_certificate.png")
     print(f"saved to {out}")
     return 0
 

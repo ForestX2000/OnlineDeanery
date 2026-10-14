@@ -11,7 +11,7 @@
 cd frontend; npm test; npm run lint; npm run build; cd ..
 ```
 
-Ожидается: 52 + 38 + 7 + 24 зеленых теста, `tsc` и `vite build` без ошибок.
+Ожидается: 55 + 39 + 8 + 27 зеленых теста, `tsc` и `vite build` без ошибок.
 
 ## 2. Здоровье сервисов
 
