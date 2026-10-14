@@ -1,21 +1,17 @@
-import {  useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { BookOpen, Mail, Lock, ArrowRight, ArrowLeft, CheckCircle2 } from "lucide-react";
 import { useState } from "react";
 import { useAppStore, UserRole } from "@/store/useAppStore";
 import { forgotPasswordRequest, loginRequest } from "../../api";
 import ThemeToggle from "../components/ThemeToggle";
 
-
 interface LocationState {
-  from?: {
-    pathname: string;
-  };
+  from?: { pathname: string };
 }
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [forgotEmail, setForgotEmail] = useState("");
   const [isEmailSent, setIsEmailSent] = useState(false);
@@ -48,6 +44,7 @@ export default function LoginPage() {
       setPending(false);
     }
   };
+
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (pending) return;
@@ -57,7 +54,7 @@ export default function LoginPage() {
       await forgotPasswordRequest(forgotEmail);
       setIsEmailSent(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не удалось отправить письмо. Попробуйте ещё раз.");
+      setError(err instanceof Error ? err.message : "Не удалось отправить письмо.");
     } finally {
       setPending(false);
     }
@@ -76,7 +73,6 @@ export default function LoginPage() {
         </div>
 
         <div className="rounded-3xl border border-[#1e293b]/10 bg-white p-8 shadow-sm">
-          
           {showForgotPassword ? (
             isEmailSent ? (
               <div className="text-center space-y-4 py-4">
@@ -85,7 +81,7 @@ export default function LoginPage() {
                 </div>
                 <h2 className="text-2xl font-bold text-[#1e293b]">Письмо отправлено</h2>
                 <p className="text-[#1e293b]/70">
-                  Мы отправили инструкцию по восстановлению пароля на адрес <br/>
+                  Мы отправили инструкцию на адрес <br />
                   <span className="font-semibold text-[#1e293b]">{forgotEmail}</span>
                 </p>
                 <button
@@ -111,14 +107,11 @@ export default function LoginPage() {
                 </button>
                 <h2 className="text-2xl font-bold text-[#1e293b] mb-2">Восстановление пароля</h2>
                 <p className="text-sm text-[#1e293b]/70 mb-6">
-                  Введите email, указанный при регистрации. Мы отправим вам ссылку для сброса пароля.
+                  Введите email, указанный при регистрации.
                 </p>
-
                 <form onSubmit={handleForgotPassword} className="space-y-5">
                   <div>
-                    <label htmlFor="forgot-email" className="block text-sm font-medium text-[#1e293b] mb-2">
-                      Email
-                    </label>
+                    <label htmlFor="forgot-email" className="block text-sm font-medium text-[#1e293b] mb-2">Email</label>
                     <div className="relative">
                       <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-[#1e293b]/40" />
                       <input
@@ -132,7 +125,6 @@ export default function LoginPage() {
                       />
                     </div>
                   </div>
-
                   <button
                     type="submit"
                     disabled={pending}
@@ -142,20 +134,15 @@ export default function LoginPage() {
                     <ArrowRight size={18} />
                   </button>
                 </form>
-                {error && (
-                  <p role="alert" className="mt-4 text-sm text-red-700">{error}</p>
-                )}
+                {error && <p role="alert" className="mt-4 text-sm text-red-700">{error}</p>}
               </div>
             )
           ) : (
             <div>
               <h2 className="text-2xl font-bold text-[#1e293b] mb-6">Вход в аккаунт</h2>
-
               <form onSubmit={handleLogin} className="space-y-5">
                 <div>
-                  <label htmlFor="email" className="block text-sm font-medium text-[#1e293b] mb-2">
-                    Email
-                  </label>
+                  <label htmlFor="email" className="block text-sm font-medium text-[#1e293b] mb-2">Email</label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-[#1e293b]/40" />
                     <input
@@ -171,9 +158,7 @@ export default function LoginPage() {
                 </div>
 
                 <div>
-                  <label htmlFor="password" className="block text-sm font-medium text-[#1e293b] mb-2">
-                    Пароль
-                  </label>
+                  <label htmlFor="password" className="block text-sm font-medium text-[#1e293b] mb-2">Пароль</label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-[#1e293b]/40" />
                     <input
@@ -190,10 +175,7 @@ export default function LoginPage() {
 
                 <div className="flex items-center justify-between">
                   <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4 rounded border-[#1e293b]/20 text-[#087b45] focus:ring-[#087b45]/20"
-                    />
+                    <input type="checkbox" className="h-4 w-4 rounded border-[#1e293b]/20 text-[#087b45] focus:ring-[#087b45]/20" />
                     <span className="text-sm text-[#1e293b]/70">Запомнить меня</span>
                   </label>
                   <button
@@ -214,17 +196,10 @@ export default function LoginPage() {
                   <ArrowRight size={18} />
                 </button>
               </form>
-
-              {error && (
-                <p role="alert" className="mt-4 text-sm text-red-700">{error}</p>
-              )}
-
-              
+              {error && <p role="alert" className="mt-4 text-sm text-red-700">{error}</p>}
             </div>
           )}
         </div>
-
-        
       </div>
     </main>
   );
