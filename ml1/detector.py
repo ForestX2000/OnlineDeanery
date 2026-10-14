@@ -229,7 +229,7 @@ def detect_marks(image: np.ndarray) -> dict:
     error — настроены, но упали.
     """
     try:
-        threshold = float(os.getenv("YOLO_CONFIDENCE", "0.4"))
+        threshold = float(os.getenv("YOLO_CONFIDENCE", "0.3"))
         if not math.isfinite(threshold) or not 0 < threshold <= 1:
             raise ValueError("YOLO_CONFIDENCE должен быть в (0,1]")
     except Exception as exc:

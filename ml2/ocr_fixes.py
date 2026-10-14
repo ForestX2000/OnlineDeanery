@@ -65,6 +65,11 @@ def apply_ocr_fixes(text: str) -> str:
     """Применяет словарь OCR_FIXES к тексту. Пустой/нестроковый ввод возвращает как есть."""
     if not isinstance(text, str) or not text:
         return text
+    # PaddleOCR-VL оборачивает подчёркнутые рукописные поля в LaTeX:
+    # «\(\underline{\text{Гузенко Александр Сергеевич}}\)». Разворачиваем
+    # до чистого текста, иначе regex-шаблоны не видят соседние слова
+    # («что X действительно», «Дана X»).
+    text = re.sub(r"\\\(\s*\\underline\{\s*\\text\{([^}]*)\}\s*\}\s*\\\)", r"\1", text)
     for wrong, right in OCR_FIXES.items():
         text = _pattern(wrong).sub(lambda m: _restore_case(m.group(0), right), text)
     return text

@@ -23,7 +23,9 @@ PATTERNS: dict[str, list[str]] = {
     "student_name": [
         r"([А-ЯЁ][а-яё]+\s+[А-ЯЁ][а-яё]+(?:\s+[А-ЯЁ][а-яё]+)?)\s*\(\d{2}\.\d{2}\.\d{4}",
         r"фио[:\s]+([А-ЯЁ][а-яё]+(?:\s+[А-ЯЁ][а-яё]+){1,2})",
+        r"дан[ао]?\s+[_\s]*([А-ЯЁ][а-яё]+(?:\s+[А-ЯЁ][а-яё]+){1,2})",
         r"выдан[ао]?\s+([А-ЯЁ][а-яё]+(?:\s+[А-ЯЁ][а-яё]+){1,2})",
+        r"что\s+([А-ЯЁ][а-яё]+\s+[А-ЯЁ][а-яё]+(?:\s+[А-ЯЁ][а-яё]+)?)\s+действительно",
     ],
     "university": [
         r"«([^»]{5,120}?(?:университет|институт|академия|колледж)[^»]*?)»",
@@ -81,10 +83,32 @@ PATTERNS: dict[str, list[str]] = {
 
 def extract_field(text: str, patterns: list[str]) -> str | None:
     for pattern in patterns:
-        m = re.search(pattern, text, re.IGNORECASE | re.MULTILINE)
-        if m:
+        for m in re.finditer(pattern, text, re.IGNORECASE | re.MULTILINE):
             value = m.group(1).strip().rstrip(".,;:")
-            if value:
+            if value and not _is_service_words(value):
+                return value
+    return None
+
+
+# Служебные слова после «выдана/дана»: «для предоставления по...» —
+# не ФИО. Список общий, а не под конкретный вуз.
+_NAME_STOP = frozenset({
+    "для", "предоставления", "предъявления", "месту", "требования",
+    "справки", "справка", "документа", "места", "настоящая",
+    "дата", "рождения", "года", "месяца",
+})
+
+
+def _is_service_words(value: str) -> bool:
+    words = re.findall(r"[А-Яа-яЁё]+", value.lower())
+    return bool(words) and words[0] in _NAME_STOP
+
+
+def extract_student_name(text: str) -> str | None:
+    for pattern in PATTERNS.get("student_name", []):
+        for m in re.finditer(pattern, text, re.IGNORECASE | re.MULTILINE):
+            value = m.group(1).strip().rstrip(".,;:")
+            if value and not _is_service_words(value):
                 return value
     return None
 
@@ -97,13 +121,39 @@ def extract_university(text: str) -> str | None:
 
     Отдельный проход без IGNORECASE: иначе шаблон аббревиатур ловит
     окончания обычных слов («суббо[ту]», «пятницу»).
+    Строка с УНИВЕРСИТЕТ/ИНСТИТУТ + следующая строка — общий случай
+    («... УНИВЕРСИТЕТ» + «ВЫСШАЯ ШКОЛА ЭКОНОМИКИ»), а не патч под ВШЭ.
     """
     for pattern in PATTERNS.get("university", []):
         m = re.search(pattern, text, re.IGNORECASE | re.MULTILINE)
         if m:
-            value = m.group(1).strip().rstrip(".,;:")
+            value = m.group(1).strip().rstrip(".,;:").strip(" \t\"«»'®©*`")
             if value:
                 return value
+    lines = [line.strip(" \t\"«»'") for line in text.splitlines()]
+    for i, line in enumerate(lines):
+        if not re.search(r"университет|институт|академия", line, re.IGNORECASE):
+            continue
+        if len(line) < 5:
+            continue
+        candidate = line.strip().rstrip(".,;:").strip(" \t\"«»'®©*`")
+        # Название часто разбито на 2 строки заглавными
+        # («...УНИВЕРСИТЕТ» / «ВЫСШАЯ ШКОЛА ЭКОНОМИКИ»).
+        if i + 1 < len(lines):
+            nxt = lines[i + 1].strip().rstrip(".,;:").strip(" \t\"«»'®©*`")
+            if nxt and len(nxt) >= 4 and (nxt.isupper() or re.search(
+                    r"школа|экономики|институт|университет|академия|колледж", nxt, re.IGNORECASE)):
+                if len(candidate) + len(nxt) <= 160:
+                    candidate = f"{candidate} {nxt}"
+        if len(candidate) >= 8:
+            return candidate
+    # Запасной уровень: строка с «экономики» без surviving-слова
+    # «университет» — OCR иногда полностью теряет строку-заголовок
+    # (шапка ВШЭ прочиталась мусором, уцелела только вторая строка).
+    for line in lines:
+        cleaned = line.strip().rstrip(".,;:").strip(" \t\"«»'®©*`")
+        if len(cleaned) >= 8 and re.search(r"экономики", cleaned, re.IGNORECASE):
+            return cleaned
     for m in _ABBR_RE.finditer(text):
         # Требуем, чтобы совпадение было написано заглавными
         # (допускаем скобки/кавычки вокруг, но не «Субботу»).
@@ -114,18 +164,21 @@ def extract_university(text: str) -> str | None:
 
 
 _SCHOOL_NUMBER_HINT = re.compile(r"школ\w*|сош|мбоу|мбдоу|маоу|лице\w*|гимнази\w*|класс", re.IGNORECASE)
+_ORDER_NUMBER_HINT = re.compile(r"приказ|распоряжен|зачислен", re.IGNORECASE)
 
 
 def extract_document_number(text: str) -> str | None:
-    """Номер документа, а не № школы («МБОУ СОШ № 28»)."""
+    """Номер документа, а не № школы («МБОУ СОШ № 28») и не № приказа."""
     for pattern in PATTERNS.get("document_number", []):
         for m in re.finditer(pattern, text, re.IGNORECASE | re.MULTILINE):
             value = m.group(1).strip().rstrip(".,;:")
             if not value:
                 continue
-            # Контекст слева: если рядом школа/СОШ/МБОУ — это № школы.
-            left = text[max(0, m.start() - 30):m.start()]
-            if _SCHOOL_NUMBER_HINT.search(left):
+            # Контекст слева: если рядом школа/СОШ/МБОУ — это № школы,
+            # если приказ — это № приказа, а не № справки. Окно 60:
+            # «приказом от 20 августа 2019 г. №» длиннее 30 символов.
+            left = text[max(0, m.start() - 60):m.start()]
+            if _SCHOOL_NUMBER_HINT.search(left) or _ORDER_NUMBER_HINT.search(left):
                 continue
             return value
     return None
@@ -146,6 +199,27 @@ def normalize_study_form(value: str | None) -> str:
 
 
 _DATE_TOKEN = r"(?<!\d)(?:\d{1,2}[./]\d{1,2}[./]\d{2,4}|\d{1,2}[./]\d{4}|\d{1,2}[./]\d{1,2}|\d{4})(?!\d)"
+
+_RU_MONTHS = {
+    "января": 1, "февраля": 2, "марта": 3, "апреля": 4, "мая": 5, "июня": 6,
+    "июля": 7, "августа": 8, "сентября": 9, "октября": 10, "ноября": 11, "декабря": 12,
+}
+_MONTH_DATE_RE = re.compile(
+    r"(?<!\d)(\d{1,2})\s+(января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря)\s+(\d{4})(?!\d)",
+    re.IGNORECASE,
+)
+
+
+def _parse_month_date(text: str) -> tuple[str, str, date | None] | None:
+    """Дата прописью: «30 июня 2024», «01 сентября 2019» — общий случай."""
+    m = _MONTH_DATE_RE.search(text)
+    if not m:
+        return None
+    try:
+        parsed = date(int(m.group(3)), _RU_MONTHS[m.group(2).lower()], int(m.group(1)))
+        return parsed.strftime("%d.%m.%Y"), "day", parsed
+    except ValueError:
+        return None
 
 
 def _parse_date_token(value: str) -> tuple[str, str, date | None] | None:
@@ -181,6 +255,9 @@ def _date_after_label(text: str, label: str) -> tuple[str, str, date | None] | N
         # Между подписью поля и его датой OCR часто оставляет номер приказа,
         # поэтому нельзя ограничивать поиск первым числом.
         tail = text[match.end():match.end() + 140].splitlines()[0]
+        month = _parse_month_date(tail)
+        if month:
+            return month
         for candidate in re.finditer(_DATE_TOKEN, tail):
             parsed = _parse_date_token(candidate.group(0))
             if parsed:
@@ -193,6 +270,11 @@ def _enrollment_date(text: str) -> tuple[str, str, date | None] | None:
     patterns = (
         r"\b\u0434\u0430\u0442\u0430\s+\u0437\u0430\u0447\u0438\u0441\u043b\u0435\u043d\u0438\w*\b",
         r"\b\u0437\u0430\u0447\u0438\u0441\u043b\u0435\u043d\w*\s+(?:\u0441|\u043d\u0430|\u0432)\b",
+        r"\bзачислен\w*\s+на\s+\d+\s*курс\b",
+        # Общий случай «Приказ о зачислении № 5703/у от 04.08.2014» —
+        # дата стоит после номера приказа, а не после «зачислен».
+        # Без \b после №: № — не буква, границы слова там нет.
+        r"\bзачислении\s+\u2116",
         r"\bприступил\w*\s+к\s+обучени\w*\b",
         r"\bначал\w*\s+обучени\w*\b",
         r"\bпринят\w*\s+(?:в|на)\b",
@@ -202,14 +284,30 @@ def _enrollment_date(text: str) -> tuple[str, str, date | None] | None:
             # Дата может стоять не сразу («... в МБОУ СОШ № 28 с 01.09.2011»),
             # поэтому ищем «с ДАТА» в хвосте, а не только в начале.
             tail = text[match.end():match.end() + 80].splitlines()[0]
+            month = _parse_month_date(tail)
+            if month:
+                return month
             direct = re.match(rf"\s*[:#\u2116\u2013\u2014-]?\s*({_DATE_TOKEN})", tail)
             if direct:
                 parsed = _parse_date_token(direct.group(1))
                 if parsed:
                     return parsed
+            # «с 01.09.2011» и «от 04.08.2014» (после № приказа).
             dated = re.search(rf"\b[сc]\s*({_DATE_TOKEN})", tail, re.IGNORECASE)
             if dated:
                 parsed = _parse_date_token(dated.group(1))
+                if parsed:
+                    return parsed
+            ordered = re.search(rf"\bот\s*({_DATE_TOKEN})", tail, re.IGNORECASE)
+            if ordered:
+                parsed = _parse_date_token(ordered.group(1))
+                if parsed:
+                    return parsed
+            month_after_c = re.search(
+                r"\b[сc]\s+(\d{1,2}\s+(?:января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря)\s+\d{4})",
+                tail, re.IGNORECASE)
+            if month_after_c:
+                parsed = _parse_month_date(month_after_c.group(1))
                 if parsed:
                     return parsed
     return None
@@ -261,6 +359,17 @@ def _study_period_details(text: str) -> tuple[str, str | None]:
         start = _date_after_label(text, r"\b(?:дата\s+)?начала\s+обучени\w*")
     if end is None:
         end = _date_after_label(text, r"\b(?:дата\s+)?(?:завершени\w*|окончани\w*)\s+обучени\w*")
+    if end is None:
+        # Общий случай «срок окончания обучения 30 июня 2024» —
+        # дата прописью, а не 30.06.2024.
+        for m in re.finditer(
+            r"(?:окончани\w*|завершени\w*|срок\s+окончания)\s+обучени\w*[^\n]{0,40}",
+            text, re.IGNORECASE,
+        ):
+            month = _parse_month_date(m.group(0))
+            if month:
+                end = month
+                break
 
     if enrollment and (start is None or start[1] != "day"):
         start = enrollment
@@ -290,19 +399,40 @@ def extract_study_period(text: str) -> str:
     return _study_period_details(text)[0]
 
 
+def _clean_program_title(title: str) -> str:
+    """Срезает хвосты OCR-мусора («Строительство ы a» → «Строительство»).
+
+    Удаляются только строчные фрагменты из 1-2 букв в конце; аббревиатуры
+    заглавными («МЭИ») не трогаем.
+    """
+    cleaned = re.sub(r"(?:\s+[а-яёa-z]{1,2})+\.?$", "", title.strip()).strip().rstrip(".,;:")
+    return cleaned
+
+
 def extract_program(text: str) -> str:
-    """Код специальности + название после него."""
+    """Код специальности + название (код до или после названия)."""
     matches = re.finditer(
         r"(?<!\d)(\d{2}\.\d{2}\.\d{2})(?!\.\d{2})\s+([А-ЯЁа-яё][^\n]{3,120})",
         text,
         re.IGNORECASE | re.MULTILINE,
     )
     for match in matches:
-        title = match.group(2).strip()
+        title = _clean_program_title(match.group(2))
         # OCR sometimes sees a short date (e.g. 10.06.20 г.) as a code.
         if re.match(r"(?i)^г(?:од)?(?:\.|\s|$)", title):
             continue
-        return f"{match.group(1)} {title.rstrip('.')}"
+        if len(re.findall(r"[А-Яа-яЁёA-Za-z]{3,}", title)) < 1:
+            continue
+        return f"{match.group(1)} {title}".rstrip('.')
+    # Общий случай «"Востоковедение и африканистика"(58.03.01)» —
+    # название до кода в скобках.
+    for match in re.finditer(
+        r"([А-ЯЁA-Z«\"][\w\s\-«»\"]{3,100}?)\(\s*(\d{2}\.\d{2}\.\d{2})\s*\)",
+        text,
+    ):
+        title = _clean_program_title(match.group(1).strip(" \t\"«»'"))
+        if len(title) >= 4 and not _is_service_words(title):
+            return f"{match.group(2)} {title}"
     return "не найдено"
 
 
@@ -367,6 +497,10 @@ def extract_fields(text: str, doc_type: str,
                 fields["study_period_note"] = note
         elif field == "program":
             value = extract_program(text)
+        elif field == "student_name":
+            value = extract_student_name(text)
+            if not value and field in configured:
+                value = extract_configured_value(text, configured[field])
         elif field == "university":
             value = extract_university(text)
             if not value and field in configured:

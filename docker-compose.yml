@@ -89,7 +89,7 @@ services:
       # Печать без YOLO ищется классикой синего кольца (см. ml1/detector.py).
       YOLO_SIG_MODEL_PATH: ${YOLO_SIG_MODEL_PATH:-/models/signature.onnx}
       # YOLO_MODEL_PATH: ${YOLO_MODEL_PATH:-} — печать своей YOLOv8n, если обучите
-      # YOLO_CONFIDENCE: ${YOLO_CONFIDENCE:-0.4}
+      # YOLO_CONFIDENCE: ${YOLO_CONFIDENCE:-0.3} — Mels22 находит подпись от conf 0.349 (замер baton.png)
       YOLO_INTRA_OP_THREADS: ${YOLO_INTRA_OP_THREADS:-0}
     depends_on:
       - llama
