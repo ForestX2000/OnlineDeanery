@@ -142,7 +142,7 @@ services:
       - ./models:/models:ro
     command:
       - -m
-      - /models/PaddleOCR-VL-1.6-GGUF.gguf
+      - /models/PaddleOCR-VL-1.6.Q8_0.gguf
       - --mmproj
       - /models/PaddleOCR-VL-1.6-GGUF-mmproj.gguf
       - --host
