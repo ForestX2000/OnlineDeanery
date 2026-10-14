@@ -158,7 +158,7 @@ export default function ProfilePage() {
               <p className="mt-3 text-3xl font-bold text-slate-900">{resolvedCount + failedCount}</p>
             </div>
             <div className="rounded-2xl border border-slate-200 bg-white p-5">
-              <p className="text-sm text-slate-500">Завершено</p>
+              <p className="text-sm text-slate-500">Успешно</p>
               <p className="mt-3 text-3xl font-bold text-emerald-700">{resolvedCount}</p>
             </div>
             <div className="rounded-2xl border border-slate-200 bg-white p-5">
@@ -206,7 +206,7 @@ export default function ProfilePage() {
               <span className="sr-only">Результат обработки</span>
               <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
                 className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none focus:border-[#159957] focus:ring-4 focus:ring-emerald-50">
-                <option value="all">Завершено и ошибки</option>
+                <option value="all">Завершено с ошибками</option>
                 <option value="resolved">Завершено</option>
                 <option value="failed">Ошибка</option>
               </select>
