@@ -69,6 +69,11 @@ docker compose up --build -d
 Изменения схемы БД применяются при старте; `/health` отвечает `503`, если настроенная БД
 недоступна или миграция не прошла. Подробности API и настройки — в [docs/api.md](docs/api.md).
 
+Создание аккаунта администратора в .env:
+BOOTSTRAP_ADMIN_EMAIL=admin@university.ru
+BOOTSTRAP_ADMIN_PASSWORD=admin123
+BOOTSTRAP_ADMIN_NAME=Алексей Админов
+
 ## Как пользоваться
 
 1. Откройте `http://localhost:5173` → `Загрузить документ`.
