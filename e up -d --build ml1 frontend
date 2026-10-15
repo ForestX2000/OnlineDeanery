@@ -1,0 +1,79 @@
+[1mdiff --git a/ml1/preprocess.py b/ml1/preprocess.py[m
+[1mindex 8c9c14b..30708ac 100644[m
+[1m--- a/ml1/preprocess.py[m
+[1m+++ b/ml1/preprocess.py[m
+[36m@@ -1,4 +1,4 @@[m
+[31m-"""Decode document photos without erasing faint text or guessing their orientation."""[m
+[32m+[m[32m"""Decode document photos, normalize orientation, and preserve faint text."""[m
+ [m
+ from dataclasses import dataclass[m
+ from io import BytesIO[m
+[36m@@ -10,6 +10,7 @@[m [mfrom PIL import Image, ImageOps, UnidentifiedImageError[m
+ # Порог уверенности для авто-поворота: боковое положение признаём, только если[m
+ # дисперсия профилей по столбцам явно выше, чем по строкам.[m
+ SIDEWAYS_RATIO = 1.5[m
+[32m+[m[32mMIN_OSD_ORIENTATION_CONFIDENCE = 5.0[m
+ MIN_DESKEW_ANGLE = 6.0[m
+ MAX_DESKEW_ANGLE = 35.0[m
+ [m
+[36m@@ -113,13 +114,13 @@[m [mdef enhance_for_ocr(image: np.ndarray) -> np.ndarray:[m
+ [m
+ [m
+ def estimate_rotation(gray: np.ndarray) -> int:[m
+[31m-    """Возвращает 90, если текст идёт вертикально (фото боком), иначе 0.[m
+[32m+[m[32m    """Определить поворот для нормализации бокового или перевёрнутого фото.[m
+ [m
+     Эвристика по проекционным профилям: у ровного текста строки чередуются[m
+     «текст/пробел» (дисперсия построчных средних высокая), а столбцы похожи[m
+[31m-    друг на друга. У повёрнутого на 90°/270° — наоборот. Дешёвая замена[m
+[31m-    Tesseract OSD / angle classifier; 90° от 270° не отличает (возвращает 90),[m
+[31m-    180° не детектирует. Явный параметр rotation в preprocess приоритетнее.[m
+[32m+[m[32m    друг на друга. Tesseract OSD выбирает точный угол, если его уверенность[m
+[32m+[m[32m    достаточна; при его недоступности эвристика проекций распознаёт боковое[m
+[32m+[m[32m    фото, но не различает поворот на 90° и 270°.[m
+     """[m
+     h, w = gray.shape[:2][m
+     scale = min(1.0, 800.0 / max(h, w))[m
+[36m@@ -127,6 +128,22 @@[m [mdef estimate_rotation(gray: np.ndarray) -> int:[m
+         small = cv2.resize(gray, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)[m
+     else:[m
+         small = gray[m
+[32m+[m[32m    # Run OSD on the full page, before the center-only heuristic. Documents may[m
+[32m+[m[32m    # have their text near the edges, and cropping those areas would hide it.[m
+[32m+[m[32m    try:[m
+[32m+[m[32m        import pytesseract[m
+[32m+[m
+[32m+[m[32m        osd = pytesseract.image_to_osd([m
+[32m+[m[32m            small, config="--psm 0", output_type=pytesseract.Output.DICT, timeout=5,[m
+[32m+[m[32m        )[m
+[32m+[m[32m        osd_rotation = int(osd.get("rotate", 0)) % 360[m
+[32m+[m[32m        confidence = float(osd.get("orientation_conf", 0.0))[m
+[32m+[m[32m    except (ImportError, OSError, RuntimeError, TypeError, ValueError):[m
+[32m+[m[32m        osd_rotation, confidence = 0, 0.0[m
+[32m+[m[32m    if (osd_rotation in (0, 90, 180, 270)[m
+[32m+[m[32m            and confidence >= MIN_OSD_ORIENTATION_CONFIDENCE):[m
+[32m+[m[32m        return osd_rotation[m
+[32m+[m
+     # Только центр кадра: края фото (стол, фон) ломают профили (замер на[m
+     # baton.png: весь кадр даёт col/row=22.4, центр 60% — 0.46; повёрнутый — 2.17).[m
+     ch, cw = small.shape[:2][m
+[36m@@ -139,9 +156,7 @@[m [mdef estimate_rotation(gray: np.ndarray) -> int:[m
+         return 0[m
+     row_var = float(ink.mean(axis=1).var())[m
+     col_var = float(ink.mean(axis=0).var())[m
+[31m-    if row_var <= 1e-9:[m
+[31m-        return 0[m
+[31m-    if col_var / row_var >= SIDEWAYS_RATIO:[m
+[32m+[m[32m    if row_var > 1e-9 and col_var / row_var >= SIDEWAYS_RATIO:[m
+         return 90[m
+     return 0[m
+ [m
+[36m@@ -200,7 +215,7 @@[m [mdef prepare_image(image_bytes: bytes, rotation: int = 0) -> PreparedImage:[m
+     """Return uint8 BGR pixels; apply clockwise rotation after EXIF orientation.[m
+     White paper is not glare. Preserve the source resolution, colors, and strokes[m
+     and applies restrained local contrast to a separate OCR copy.[m
+[31m-    rotation=0 включает авто-определение бокового фото (estimate_rotation);[m
+[32m+[m[32m    rotation=0 включает авто-определение бокового и перевёрнутого фото;[m
+     явные 90/180/270 применяются как есть и эвристику обходят.[m
+     PDF растеризуется первой страницей (см. rasterize_pdf_first_page).[m
+     """[m
