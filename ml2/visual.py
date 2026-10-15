@@ -57,6 +57,45 @@ def field_match_score(name: str, value: str, text: str) -> float:
     return SequenceMatcher(None, compact_target, compact_candidate).ratio()
 
 
+def _shrink_bbox_to_value(item: dict, value: str) -> list[float]:
+    """Сужает bbox текстового блока до подстроки value.
+
+    Если value найдено в text — вычисляет пропорциональную позицию
+    и обрезает bbox по горизонтали. Иначе возвращает исходный bbox.
+    """
+    text = item.get("text", "")
+    bbox = item.get("bbox")
+    if not isinstance(bbox, list) or len(bbox) != 4:
+        return bbox
+    if not isinstance(text, str) or not text:
+        return bbox
+
+    idx = text.lower().find(value.lower())
+    if idx == -1:
+        # Fallback: ищем по токенам (OCR может слегка исказить)
+        norm_value = normalize(value)
+        norm_text = normalize(text)
+        idx_norm = norm_text.find(norm_value)
+        if idx_norm == -1:
+            return bbox
+        # Переводим позицию из нормализованного в исходный
+        start_ratio = idx_norm / max(len(norm_text), 1)
+        end_ratio = (idx_norm + len(norm_value)) / max(len(norm_text), 1)
+    else:
+        start_ratio = idx / max(len(text), 1)
+        end_ratio = (idx + len(value)) / max(len(text), 1)
+
+    x1, y1, x2, y2 = bbox
+    width = x2 - x1
+    new_x1 = x1 + width * start_ratio
+    new_x2 = x1 + width * end_ratio
+
+    # Защита от слишком узких/широких боксов
+    if new_x2 - new_x1 < 5:
+        return bbox
+    return [round(new_x1, 2), round(y1, 2), round(new_x2, 2), round(y2, 2)]
+
+
 def link_coordinates(coordinates, fields: dict) -> list[dict]:
     if not isinstance(coordinates, list):
         return []
@@ -65,6 +104,7 @@ def link_coordinates(coordinates, fields: dict) -> list[dict]:
     for index, item in enumerate(coordinates):
         if not isinstance(item, dict):
             continue
+        # YOLO-боксы (подпись/печать) уже точные — оставляем как есть.
         if item.get("source") not in {"spotting", "tesseract", "tesseract_supplement"}:
             other_boxes.append(item)
             continue
@@ -80,7 +120,9 @@ def link_coordinates(coordinates, fields: dict) -> list[dict]:
             score = field_match_score(name, value, text)
             if score < 0.72:
                 continue
-            text_boxes.append((score, index, name, value, item))
+            # Сужаем bbox до значения
+            shrunk = _shrink_bbox_to_value(item, value)
+            text_boxes.append((score, index, name, value, {**item, "bbox": shrunk}))
 
     best_by_field = {}
     for match in text_boxes:

@@ -1,0 +1,3226 @@
+{
+  "summary": {
+    "total": 36,
+    "errors": 0,
+    "type_accuracy": 1.0,
+    "field_accuracy": 0.768,
+    "fields_ok": 235,
+    "fields_total": 306
+  },
+  "results": [
+    {
+      "file": "academic_leave\\leave_blur.png",
+      "expected_type": "academic_leave",
+      "got_type": "academic_leave",
+      "type_ok": true,
+      "expected_fields": {
+        "student_name": "Петрова Мария Сергеевна",
+        "group": "ПМ-21",
+        "reason": "здоров",
+        "start_date": "01.11.2025",
+        "end_date": "31.03.2026",
+        "application_date": "15.10.2025",
+        "signature": true
+      },
+      "got_fields": {
+        "student_name": "Петрова Мария Сергеевна",
+        "group": "ПМ-21",
+        "course": "2",
+        "reason": "отпуска: по состоянию здоровья",
+        "start_date": "01.11.2025",
+        "end_date": "31.03.2026",
+        "application_date": "15.10.2025",
+        "signature": false
+      },
+      "field_results": {
+        "student_name": {
+          "expected": "Петрова Мария Сергеевна",
+          "actual": "Петрова Мария Сергеевна",
+          "ok": true
+        },
+        "group": {
+          "expected": "ПМ-21",
+          "actual": "ПМ-21",
+          "ok": true
+        },
+        "reason": {
+          "expected": "здоров",
+          "actual": "отпуска: по состоянию здоровья",
+          "ok": true
+        },
+        "start_date": {
+          "expected": "01.11.2025",
+          "actual": "01.11.2025",
+          "ok": true
+        },
+        "end_date": {
+          "expected": "31.03.2026",
+          "actual": "31.03.2026",
+          "ok": true
+        },
+        "application_date": {
+          "expected": "15.10.2025",
+          "actual": "15.10.2025",
+          "ok": true
+        },
+        "signature": {
+          "expected": true,
+          "actual": false,
+          "ok": false
+        }
+      },
+      "verification": {
+        "status": "incomplete",
+        "missing_fields": [],
+        "issues": [
+          "Подпись: отсутствует."
+        ]
+      },
+      "answer": "Чего-то не хватает или есть ошибки в полях документа. Подпись: отсутствует.\n\nНастоящее Положение заказчик не предоставил. Проверка выполнена по стартовому списку полей из презентации кейса (п. 3.1-3.3) как по официальному источнику. Подпись и печать проверяются как требование стартового сценария. За",
+      "sources": [
+        {
+          "type": "описание кейса",
+          "reference": "п. 3.2 — Описание кейса «Онлайн-деканат»",
+          "url": null
+        }
+      ],
+      "elapsed": 7.19
+    },
+    {
+      "file": "academic_leave\\leave_clean.png",
+      "expected_type": "academic_leave",
+      "got_type": "academic_leave",
+      "type_ok": true,
+      "expected_fields": {
+        "student_name": "Петрова Мария Сергеевна",
+        "group": "ПМ-21",
+        "reason": "здоров",
+        "start_date": "01.11.2025",
+        "end_date": "31.03.2026",
+        "application_date": "15.10.2025",
+        "signature": true
+      },
+      "got_fields": {
+        "student_name": "Петрова Мария Сергеевна",
+        "group": "ПМ-21",
+        "course": "2",
+        "reason": "отпуска: по состоянию здоровья",
+        "start_date": "01.11.2025",
+        "end_date": "31.03.2026",
+        "application_date": "15.10.2025",
+        "signature": false
+      },
+      "field_results": {
+        "student_name": {
+          "expected": "Петрова Мария Сергеевна",
+          "actual": "Петрова Мария Сергеевна",
+          "ok": true
+        },
+        "group": {
+          "expected": "ПМ-21",
+          "actual": "ПМ-21",
+          "ok": true
+        },
+        "reason": {
+          "expected": "здоров",
+          "actual": "отпуска: по состоянию здоровья",
+          "ok": true
+        },
+        "start_date": {
+          "expected": "01.11.2025",
+          "actual": "01.11.2025",
+          "ok": true
+        },
+        "end_date": {
+          "expected": "31.03.2026",
+          "actual": "31.03.2026",
+          "ok": true
+        },
+        "application_date": {
+          "expected": "15.10.2025",
+          "actual": "15.10.2025",
+          "ok": true
+        },
+        "signature": {
+          "expected": true,
+          "actual": false,
+          "ok": false
+        }
+      },
+      "verification": {
+        "status": "incomplete",
+        "missing_fields": [],
+        "issues": [
+          "Подпись: отсутствует."
+        ]
+      },
+      "answer": "Чего-то не хватает или есть ошибки в полях документа. Подпись: отсутствует.\n\nНастоящее Положение заказчик не предоставил. Проверка выполнена по стартовому списку полей из презентации кейса (п. 3.1-3.3) как по официальному источнику. Подпись и печать проверяются как требование стартового сценария. За",
+      "sources": [
+        {
+          "type": "описание кейса",
+          "reference": "п. 3.2 — Описание кейса «Онлайн-деканат»",
+          "url": null
+        }
+      ],
+      "elapsed": 6.19
+    },
+    {
+      "file": "academic_leave\\leave_glare.png",
+      "expected_type": "academic_leave",
+      "got_type": "academic_leave",
+      "type_ok": true,
+      "expected_fields": {
+        "student_name": "Петрова Мария Сергеевна",
+        "group": "ПМ-21",
+        "reason": "здоров",
+        "start_date": "01.11.2025",
+        "end_date": "31.03.2026",
+        "application_date": "15.10.2025",
+        "signature": true
+      },
+      "got_fields": {
+        "student_name": "Петрова Мария Сергеевна",
+        "group": "ПМ-21",
+        "course": "2",
+        "reason": "отпуска: по состоянию здоровья",
+        "start_date": "01.11.2025",
+        "end_date": "31.03.2026",
+        "application_date": "15.10.2025",
+        "signature": false
+      },
+      "field_results": {
+        "student_name": {
+          "expected": "Петрова Мария Сергеевна",
+          "actual": "Петрова Мария Сергеевна",
+          "ok": true
+        },
+        "group": {
+          "expected": "ПМ-21",
+          "actual": "ПМ-21",
+          "ok": true
+        },
+        "reason": {
+          "expected": "здоров",
+          "actual": "отпуска: по состоянию здоровья",
+          "ok": true
+        },
+        "start_date": {
+          "expected": "01.11.2025",
+          "actual": "01.11.2025",
+          "ok": true
+        },
+        "end_date": {
+          "expected": "31.03.2026",
+          "actual": "31.03.2026",
+          "ok": true
+        },
+        "application_date": {
+          "expected": "15.10.2025",
+          "actual": "15.10.2025",
+          "ok": true
+        },
+        "signature": {
+          "expected": true,
+          "actual": false,
+          "ok": false
+        }
+      },
+      "verification": {
+        "status": "incomplete",
+        "missing_fields": [],
+        "issues": [
+          "Подпись: отсутствует."
+        ]
+      },
+      "answer": "Чего-то не хватает или есть ошибки в полях документа. Подпись: отсутствует.\n\nНастоящее Положение заказчик не предоставил. Проверка выполнена по стартовому списку полей из презентации кейса (п. 3.1-3.3) как по официальному источнику. Подпись и печать проверяются как требование стартового сценария. За",
+      "sources": [
+        {
+          "type": "описание кейса",
+          "reference": "п. 3.2 — Описание кейса «Онлайн-деканат»",
+          "url": null
+        }
+      ],
+      "elapsed": 6.73
+    },
+    {
+      "file": "academic_leave\\leave_lowres.png",
+      "expected_type": "academic_leave",
+      "got_type": "academic_leave",
+      "type_ok": true,
+      "expected_fields": {
+        "student_name": "Петрова Мария Сергеевна",
+        "group": "ПМ-21",
+        "reason": "здоров",
+        "start_date": "01.11.2025",
+        "end_date": "31.03.2026",
+        "application_date": "15.10.2025",
+        "signature": true
+      },
+      "got_fields": {
+        "student_name": "Петрова Мария Сергеевна",
+        "group": "ПМ-21",
+        "course": "2",
+        "reason": "отпуска: по состоянию здоровья",
+        "start_date": "01.11.2025",
+        "end_date": "31.03.2026",
+        "application_date": "15.10.2025",
+        "signature": false
+      },
+      "field_results": {
+        "student_name": {
+          "expected": "Петрова Мария Сергеевна",
+          "actual": "Петрова Мария Сергеевна",
+          "ok": true
+        },
+        "group": {
+          "expected": "ПМ-21",
+          "actual": "ПМ-21",
+          "ok": true
+        },
+        "reason": {
+          "expected": "здоров",
+          "actual": "отпуска: по состоянию здоровья",
+          "ok": true
+        },
+        "start_date": {
+          "expected": "01.11.2025",
+          "actual": "01.11.2025",
+          "ok": true
+        },
+        "end_date": {
+          "expected": "31.03.2026",
+          "actual": "31.03.2026",
+          "ok": true
+        },
+        "application_date": {
+          "expected": "15.10.2025",
+          "actual": "15.10.2025",
+          "ok": true
+        },
+        "signature": {
+          "expected": true,
+          "actual": false,
+          "ok": false
+        }
+      },
+      "verification": {
+        "status": "incomplete",
+        "missing_fields": [],
+        "issues": [
+          "Подпись: отсутствует."
+        ]
+      },
+      "answer": "Чего-то не хватает или есть ошибки в полях документа. Подпись: отсутствует.\n\nНастоящее Положение заказчик не предоставил. Проверка выполнена по стартовому списку полей из презентации кейса (п. 3.1-3.3) как по официальному источнику. Подпись и печать проверяются как требование стартового сценария. За",
+      "sources": [
+        {
+          "type": "описание кейса",
+          "reference": "п. 3.2 — Описание кейса «Онлайн-деканат»",
+          "url": null
+        }
+      ],
+      "elapsed": 6.66
+    },
+    {
+      "file": "academic_leave\\leave_rot180.png",
+      "expected_type": "academic_leave",
+      "got_type": "academic_leave",
+      "type_ok": true,
+      "expected_fields": {
+        "student_name": "Петрова Мария Сергеевна",
+        "group": "ПМ-21",
+        "reason": "здоров",
+        "start_date": "01.11.2025",
+        "end_date": "31.03.2026",
+        "application_date": "15.10.2025",
+        "signature": true
+      },
+      "got_fields": {
+        "student_name": "Петрова Мария Сергеевна",
+        "group": "ПМ-21",
+        "course": "2",
+        "reason": "отпуска: по состоянию здоровья",
+        "start_date": "01.11.2025",
+        "end_date": "31.03.2026",
+        "application_date": "15.10.2025",
+        "signature": true
+      },
+      "field_results": {
+        "student_name": {
+          "expected": "Петрова Мария Сергеевна",
+          "actual": "Петрова Мария Сергеевна",
+          "ok": true
+        },
+        "group": {
+          "expected": "ПМ-21",
+          "actual": "ПМ-21",
+          "ok": true
+        },
+        "reason": {
+          "expected": "здоров",
+          "actual": "отпуска: по состоянию здоровья",
+          "ok": true
+        },
+        "start_date": {
+          "expected": "01.11.2025",
+          "actual": "01.11.2025",
+          "ok": true
+        },
+        "end_date": {
+          "expected": "31.03.2026",
+          "actual": "31.03.2026",
+          "ok": true
+        },
+        "application_date": {
+          "expected": "15.10.2025",
+          "actual": "15.10.2025",
+          "ok": true
+        },
+        "signature": {
+          "expected": true,
+          "actual": true,
+          "ok": true
+        }
+      },
+      "verification": {
+        "status": "complete",
+        "missing_fields": [],
+        "issues": []
+      },
+      "answer": "Документ в порядке по проверке комплектности: «Заявление на академический отпуск» содержит все поля из загруженных требований.\n\nНастоящее Положение заказчик не предоставил. Проверка выполнена по стартовому списку полей из презентации кейса (п. 3.1-3.3) как по официальному источнику. Подпись и печать",
+      "sources": [
+        {
+          "type": "описание кейса",
+          "reference": "п. 3.2 — Описание кейса «Онлайн-деканат»",
+          "url": null
+        }
+      ],
+      "elapsed": 6.86
+    },
+    {
+      "file": "academic_leave\\leave_rot90.png",
+      "expected_type": "academic_leave",
+      "got_type": "academic_leave",
+      "type_ok": true,
+      "expected_fields": {
+        "student_name": "Петрова Мария Сергеевна",
+        "group": "ПМ-21",
+        "reason": "здоров",
+        "start_date": "01.11.2025",
+        "end_date": "31.03.2026",
+        "application_date": "15.10.2025",
+        "signature": true
+      },
+      "got_fields": {
+        "student_name": "Петрова Мария Сергеевна",
+        "group": "ПМ-21",
+        "course": "2",
+        "reason": "отпуска: по состоянию здоровья",
+        "start_date": "01.11.2025",
+        "end_date": "31.03.2026",
+        "application_date": "15.10.2025",
+        "signature": false
+      },
+      "field_results": {
+        "student_name": {
+          "expected": "Петрова Мария Сергеевна",
+          "actual": "Петрова Мария Сергеевна",
+          "ok": true
+        },
+        "group": {
+          "expected": "ПМ-21",
+          "actual": "ПМ-21",
+          "ok": true
+        },
+        "reason": {
+          "expected": "здоров",
+          "actual": "отпуска: по состоянию здоровья",
+          "ok": true
+        },
+        "start_date": {
+          "expected": "01.11.2025",
+          "actual": "01.11.2025",
+          "ok": true
+        },
+        "end_date": {
+          "expected": "31.03.2026",
+          "actual": "31.03.2026",
+          "ok": true
+        },
+        "application_date": {
+          "expected": "15.10.2025",
+          "actual": "15.10.2025",
+          "ok": true
+        },
+        "signature": {
+          "expected": true,
+          "actual": false,
+          "ok": false
+        }
+      },
+      "verification": {
+        "status": "incomplete",
+        "missing_fields": [],
+        "issues": [
+          "Подпись: отсутствует."
+        ]
+      },
+      "answer": "Чего-то не хватает или есть ошибки в полях документа. Подпись: отсутствует.\n\nНастоящее Положение заказчик не предоставил. Проверка выполнена по стартовому списку полей из презентации кейса (п. 3.1-3.3) как по официальному источнику. Подпись и печать проверяются как требование стартового сценария. За",
+      "sources": [
+        {
+          "type": "описание кейса",
+          "reference": "п. 3.2 — Описание кейса «Онлайн-деканат»",
+          "url": null
+        }
+      ],
+      "elapsed": 6.88
+    },
+    {
+      "file": "academic_leave\\leave_shadow.png",
+      "expected_type": "academic_leave",
+      "got_type": "academic_leave",
+      "type_ok": true,
+      "expected_fields": {
+        "student_name": "Петрова Мария Сергеевна",
+        "group": "ПМ-21",
+        "reason": "здоров",
+        "start_date": "01.11.2025",
+        "end_date": "31.03.2026",
+        "application_date": "15.10.2025",
+        "signature": true
+      },
+      "got_fields": {
+        "student_name": "Петрова Мария Сергеевна",
+        "group": "ПМ-21",
+        "course": "2",
+        "reason": "отпуска: по состоянию здоровья",
+        "start_date": "01.11.2025",
+        "end_date": "31.03.2026",
+        "application_date": "15.10.2025",
+        "signature": false
+      },
+      "field_results": {
+        "student_name": {
+          "expected": "Петрова Мария Сергеевна",
+          "actual": "Петрова Мария Сергеевна",
+          "ok": true
+        },
+        "group": {
+          "expected": "ПМ-21",
+          "actual": "ПМ-21",
+          "ok": true
+        },
+        "reason": {
+          "expected": "здоров",
+          "actual": "отпуска: по состоянию здоровья",
+          "ok": true
+        },
+        "start_date": {
+          "expected": "01.11.2025",
+          "actual": "01.11.2025",
+          "ok": true
+        },
+        "end_date": {
+          "expected": "31.03.2026",
+          "actual": "31.03.2026",
+          "ok": true
+        },
+        "application_date": {
+          "expected": "15.10.2025",
+          "actual": "15.10.2025",
+          "ok": true
+        },
+        "signature": {
+          "expected": true,
+          "actual": false,
+          "ok": false
+        }
+      },
+      "verification": {
+        "status": "incomplete",
+        "missing_fields": [],
+        "issues": [
+          "Подпись: отсутствует."
+        ]
+      },
+      "answer": "Чего-то не хватает или есть ошибки в полях документа. Подпись: отсутствует.\n\nНастоящее Положение заказчик не предоставил. Проверка выполнена по стартовому списку полей из презентации кейса (п. 3.1-3.3) как по официальному источнику. Подпись и печать проверяются как требование стартового сценария. За",
+      "sources": [
+        {
+          "type": "описание кейса",
+          "reference": "п. 3.2 — Описание кейса «Онлайн-деканат»",
+          "url": null
+        }
+      ],
+      "elapsed": 6.57
+    },
+    {
+      "file": "academic_leave\\leave_skew15.png",
+      "expected_type": "academic_leave",
+      "got_type": "academic_leave",
+      "type_ok": true,
+      "expected_fields": {
+        "student_name": "Петрова Мария Сергеевна",
+        "group": "ПМ-21",
+        "reason": "здоров",
+        "start_date": "01.11.2025",
+        "end_date": "31.03.2026",
+        "application_date": "15.10.2025",
+        "signature": true
+      },
+      "got_fields": {
+        "student_name": "Петрова Мария Сергеевна",
+        "group": "ПМ-21",
+        "course": "2",
+        "reason": "отпуска: по состоянию здоровья",
+        "start_date": "01.11.2025",
+        "end_date": "31.03.2026",
+        "application_date": "15.10.2025",
+        "signature": false
+      },
+      "field_results": {
+        "student_name": {
+          "expected": "Петрова Мария Сергеевна",
+          "actual": "Петрова Мария Сергеевна",
+          "ok": true
+        },
+        "group": {
+          "expected": "ПМ-21",
+          "actual": "ПМ-21",
+          "ok": true
+        },
+        "reason": {
+          "expected": "здоров",
+          "actual": "отпуска: по состоянию здоровья",
+          "ok": true
+        },
+        "start_date": {
+          "expected": "01.11.2025",
+          "actual": "01.11.2025",
+          "ok": true
+        },
+        "end_date": {
+          "expected": "31.03.2026",
+          "actual": "31.03.2026",
+          "ok": true
+        },
+        "application_date": {
+          "expected": "15.10.2025",
+          "actual": "15.10.2025",
+          "ok": true
+        },
+        "signature": {
+          "expected": true,
+          "actual": false,
+          "ok": false
+        }
+      },
+      "verification": {
+        "status": "incomplete",
+        "missing_fields": [],
+        "issues": [
+          "Подпись: отсутствует."
+        ]
+      },
+      "answer": "Чего-то не хватает или есть ошибки в полях документа. Подпись: отсутствует.\n\nНастоящее Положение заказчик не предоставил. Проверка выполнена по стартовому списку полей из презентации кейса (п. 3.1-3.3) как по официальному источнику. Подпись и печать проверяются как требование стартового сценария. За",
+      "sources": [
+        {
+          "type": "описание кейса",
+          "reference": "п. 3.2 — Описание кейса «Онлайн-деканат»",
+          "url": null
+        }
+      ],
+      "elapsed": 6.58
+    },
+    {
+      "file": "academic_leave\\leave_skew30.png",
+      "expected_type": "academic_leave",
+      "got_type": "academic_leave",
+      "type_ok": true,
+      "expected_fields": {
+        "student_name": "Петрова Мария Сергеевна",
+        "group": "ПМ-21",
+        "reason": "здоров",
+        "start_date": "01.11.2025",
+        "end_date": "31.03.2026",
+        "application_date": "15.10.2025",
+        "signature": true
+      },
+      "got_fields": {
+        "student_name": "Петрова Мария Сергеевна",
+        "group": "ПМ-21",
+        "course": "2",
+        "reason": "отпуска: по состоянию здоровья",
+        "start_date": "01.11.2025",
+        "end_date": "31.03.2026",
+        "application_date": "15.10.2025",
+        "signature": false
+      },
+      "field_results": {
+        "student_name": {
+          "expected": "Петрова Мария Сергеевна",
+          "actual": "Петрова Мария Сергеевна",
+          "ok": true
+        },
+        "group": {
+          "expected": "ПМ-21",
+          "actual": "ПМ-21",
+          "ok": true
+        },
+        "reason": {
+          "expected": "здоров",
+          "actual": "отпуска: по состоянию здоровья",
+          "ok": true
+        },
+        "start_date": {
+          "expected": "01.11.2025",
+          "actual": "01.11.2025",
+          "ok": true
+        },
+        "end_date": {
+          "expected": "31.03.2026",
+          "actual": "31.03.2026",
+          "ok": true
+        },
+        "application_date": {
+          "expected": "15.10.2025",
+          "actual": "15.10.2025",
+          "ok": true
+        },
+        "signature": {
+          "expected": true,
+          "actual": false,
+          "ok": false
+        }
+      },
+      "verification": {
+        "status": "incomplete",
+        "missing_fields": [],
+        "issues": [
+          "Подпись: отсутствует."
+        ]
+      },
+      "answer": "Чего-то не хватает или есть ошибки в полях документа. Подпись: отсутствует.\n\nНастоящее Положение заказчик не предоставил. Проверка выполнена по стартовому списку полей из презентации кейса (п. 3.1-3.3) как по официальному источнику. Подпись и печать проверяются как требование стартового сценария. За",
+      "sources": [
+        {
+          "type": "описание кейса",
+          "reference": "п. 3.2 — Описание кейса «Онлайн-деканат»",
+          "url": null
+        }
+      ],
+      "elapsed": 7.02
+    },
+    {
+      "file": "internship_certificate\\practice_blur.png",
+      "expected_type": "internship_certificate",
+      "got_type": "internship_certificate",
+      "type_ok": true,
+      "expected_fields": {
+        "student_name": "Сидоров Алексей Петрович",
+        "organization": "ТехноПарк",
+        "internship_period": "01.07.2025",
+        "supervisor": "Смирнов",
+        "grade": "отлично",
+        "document_number": "54321",
+        "issue_date": "05.09.2025",
+        "signature": true,
+        "stamp": true
+      },
+      "got_fields": {
+        "student_name": "Сидоров Алексей Петровин",
+        "organization": "ТехноПарк",
+        "internship_period": "01.07.2025 – 31.08.2025",
+        "supervisor": "практики: Смирнов А",
+        "grade": "отлично",
+        "document_number": "54321",
+        "issue_date": "не найдено",
+        "signature": true,
+        "stamp": true
+      },
+      "field_results": {
+        "student_name": {
+          "expected": "Сидоров Алексей Петрович",
+          "actual": "Сидоров Алексей Петровин",
+          "ok": true
+        },
+        "organization": {
+          "expected": "ТехноПарк",
+          "actual": "ТехноПарк",
+          "ok": true
+        },
+        "internship_period": {
+          "expected": "01.07.2025",
+          "actual": "01.07.2025 – 31.08.2025",
+          "ok": true
+        },
+        "supervisor": {
+          "expected": "Смирнов",
+          "actual": "практики: Смирнов А",
+          "ok": true
+        },
+        "grade": {
+          "expected": "отлично",
+          "actual": "отлично",
+          "ok": true
+        },
+        "document_number": {
+          "expected": "54321",
+          "actual": "54321",
+          "ok": true
+        },
+        "issue_date": {
+          "expected": "05.09.2025",
+          "actual": "не найдено",
+          "ok": false
+        },
+        "signature": {
+          "expected": true,
+          "actual": true,
+          "ok": true
+        },
+        "stamp": {
+          "expected": true,
+          "actual": true,
+          "ok": true
+        }
+      },
+      "verification": {
+        "status": "incomplete",
+        "missing_fields": [
+          "issue_date"
+        ],
+        "issues": []
+      },
+      "answer": "Чего-то не хватает или есть ошибки в полях документа. Не найдены обязательные поля: Дата выдачи.\n\nНастоящее Положение заказчик не предоставил. Проверка выполнена по стартовому списку полей из презентации кейса (п. 3.1-3.3) как по официальному источнику. Подпись и печать проверяются как требование ст",
+      "sources": [
+        {
+          "type": "описание кейса",
+          "reference": "п. 3.3 — Описание кейса «Онлайн-деканат»",
+          "url": null
+        }
+      ],
+      "elapsed": 12.12
+    },
+    {
+      "file": "internship_certificate\\practice_clean.png",
+      "expected_type": "internship_certificate",
+      "got_type": "internship_certificate",
+      "type_ok": true,
+      "expected_fields": {
+        "student_name": "Сидоров Алексей Петрович",
+        "organization": "ТехноПарк",
+        "internship_period": "01.07.2025",
+        "supervisor": "Смирнов",
+        "grade": "отлично",
+        "document_number": "54321",
+        "issue_date": "05.09.2025",
+        "signature": true,
+        "stamp": true
+      },
+      "got_fields": {
+        "student_name": "Сидоров Алексей Петрович",
+        "organization": "ТехноПарк",
+        "internship_period": "01.07.2025 – 31.08.2025",
+        "supervisor": "практики: Смирнов А",
+        "grade": "отлично",
+        "document_number": "54321",
+        "issue_date": "не найдено",
+        "signature": true,
+        "stamp": true
+      },
+      "field_results": {
+        "student_name": {
+          "expected": "Сидоров Алексей Петрович",
+          "actual": "Сидоров Алексей Петрович",
+          "ok": true
+        },
+        "organization": {
+          "expected": "ТехноПарк",
+          "actual": "ТехноПарк",
+          "ok": true
+        },
+        "internship_period": {
+          "expected": "01.07.2025",
+          "actual": "01.07.2025 – 31.08.2025",
+          "ok": true
+        },
+        "supervisor": {
+          "expected": "Смирнов",
+          "actual": "практики: Смирнов А",
+          "ok": true
+        },
+        "grade": {
+          "expected": "отлично",
+          "actual": "отлично",
+          "ok": true
+        },
+        "document_number": {
+          "expected": "54321",
+          "actual": "54321",
+          "ok": true
+        },
+        "issue_date": {
+          "expected": "05.09.2025",
+          "actual": "не найдено",
+          "ok": false
+        },
+        "signature": {
+          "expected": true,
+          "actual": true,
+          "ok": true
+        },
+        "stamp": {
+          "expected": true,
+          "actual": true,
+          "ok": true
+        }
+      },
+      "verification": {
+        "status": "incomplete",
+        "missing_fields": [
+          "issue_date"
+        ],
+        "issues": []
+      },
+      "answer": "Чего-то не хватает или есть ошибки в полях документа. Не найдены обязательные поля: Дата выдачи.\n\nНастоящее Положение заказчик не предоставил. Проверка выполнена по стартовому списку полей из презентации кейса (п. 3.1-3.3) как по официальному источнику. Подпись и печать проверяются как требование ст",
+      "sources": [
+        {
+          "type": "описание кейса",
+          "reference": "п. 3.3 — Описание кейса «Онлайн-деканат»",
+          "url": null
+        }
+      ],
+      "elapsed": 15.44
+    },
+    {
+      "file": "internship_certificate\\practice_glare.png",
+      "expected_type": "internship_certificate",
+      "got_type": "internship_certificate",
+      "type_ok": true,
+      "expected_fields": {
+        "student_name": "Сидоров Алексей Петрович",
+        "organization": "ТехноПарк",
+        "internship_period": "01.07.2025",
+        "supervisor": "Смирнов",
+        "grade": "отлично",
+        "document_number": "54321",
+        "issue_date": "05.09.2025",
+        "signature": true,
+        "stamp": true
+      },
+      "got_fields": {
+        "student_name": "Сидоров Алексей Петровин",
+        "organization": "ТехноПарк",
+        "internship_period": "01.07.2025 – 31.08.2025",
+        "supervisor": "практики: Смирнов А",
+        "grade": "отлично",
+        "document_number": "54321",
+        "issue_date": "не найдено",
+        "signature": true,
+        "stamp": true
+      },
+      "field_results": {
+        "student_name": {
+          "expected": "Сидоров Алексей Петрович",
+          "actual": "Сидоров Алексей Петровин",
+          "ok": true
+        },
+        "organization": {
+          "expected": "ТехноПарк",
+          "actual": "ТехноПарк",
+          "ok": true
+        },
+        "internship_period": {
+          "expected": "01.07.2025",
+          "actual": "01.07.2025 – 31.08.2025",
+          "ok": true
+        },
+        "supervisor": {
+          "expected": "Смирнов",
+          "actual": "практики: Смирнов А",
+          "ok": true
+        },
+        "grade": {
+          "expected": "отлично",
+          "actual": "отлично",
+          "ok": true
+        },
+        "document_number": {
+          "expected": "54321",
+          "actual": "54321",
+          "ok": true
+        },
+        "issue_date": {
+          "expected": "05.09.2025",
+          "actual": "не найдено",
+          "ok": false
+        },
+        "signature": {
+          "expected": true,
+          "actual": true,
+          "ok": true
+        },
+        "stamp": {
+          "expected": true,
+          "actual": true,
+          "ok": true
+        }
+      },
+      "verification": {
+        "status": "incomplete",
+        "missing_fields": [
+          "issue_date"
+        ],
+        "issues": []
+      },
+      "answer": "Чего-то не хватает или есть ошибки в полях документа. Не найдены обязательные поля: Дата выдачи.\n\nНастоящее Положение заказчик не предоставил. Проверка выполнена по стартовому списку полей из презентации кейса (п. 3.1-3.3) как по официальному источнику. Подпись и печать проверяются как требование ст",
+      "sources": [
+        {
+          "type": "описание кейса",
+          "reference": "п. 3.3 — Описание кейса «Онлайн-деканат»",
+          "url": null
+        }
+      ],
+      "elapsed": 11.74
+    },
+    {
+      "file": "internship_certificate\\practice_lowres.png",
+      "expected_type": "internship_certificate",
+      "got_type": "internship_certificate",
+      "type_ok": true,
+      "expected_fields": {
+        "student_name": "Сидоров Алексей Петрович",
+        "organization": "ТехноПарк",
+        "internship_period": "01.07.2025",
+        "supervisor": "Смирнов",
+        "grade": "отлично",
+        "document_number": "54321",
+        "issue_date": "05.09.2025",
+        "signature": true,
+        "stamp": true
+      },
+      "got_fields": {
+        "student_name": "Сидоров Алексей Петровин",
+        "organization": "ТехноПарк",
+        "internship_period": "01.07.2025 – 31.08.2025",
+        "supervisor": "практики: Смирнов А",
+        "grade": "отлично",
+        "document_number": "54321",
+        "issue_date": "не найдено",
+        "signature": true,
+        "stamp": true
+      },
+      "field_results": {
+        "student_name": {
+          "expected": "Сидоров Алексей Петрович",
+          "actual": "Сидоров Алексей Петровин",
+          "ok": true
+        },
+        "organization": {
+          "expected": "ТехноПарк",
+          "actual": "ТехноПарк",
+          "ok": true
+        },
+        "internship_period": {
+          "expected": "01.07.2025",
+          "actual": "01.07.2025 – 31.08.2025",
+          "ok": true
+        },
+        "supervisor": {
+          "expected": "Смирнов",
+          "actual": "практики: Смирнов А",
+          "ok": true
+        },
+        "grade": {
+          "expected": "отлично",
+          "actual": "отлично",
+          "ok": true
+        },
+        "document_number": {
+          "expected": "54321",
+          "actual": "54321",
+          "ok": true
+        },
+        "issue_date": {
+          "expected": "05.09.2025",
+          "actual": "не найдено",
+          "ok": false
+        },
+        "signature": {
+          "expected": true,
+          "actual": true,
+          "ok": true
+        },
+        "stamp": {
+          "expected": true,
+          "actual": true,
+          "ok": true
+        }
+      },
+      "verification": {
+        "status": "incomplete",
+        "missing_fields": [
+          "issue_date"
+        ],
+        "issues": []
+      },
+      "answer": "Чего-то не хватает или есть ошибки в полях документа. Не найдены обязательные поля: Дата выдачи.\n\nНастоящее Положение заказчик не предоставил. Проверка выполнена по стартовому списку полей из презентации кейса (п. 3.1-3.3) как по официальному источнику. Подпись и печать проверяются как требование ст",
+      "sources": [
+        {
+          "type": "описание кейса",
+          "reference": "п. 3.3 — Описание кейса «Онлайн-деканат»",
+          "url": null
+        }
+      ],
+      "elapsed": 10.02
+    },
+    {
+      "file": "internship_certificate\\practice_rot180.png",
+      "expected_type": "internship_certificate",
+      "got_type": "internship_certificate",
+      "type_ok": true,
+      "expected_fields": {
+        "student_name": "Сидоров Алексей Петрович",
+        "organization": "ТехноПарк",
+        "internship_period": "01.07.2025",
+        "supervisor": "Смирнов",
+        "grade": "отлично",
+        "document_number": "54321",
+        "issue_date": "05.09.2025",
+        "signature": true,
+        "stamp": true
+      },
+      "got_fields": {
+        "student_name": "Сидоров Алексей Петровинч",
+        "organization": "ТехноПарк",
+        "internship_period": "01.07.2025 – 31.08.2025",
+        "supervisor": "практики: Смирнов А",
+        "grade": "отлично",
+        "document_number": "54321",
+        "issue_date": "не найдено",
+        "signature": true,
+        "stamp": null
+      },
+      "field_results": {
+        "student_name": {
+          "expected": "Сидоров Алексей Петрович",
+          "actual": "Сидоров Алексей Петровинч",
+          "ok": true
+        },
+        "organization": {
+          "expected": "ТехноПарк",
+          "actual": "ТехноПарк",
+          "ok": true
+        },
+        "internship_period": {
+          "expected": "01.07.2025",
+          "actual": "01.07.2025 – 31.08.2025",
+          "ok": true
+        },
+        "supervisor": {
+          "expected": "Смирнов",
+          "actual": "практики: Смирнов А",
+          "ok": true
+        },
+        "grade": {
+          "expected": "отлично",
+          "actual": "отлично",
+          "ok": true
+        },
+        "document_number": {
+          "expected": "54321",
+          "actual": "54321",
+          "ok": true
+        },
+        "issue_date": {
+          "expected": "05.09.2025",
+          "actual": "не найдено",
+          "ok": false
+        },
+        "signature": {
+          "expected": true,
+          "actual": true,
+          "ok": true
+        },
+        "stamp": {
+          "expected": true,
+          "actual": null,
+          "ok": false
+        }
+      },
+      "verification": {
+        "status": "incomplete",
+        "missing_fields": [
+          "issue_date",
+          "stamp"
+        ],
+        "issues": []
+      },
+      "answer": "Чего-то не хватает или есть ошибки в полях документа. Не найдены обязательные поля: Дата выдачи, Печать.\n\nНастоящее Положение заказчик не предоставил. Проверка выполнена по стартовому списку полей из презентации кейса (п. 3.1-3.3) как по официальному источнику. Подпись и печать проверяются как требо",
+      "sources": [
+        {
+          "type": "описание кейса",
+          "reference": "п. 3.3 — Описание кейса «Онлайн-деканат»",
+          "url": null
+        }
+      ],
+      "elapsed": 8.66
+    },
+    {
+      "file": "internship_certificate\\practice_rot90.png",
+      "expected_type": "internship_certificate",
+      "got_type": "internship_certificate",
+      "type_ok": true,
+      "expected_fields": {
+        "student_name": "Сидоров Алексей Петрович",
+        "organization": "ТехноПарк",
+        "internship_period": "01.07.2025",
+        "supervisor": "Смирнов",
+        "grade": "отлично",
+        "document_number": "54321",
+        "issue_date": "05.09.2025",
+        "signature": true,
+        "stamp": true
+      },
+      "got_fields": {
+        "student_name": "Сидоров Алексей Петрович",
+        "organization": "ТехноПарк",
+        "internship_period": "01.07.2025 – 31.08.2025",
+        "supervisor": "практики: Смирнов А",
+        "grade": "отлично",
+        "document_number": "54321",
+        "issue_date": "не найдено",
+        "signature": true,
+        "stamp": true
+      },
+      "field_results": {
+        "student_name": {
+          "expected": "Сидоров Алексей Петрович",
+          "actual": "Сидоров Алексей Петрович",
+          "ok": true
+        },
+        "organization": {
+          "expected": "ТехноПарк",
+          "actual": "ТехноПарк",
+          "ok": true
+        },
+        "internship_period": {
+          "expected": "01.07.2025",
+          "actual": "01.07.2025 – 31.08.2025",
+          "ok": true
+        },
+        "supervisor": {
+          "expected": "Смирнов",
+          "actual": "практики: Смирнов А",
+          "ok": true
+        },
+        "grade": {
+          "expected": "отлично",
+          "actual": "отлично",
+          "ok": true
+        },
+        "document_number": {
+          "expected": "54321",
+          "actual": "54321",
+          "ok": true
+        },
+        "issue_date": {
+          "expected": "05.09.2025",
+          "actual": "не найдено",
+          "ok": false
+        },
+        "signature": {
+          "expected": true,
+          "actual": true,
+          "ok": true
+        },
+        "stamp": {
+          "expected": true,
+          "actual": true,
+          "ok": true
+        }
+      },
+      "verification": {
+        "status": "incomplete",
+        "missing_fields": [
+          "issue_date"
+        ],
+        "issues": []
+      },
+      "answer": "Чего-то не хватает или есть ошибки в полях документа. Не найдены обязательные поля: Дата выдачи.\n\nНастоящее Положение заказчик не предоставил. Проверка выполнена по стартовому списку полей из презентации кейса (п. 3.1-3.3) как по официальному источнику. Подпись и печать проверяются как требование ст",
+      "sources": [
+        {
+          "type": "описание кейса",
+          "reference": "п. 3.3 — Описание кейса «Онлайн-деканат»",
+          "url": null
+        }
+      ],
+      "elapsed": 7.47
+    },
+    {
+      "file": "internship_certificate\\practice_shadow.png",
+      "expected_type": "internship_certificate",
+      "got_type": "internship_certificate",
+      "type_ok": true,
+      "expected_fields": {
+        "student_name": "Сидоров Алексей Петрович",
+        "organization": "ТехноПарк",
+        "internship_period": "01.07.2025",
+        "supervisor": "Смирнов",
+        "grade": "отлично",
+        "document_number": "54321",
+        "issue_date": "05.09.2025",
+        "signature": true,
+        "stamp": true
+      },
+      "got_fields": {
+        "student_name": "Сидоров Алексей Петровин",
+        "organization": "ТехноПарк",
+        "internship_period": "01.07.2025 – 31.08.2025",
+        "supervisor": "практики: Смирнов А",
+        "grade": "отлично",
+        "document_number": "54321",
+        "issue_date": "не найдено",
+        "signature": true,
+        "stamp": true
+      },
+      "field_results": {
+        "student_name": {
+          "expected": "Сидоров Алексей Петрович",
+          "actual": "Сидоров Алексей Петровин",
+          "ok": true
+        },
+        "organization": {
+          "expected": "ТехноПарк",
+          "actual": "ТехноПарк",
+          "ok": true
+        },
+        "internship_period": {
+          "expected": "01.07.2025",
+          "actual": "01.07.2025 – 31.08.2025",
+          "ok": true
+        },
+        "supervisor": {
+          "expected": "Смирнов",
+          "actual": "практики: Смирнов А",
+          "ok": true
+        },
+        "grade": {
+          "expected": "отлично",
+          "actual": "отлично",
+          "ok": true
+        },
+        "document_number": {
+          "expected": "54321",
+          "actual": "54321",
+          "ok": true
+        },
+        "issue_date": {
+          "expected": "05.09.2025",
+          "actual": "не найдено",
+          "ok": false
+        },
+        "signature": {
+          "expected": true,
+          "actual": true,
+          "ok": true
+        },
+        "stamp": {
+          "expected": true,
+          "actual": true,
+          "ok": true
+        }
+      },
+      "verification": {
+        "status": "incomplete",
+        "missing_fields": [
+          "issue_date"
+        ],
+        "issues": []
+      },
+      "answer": "Чего-то не хватает или есть ошибки в полях документа. Не найдены обязательные поля: Дата выдачи.\n\nНастоящее Положение заказчик не предоставил. Проверка выполнена по стартовому списку полей из презентации кейса (п. 3.1-3.3) как по официальному источнику. Подпись и печать проверяются как требование ст",
+      "sources": [
+        {
+          "type": "описание кейса",
+          "reference": "п. 3.3 — Описание кейса «Онлайн-деканат»",
+          "url": null
+        }
+      ],
+      "elapsed": 9.07
+    },
+    {
+      "file": "internship_certificate\\practice_skew15.png",
+      "expected_type": "internship_certificate",
+      "got_type": "internship_certificate",
+      "type_ok": true,
+      "expected_fields": {
+        "student_name": "Сидоров Алексей Петрович",
+        "organization": "ТехноПарк",
+        "internship_period": "01.07.2025",
+        "supervisor": "Смирнов",
+        "grade": "отлично",
+        "document_number": "54321",
+        "issue_date": "05.09.2025",
+        "signature": true,
+        "stamp": true
+      },
+      "got_fields": {
+        "student_name": "Сидоров Алексей Петрович",
+        "organization": "ТехноПарк",
+        "internship_period": "01.07.2025 – 31.08.2025",
+        "supervisor": "практики: Смирнов А",
+        "grade": "отлично",
+        "document_number": "54321",
+        "issue_date": "не найдено",
+        "signature": false,
+        "stamp": null
+      },
+      "field_results": {
+        "student_name": {
+          "expected": "Сидоров Алексей Петрович",
+          "actual": "Сидоров Алексей Петрович",
+          "ok": true
+        },
+        "organization": {
+          "expected": "ТехноПарк",
+          "actual": "ТехноПарк",
+          "ok": true
+        },
+        "internship_period": {
+          "expected": "01.07.2025",
+          "actual": "01.07.2025 – 31.08.2025",
+          "ok": true
+        },
+        "supervisor": {
+          "expected": "Смирнов",
+          "actual": "практики: Смирнов А",
+          "ok": true
+        },
+        "grade": {
+          "expected": "отлично",
+          "actual": "отлично",
+          "ok": true
+        },
+        "document_number": {
+          "expected": "54321",
+          "actual": "54321",
+          "ok": true
+        },
+        "issue_date": {
+          "expected": "05.09.2025",
+          "actual": "не найдено",
+          "ok": false
+        },
+        "signature": {
+          "expected": true,
+          "actual": false,
+          "ok": false
+        },
+        "stamp": {
+          "expected": true,
+          "actual": null,
+          "ok": false
+        }
+      },
+      "verification": {
+        "status": "incomplete",
+        "missing_fields": [
+          "issue_date",
+          "stamp"
+        ],
+        "issues": [
+          "Подпись: отсутствует."
+        ]
+      },
+      "answer": "Чего-то не хватает или есть ошибки в полях документа. Не найдены обязательные поля: Дата выдачи, Печать. Подпись: отсутствует.\n\nНастоящее Положение заказчик не предоставил. Проверка выполнена по стартовому списку полей из презентации кейса (п. 3.1-3.3) как по официальному источнику. Подпись и печать",
+      "sources": [
+        {
+          "type": "описание кейса",
+          "reference": "п. 3.3 — Описание кейса «Онлайн-деканат»",
+          "url": null
+        }
+      ],
+      "elapsed": 7.44
+    },
+    {
+      "file": "internship_certificate\\practice_skew30.png",
+      "expected_type": "internship_certificate",
+      "got_type": "internship_certificate",
+      "type_ok": true,
+      "expected_fields": {
+        "student_name": "Сидоров Алексей Петрович",
+        "organization": "ТехноПарк",
+        "internship_period": "01.07.2025",
+        "supervisor": "Смирнов",
+        "grade": "отлично",
+        "document_number": "54321",
+        "issue_date": "05.09.2025",
+        "signature": true,
+        "stamp": true
+      },
+      "got_fields": {
+        "student_name": "Сидоров Алексей Петровин",
+        "organization": "ТехноПарк",
+        "internship_period": "01.07.2025 – 31.08.2025",
+        "supervisor": "практики: Смирнов А",
+        "grade": "отлично",
+        "document_number": "54321",
+        "issue_date": "не найдено",
+        "signature": false,
+        "stamp": null
+      },
+      "field_results": {
+        "student_name": {
+          "expected": "Сидоров Алексей Петрович",
+          "actual": "Сидоров Алексей Петровин",
+          "ok": true
+        },
+        "organization": {
+          "expected": "ТехноПарк",
+          "actual": "ТехноПарк",
+          "ok": true
+        },
+        "internship_period": {
+          "expected": "01.07.2025",
+          "actual": "01.07.2025 – 31.08.2025",
+          "ok": true
+        },
+        "supervisor": {
+          "expected": "Смирнов",
+          "actual": "практики: Смирнов А",
+          "ok": true
+        },
+        "grade": {
+          "expected": "отлично",
+          "actual": "отлично",
+          "ok": true
+        },
+        "document_number": {
+          "expected": "54321",
+          "actual": "54321",
+          "ok": true
+        },
+        "issue_date": {
+          "expected": "05.09.2025",
+          "actual": "не найдено",
+          "ok": false
+        },
+        "signature": {
+          "expected": true,
+          "actual": false,
+          "ok": false
+        },
+        "stamp": {
+          "expected": true,
+          "actual": null,
+          "ok": false
+        }
+      },
+      "verification": {
+        "status": "incomplete",
+        "missing_fields": [
+          "issue_date",
+          "stamp"
+        ],
+        "issues": [
+          "Подпись: отсутствует."
+        ]
+      },
+      "answer": "Чего-то не хватает или есть ошибки в полях документа. Не найдены обязательные поля: Дата выдачи, Печать. Подпись: отсутствует.\n\nНастоящее Положение заказчик не предоставил. Проверка выполнена по стартовому списку полей из презентации кейса (п. 3.1-3.3) как по официальному источнику. Подпись и печать",
+      "sources": [
+        {
+          "type": "описание кейса",
+          "reference": "п. 3.3 — Описание кейса «Онлайн-деканат»",
+          "url": null
+        }
+      ],
+      "elapsed": 7.98
+    },
+    {
+      "file": "study_certificate\\study_blur.png",
+      "expected_type": "study_certificate",
+      "got_type": "study_certificate",
+      "type_ok": true,
+      "expected_fields": {
+        "student_name": "Иванов Иван Иванович",
+        "university": "МГУ",
+        "program": "Прикладная математика",
+        "study_form": "очная",
+        "study_period": "02.09.2022",
+        "document_number": "12345",
+        "issue_date": "10.10.2025",
+        "signature": true,
+        "stamp": true
+      },
+      "got_fields": {
+        "student_name": "Иванов Иван Иванович",
+        "university": "МГУ",
+        "program": "Прикладная математика и информатика",
+        "study_form": "очная",
+        "study_period": "не найдено",
+        "document_number": "12345",
+        "issue_date": "не найдено",
+        "signature": true,
+        "stamp": true
+      },
+      "field_results": {
+        "student_name": {
+          "expected": "Иванов Иван Иванович",
+          "actual": "Иванов Иван Иванович",
+          "ok": true
+        },
+        "university": {
+          "expected": "МГУ",
+          "actual": "МГУ",
+          "ok": true
+        },
+        "program": {
+          "expected": "Прикладная математика",
+          "actual": "Прикладная математика и информатика",
+          "ok": true
+        },
+        "study_form": {
+          "expected": "очная",
+          "actual": "очная",
+          "ok": true
+        },
+        "study_period": {
+          "expected": "02.09.2022",
+          "actual": "не найдено",
+          "ok": false
+        },
+        "document_number": {
+          "expected": "12345",
+          "actual": "12345",
+          "ok": true
+        },
+        "issue_date": {
+          "expected": "10.10.2025",
+          "actual": "не найдено",
+          "ok": false
+        },
+        "signature": {
+          "expected": true,
+          "actual": true,
+          "ok": true
+        },
+        "stamp": {
+          "expected": true,
+          "actual": true,
+          "ok": true
+        }
+      },
+      "verification": {
+        "status": "incomplete",
+        "missing_fields": [
+          "study_period",
+          "issue_date"
+        ],
+        "issues": []
+      },
+      "answer": "Чего-то не хватает или есть ошибки в полях документа. Не найдены обязательные поля: Период обучения, Дата выдачи.\n\nНастоящее Положение заказчик не предоставил. Проверка выполнена по стартовому списку полей из презентации кейса (п. 3.1-3.3) как по официальному источнику. Подпись и печать проверяются ",
+      "sources": [
+        {
+          "type": "описание кейса",
+          "reference": "п. 3.1 — Описание кейса «Онлайн-деканат»",
+          "url": null
+        }
+      ],
+      "elapsed": 8.04
+    },
+    {
+      "file": "study_certificate\\study_clean.png",
+      "expected_type": "study_certificate",
+      "got_type": "study_certificate",
+      "type_ok": true,
+      "expected_fields": {
+        "student_name": "Иванов Иван Иванович",
+        "university": "МГУ",
+        "program": "Прикладная математика",
+        "study_form": "очная",
+        "study_period": "02.09.2022",
+        "document_number": "12345",
+        "issue_date": "10.10.2025",
+        "signature": true,
+        "stamp": true
+      },
+      "got_fields": {
+        "student_name": "Иванов Иван Иванович",
+        "university": "МГУ",
+        "program": "Прикладная математика и информатика",
+        "study_form": "очная",
+        "study_period": "не найдено",
+        "document_number": "12345",
+        "issue_date": "не найдено",
+        "signature": true,
+        "stamp": true
+      },
+      "field_results": {
+        "student_name": {
+          "expected": "Иванов Иван Иванович",
+          "actual": "Иванов Иван Иванович",
+          "ok": true
+        },
+        "university": {
+          "expected": "МГУ",
+          "actual": "МГУ",
+          "ok": true
+        },
+        "program": {
+          "expected": "Прикладная математика",
+          "actual": "Прикладная математика и информатика",
+          "ok": true
+        },
+        "study_form": {
+          "expected": "очная",
+          "actual": "очная",
+          "ok": true
+        },
+        "study_period": {
+          "expected": "02.09.2022",
+          "actual": "не найдено",
+          "ok": false
+        },
+        "document_number": {
+          "expected": "12345",
+          "actual": "12345",
+          "ok": true
+        },
+        "issue_date": {
+          "expected": "10.10.2025",
+          "actual": "не найдено",
+          "ok": false
+        },
+        "signature": {
+          "expected": true,
+          "actual": true,
+          "ok": true
+        },
+        "stamp": {
+          "expected": true,
+          "actual": true,
+          "ok": true
+        }
+      },
+      "verification": {
+        "status": "incomplete",
+        "missing_fields": [
+          "study_period",
+          "issue_date"
+        ],
+        "issues": []
+      },
+      "answer": "Чего-то не хватает или есть ошибки в полях документа. Не найдены обязательные поля: Период обучения, Дата выдачи.\n\nНастоящее Положение заказчик не предоставил. Проверка выполнена по стартовому списку полей из презентации кейса (п. 3.1-3.3) как по официальному источнику. Подпись и печать проверяются ",
+      "sources": [
+        {
+          "type": "описание кейса",
+          "reference": "п. 3.1 — Описание кейса «Онлайн-деканат»",
+          "url": null
+        }
+      ],
+      "elapsed": 8.34
+    },
+    {
+      "file": "study_certificate\\study_glare.png",
+      "expected_type": "study_certificate",
+      "got_type": "study_certificate",
+      "type_ok": true,
+      "expected_fields": {
+        "student_name": "Иванов Иван Иванович",
+        "university": "МГУ",
+        "program": "Прикладная математика",
+        "study_form": "очная",
+        "study_period": "02.09.2022",
+        "document_number": "12345",
+        "issue_date": "10.10.2025",
+        "signature": true,
+        "stamp": true
+      },
+      "got_fields": {
+        "student_name": "Иванов Иван Иванович",
+        "university": "МГУ",
+        "program": "Прикладная математика и информатика",
+        "study_form": "очная",
+        "study_period": "не найдено",
+        "document_number": "12345",
+        "issue_date": "не найдено",
+        "signature": true,
+        "stamp": true
+      },
+      "field_results": {
+        "student_name": {
+          "expected": "Иванов Иван Иванович",
+          "actual": "Иванов Иван Иванович",
+          "ok": true
+        },
+        "university": {
+          "expected": "МГУ",
+          "actual": "МГУ",
+          "ok": true
+        },
+        "program": {
+          "expected": "Прикладная математика",
+          "actual": "Прикладная математика и информатика",
+          "ok": true
+        },
+        "study_form": {
+          "expected": "очная",
+          "actual": "очная",
+          "ok": true
+        },
+        "study_period": {
+          "expected": "02.09.2022",
+          "actual": "не найдено",
+          "ok": false
+        },
+        "document_number": {
+          "expected": "12345",
+          "actual": "12345",
+          "ok": true
+        },
+        "issue_date": {
+          "expected": "10.10.2025",
+          "actual": "не найдено",
+          "ok": false
+        },
+        "signature": {
+          "expected": true,
+          "actual": true,
+          "ok": true
+        },
+        "stamp": {
+          "expected": true,
+          "actual": true,
+          "ok": true
+        }
+      },
+      "verification": {
+        "status": "incomplete",
+        "missing_fields": [
+          "study_period",
+          "issue_date"
+        ],
+        "issues": []
+      },
+      "answer": "Чего-то не хватает или есть ошибки в полях документа. Не найдены обязательные поля: Период обучения, Дата выдачи.\n\nНастоящее Положение заказчик не предоставил. Проверка выполнена по стартовому списку полей из презентации кейса (п. 3.1-3.3) как по официальному источнику. Подпись и печать проверяются ",
+      "sources": [
+        {
+          "type": "описание кейса",
+          "reference": "п. 3.1 — Описание кейса «Онлайн-деканат»",
+          "url": null
+        }
+      ],
+      "elapsed": 7.85
+    },
+    {
+      "file": "study_certificate\\study_lowres.png",
+      "expected_type": "study_certificate",
+      "got_type": "study_certificate",
+      "type_ok": true,
+      "expected_fields": {
+        "student_name": "Иванов Иван Иванович",
+        "university": "МГУ",
+        "program": "Прикладная математика",
+        "study_form": "очная",
+        "study_period": "02.09.2022",
+        "document_number": "12345",
+        "issue_date": "10.10.2025",
+        "signature": true,
+        "stamp": true
+      },
+      "got_fields": {
+        "student_name": "Иванов Иван Иванович",
+        "university": "МГУ",
+        "program": "не найдено",
+        "study_form": "не найдено",
+        "study_period": "не найдено",
+        "document_number": "12345",
+        "issue_date": "не найдено",
+        "signature": true,
+        "stamp": true
+      },
+      "field_results": {
+        "student_name": {
+          "expected": "Иванов Иван Иванович",
+          "actual": "Иванов Иван Иванович",
+          "ok": true
+        },
+        "university": {
+          "expected": "МГУ",
+          "actual": "МГУ",
+          "ok": true
+        },
+        "program": {
+          "expected": "Прикладная математика",
+          "actual": "не найдено",
+          "ok": false
+        },
+        "study_form": {
+          "expected": "очная",
+          "actual": "не найдено",
+          "ok": false
+        },
+        "study_period": {
+          "expected": "02.09.2022",
+          "actual": "не найдено",
+          "ok": false
+        },
+        "document_number": {
+          "expected": "12345",
+          "actual": "12345",
+          "ok": true
+        },
+        "issue_date": {
+          "expected": "10.10.2025",
+          "actual": "не найдено",
+          "ok": false
+        },
+        "signature": {
+          "expected": true,
+          "actual": true,
+          "ok": true
+        },
+        "stamp": {
+          "expected": true,
+          "actual": true,
+          "ok": true
+        }
+      },
+      "verification": {
+        "status": "incomplete",
+        "missing_fields": [
+          "program",
+          "study_form",
+          "study_period",
+          "issue_date"
+        ],
+        "issues": []
+      },
+      "answer": "Чего-то не хватает или есть ошибки в полях документа. Не найдены обязательные поля: Направление подготовки, Форма обучения, Период обучения, Дата выдачи.\n\nНастоящее Положение заказчик не предоставил. Проверка выполнена по стартовому списку полей из презентации кейса (п. 3.1-3.3) как по официальному ",
+      "sources": [
+        {
+          "type": "описание кейса",
+          "reference": "п. 3.1 — Описание кейса «Онлайн-деканат»",
+          "url": null
+        }
+      ],
+      "elapsed": 8.24
+    },
+    {
+      "file": "study_certificate\\study_rot180.png",
+      "expected_type": "study_certificate",
+      "got_type": "study_certificate",
+      "type_ok": true,
+      "expected_fields": {
+        "student_name": "Иванов Иван Иванович",
+        "university": "МГУ",
+        "program": "Прикладная математика",
+        "study_form": "очная",
+        "study_period": "02.09.2022",
+        "document_number": "12345",
+        "issue_date": "10.10.2025",
+        "signature": true,
+        "stamp": true
+      },
+      "got_fields": {
+        "student_name": "Иванов Иван Иванович",
+        "university": "МГУ",
+        "program": "Прикладная математика и информатика",
+        "study_form": "очная",
+        "study_period": "не найдено",
+        "document_number": "12345",
+        "issue_date": "не найдено",
+        "signature": true,
+        "stamp": null
+      },
+      "field_results": {
+        "student_name": {
+          "expected": "Иванов Иван Иванович",
+          "actual": "Иванов Иван Иванович",
+          "ok": true
+        },
+        "university": {
+          "expected": "МГУ",
+          "actual": "МГУ",
+          "ok": true
+        },
+        "program": {
+          "expected": "Прикладная математика",
+          "actual": "Прикладная математика и информатика",
+          "ok": true
+        },
+        "study_form": {
+          "expected": "очная",
+          "actual": "очная",
+          "ok": true
+        },
+        "study_period": {
+          "expected": "02.09.2022",
+          "actual": "не найдено",
+          "ok": false
+        },
+        "document_number": {
+          "expected": "12345",
+          "actual": "12345",
+          "ok": true
+        },
+        "issue_date": {
+          "expected": "10.10.2025",
+          "actual": "не найдено",
+          "ok": false
+        },
+        "signature": {
+          "expected": true,
+          "actual": true,
+          "ok": true
+        },
+        "stamp": {
+          "expected": true,
+          "actual": null,
+          "ok": false
+        }
+      },
+      "verification": {
+        "status": "incomplete",
+        "missing_fields": [
+          "study_period",
+          "issue_date",
+          "stamp"
+        ],
+        "issues": []
+      },
+      "answer": "Чего-то не хватает или есть ошибки в полях документа. Не найдены обязательные поля: Период обучения, Дата выдачи, Печать.\n\nНастоящее Положение заказчик не предоставил. Проверка выполнена по стартовому списку полей из презентации кейса (п. 3.1-3.3) как по официальному источнику. Подпись и печать пров",
+      "sources": [
+        {
+          "type": "описание кейса",
+          "reference": "п. 3.1 — Описание кейса «Онлайн-деканат»",
+          "url": null
+        }
+      ],
+      "elapsed": 8.67
+    },
+    {
+      "file": "study_certificate\\study_rot90.png",
+      "expected_type": "study_certificate",
+      "got_type": "study_certificate",
+      "type_ok": true,
+      "expected_fields": {
+        "student_name": "Иванов Иван Иванович",
+        "university": "МГУ",
+        "program": "Прикладная математика",
+        "study_form": "очная",
+        "study_period": "02.09.2022",
+        "document_number": "12345",
+        "issue_date": "10.10.2025",
+        "signature": true,
+        "stamp": true
+      },
+      "got_fields": {
+        "student_name": "Иванов Иван Иванович",
+        "university": "МГУ",
+        "program": "Прикладная математика и информатика",
+        "study_form": "очная",
+        "study_period": "не найдено",
+        "document_number": "12345",
+        "issue_date": "не найдено",
+        "signature": true,
+        "stamp": true
+      },
+      "field_results": {
+        "student_name": {
+          "expected": "Иванов Иван Иванович",
+          "actual": "Иванов Иван Иванович",
+          "ok": true
+        },
+        "university": {
+          "expected": "МГУ",
+          "actual": "МГУ",
+          "ok": true
+        },
+        "program": {
+          "expected": "Прикладная математика",
+          "actual": "Прикладная математика и информатика",
+          "ok": true
+        },
+        "study_form": {
+          "expected": "очная",
+          "actual": "очная",
+          "ok": true
+        },
+        "study_period": {
+          "expected": "02.09.2022",
+          "actual": "не найдено",
+          "ok": false
+        },
+        "document_number": {
+          "expected": "12345",
+          "actual": "12345",
+          "ok": true
+        },
+        "issue_date": {
+          "expected": "10.10.2025",
+          "actual": "не найдено",
+          "ok": false
+        },
+        "signature": {
+          "expected": true,
+          "actual": true,
+          "ok": true
+        },
+        "stamp": {
+          "expected": true,
+          "actual": true,
+          "ok": true
+        }
+      },
+      "verification": {
+        "status": "incomplete",
+        "missing_fields": [
+          "study_period",
+          "issue_date"
+        ],
+        "issues": []
+      },
+      "answer": "Чего-то не хватает или есть ошибки в полях документа. Не найдены обязательные поля: Период обучения, Дата выдачи.\n\nНастоящее Положение заказчик не предоставил. Проверка выполнена по стартовому списку полей из презентации кейса (п. 3.1-3.3) как по официальному источнику. Подпись и печать проверяются ",
+      "sources": [
+        {
+          "type": "описание кейса",
+          "reference": "п. 3.1 — Описание кейса «Онлайн-деканат»",
+          "url": null
+        }
+      ],
+      "elapsed": 9.92
+    },
+    {
+      "file": "study_certificate\\study_shadow.png",
+      "expected_type": "study_certificate",
+      "got_type": "study_certificate",
+      "type_ok": true,
+      "expected_fields": {
+        "student_name": "Иванов Иван Иванович",
+        "university": "МГУ",
+        "program": "Прикладная математика",
+        "study_form": "очная",
+        "study_period": "02.09.2022",
+        "document_number": "12345",
+        "issue_date": "10.10.2025",
+        "signature": true,
+        "stamp": true
+      },
+      "got_fields": {
+        "student_name": "Иванов Иван Иванович",
+        "university": "МГУ",
+        "program": "Прикладная математика и информатика",
+        "study_form": "очная",
+        "study_period": "не найдено",
+        "document_number": "12345",
+        "issue_date": "не найдено",
+        "signature": true,
+        "stamp": true
+      },
+      "field_results": {
+        "student_name": {
+          "expected": "Иванов Иван Иванович",
+          "actual": "Иванов Иван Иванович",
+          "ok": true
+        },
+        "university": {
+          "expected": "МГУ",
+          "actual": "МГУ",
+          "ok": true
+        },
+        "program": {
+          "expected": "Прикладная математика",
+          "actual": "Прикладная математика и информатика",
+          "ok": true
+        },
+        "study_form": {
+          "expected": "очная",
+          "actual": "очная",
+          "ok": true
+        },
+        "study_period": {
+          "expected": "02.09.2022",
+          "actual": "не найдено",
+          "ok": false
+        },
+        "document_number": {
+          "expected": "12345",
+          "actual": "12345",
+          "ok": true
+        },
+        "issue_date": {
+          "expected": "10.10.2025",
+          "actual": "не найдено",
+          "ok": false
+        },
+        "signature": {
+          "expected": true,
+          "actual": true,
+          "ok": true
+        },
+        "stamp": {
+          "expected": true,
+          "actual": true,
+          "ok": true
+        }
+      },
+      "verification": {
+        "status": "incomplete",
+        "missing_fields": [
+          "study_period",
+          "issue_date"
+        ],
+        "issues": []
+      },
+      "answer": "Чего-то не хватает или есть ошибки в полях документа. Не найдены обязательные поля: Период обучения, Дата выдачи.\n\nНастоящее Положение заказчик не предоставил. Проверка выполнена по стартовому списку полей из презентации кейса (п. 3.1-3.3) как по официальному источнику. Подпись и печать проверяются ",
+      "sources": [
+        {
+          "type": "описание кейса",
+          "reference": "п. 3.1 — Описание кейса «Онлайн-деканат»",
+          "url": null
+        }
+      ],
+      "elapsed": 9.93
+    },
+    {
+      "file": "study_certificate\\study_skew15.png",
+      "expected_type": "study_certificate",
+      "got_type": "study_certificate",
+      "type_ok": true,
+      "expected_fields": {
+        "student_name": "Иванов Иван Иванович",
+        "university": "МГУ",
+        "program": "Прикладная математика",
+        "study_form": "очная",
+        "study_period": "02.09.2022",
+        "document_number": "12345",
+        "issue_date": "10.10.2025",
+        "signature": true,
+        "stamp": true
+      },
+      "got_fields": {
+        "student_name": "Иванов Иван Иванович",
+        "university": "МГУ",
+        "program": "Прикладная математика и информатика",
+        "study_form": "очная",
+        "study_period": "не найдено",
+        "document_number": "12345",
+        "issue_date": "не найдено",
+        "signature": true,
+        "stamp": true
+      },
+      "field_results": {
+        "student_name": {
+          "expected": "Иванов Иван Иванович",
+          "actual": "Иванов Иван Иванович",
+          "ok": true
+        },
+        "university": {
+          "expected": "МГУ",
+          "actual": "МГУ",
+          "ok": true
+        },
+        "program": {
+          "expected": "Прикладная математика",
+          "actual": "Прикладная математика и информатика",
+          "ok": true
+        },
+        "study_form": {
+          "expected": "очная",
+          "actual": "очная",
+          "ok": true
+        },
+        "study_period": {
+          "expected": "02.09.2022",
+          "actual": "не найдено",
+          "ok": false
+        },
+        "document_number": {
+          "expected": "12345",
+          "actual": "12345",
+          "ok": true
+        },
+        "issue_date": {
+          "expected": "10.10.2025",
+          "actual": "не найдено",
+          "ok": false
+        },
+        "signature": {
+          "expected": true,
+          "actual": true,
+          "ok": true
+        },
+        "stamp": {
+          "expected": true,
+          "actual": true,
+          "ok": true
+        }
+      },
+      "verification": {
+        "status": "incomplete",
+        "missing_fields": [
+          "study_period",
+          "issue_date"
+        ],
+        "issues": []
+      },
+      "answer": "Чего-то не хватает или есть ошибки в полях документа. Не найдены обязательные поля: Период обучения, Дата выдачи.\n\nНастоящее Положение заказчик не предоставил. Проверка выполнена по стартовому списку полей из презентации кейса (п. 3.1-3.3) как по официальному источнику. Подпись и печать проверяются ",
+      "sources": [
+        {
+          "type": "описание кейса",
+          "reference": "п. 3.1 — Описание кейса «Онлайн-деканат»",
+          "url": null
+        }
+      ],
+      "elapsed": 8.24
+    },
+    {
+      "file": "study_certificate\\study_skew30.png",
+      "expected_type": "study_certificate",
+      "got_type": "study_certificate",
+      "type_ok": true,
+      "expected_fields": {
+        "student_name": "Иванов Иван Иванович",
+        "university": "МГУ",
+        "program": "Прикладная математика",
+        "study_form": "очная",
+        "study_period": "02.09.2022",
+        "document_number": "12345",
+        "issue_date": "10.10.2025",
+        "signature": true,
+        "stamp": true
+      },
+      "got_fields": {
+        "student_name": "Иванов Иван Иванович",
+        "university": "МГУ",
+        "program": "Прикладная математика и информатика",
+        "study_form": "очная",
+        "study_period": "не найдено",
+        "document_number": "12345",
+        "issue_date": "не найдено",
+        "signature": false,
+        "stamp": null
+      },
+      "field_results": {
+        "student_name": {
+          "expected": "Иванов Иван Иванович",
+          "actual": "Иванов Иван Иванович",
+          "ok": true
+        },
+        "university": {
+          "expected": "МГУ",
+          "actual": "МГУ",
+          "ok": true
+        },
+        "program": {
+          "expected": "Прикладная математика",
+          "actual": "Прикладная математика и информатика",
+          "ok": true
+        },
+        "study_form": {
+          "expected": "очная",
+          "actual": "очная",
+          "ok": true
+        },
+        "study_period": {
+          "expected": "02.09.2022",
+          "actual": "не найдено",
+          "ok": false
+        },
+        "document_number": {
+          "expected": "12345",
+          "actual": "12345",
+          "ok": true
+        },
+        "issue_date": {
+          "expected": "10.10.2025",
+          "actual": "не найдено",
+          "ok": false
+        },
+        "signature": {
+          "expected": true,
+          "actual": false,
+          "ok": false
+        },
+        "stamp": {
+          "expected": true,
+          "actual": null,
+          "ok": false
+        }
+      },
+      "verification": {
+        "status": "incomplete",
+        "missing_fields": [
+          "study_period",
+          "issue_date",
+          "stamp"
+        ],
+        "issues": [
+          "Подпись: отсутствует."
+        ]
+      },
+      "answer": "Чего-то не хватает или есть ошибки в полях документа. Не найдены обязательные поля: Период обучения, Дата выдачи, Печать. Подпись: отсутствует.\n\nНастоящее Положение заказчик не предоставил. Проверка выполнена по стартовому списку полей из презентации кейса (п. 3.1-3.3) как по официальному источнику.",
+      "sources": [
+        {
+          "type": "описание кейса",
+          "reference": "п. 3.1 — Описание кейса «Онлайн-деканат»",
+          "url": null
+        }
+      ],
+      "elapsed": 8.9
+    },
+    {
+      "file": "study_certificate_no_marks\\study_nomarks_blur.png",
+      "expected_type": "study_certificate",
+      "got_type": "study_certificate",
+      "type_ok": true,
+      "expected_fields": {
+        "student_name": "Иванов Иван Иванович",
+        "university": "МГУ",
+        "program": "Прикладная математика",
+        "study_form": "очная",
+        "study_period": "02.09.2022",
+        "document_number": "12345",
+        "issue_date": "10.10.2025",
+        "signature": true,
+        "stamp": true
+      },
+      "got_fields": {
+        "student_name": "Иванов Иван Иванович",
+        "university": "МГУ",
+        "program": "Прикладная математика и информатика",
+        "study_form": "очная",
+        "study_period": "не найдено",
+        "document_number": "12345",
+        "issue_date": "не найдено",
+        "signature": false,
+        "stamp": null
+      },
+      "field_results": {
+        "student_name": {
+          "expected": "Иванов Иван Иванович",
+          "actual": "Иванов Иван Иванович",
+          "ok": true
+        },
+        "university": {
+          "expected": "МГУ",
+          "actual": "МГУ",
+          "ok": true
+        },
+        "program": {
+          "expected": "Прикладная математика",
+          "actual": "Прикладная математика и информатика",
+          "ok": true
+        },
+        "study_form": {
+          "expected": "очная",
+          "actual": "очная",
+          "ok": true
+        },
+        "study_period": {
+          "expected": "02.09.2022",
+          "actual": "не найдено",
+          "ok": false
+        },
+        "document_number": {
+          "expected": "12345",
+          "actual": "12345",
+          "ok": true
+        },
+        "issue_date": {
+          "expected": "10.10.2025",
+          "actual": "не найдено",
+          "ok": false
+        },
+        "signature": {
+          "expected": false,
+          "actual": false,
+          "ok": true
+        },
+        "stamp": {
+          "expected": false,
+          "actual": null,
+          "ok": false
+        }
+      },
+      "verification": {
+        "status": "incomplete",
+        "missing_fields": [
+          "study_period",
+          "issue_date",
+          "stamp"
+        ],
+        "issues": [
+          "Подпись: отсутствует."
+        ]
+      },
+      "answer": "Чего-то не хватает или есть ошибки в полях документа. Не найдены обязательные поля: Период обучения, Дата выдачи, Печать. Подпись: отсутствует.\n\nНастоящее Положение заказчик не предоставил. Проверка выполнена по стартовому списку полей из презентации кейса (п. 3.1-3.3) как по официальному источнику.",
+      "sources": [
+        {
+          "type": "описание кейса",
+          "reference": "п. 3.1 — Описание кейса «Онлайн-деканат»",
+          "url": null
+        }
+      ],
+      "elapsed": 9.53
+    },
+    {
+      "file": "study_certificate_no_marks\\study_nomarks_clean.png",
+      "expected_type": "study_certificate",
+      "got_type": "study_certificate",
+      "type_ok": true,
+      "expected_fields": {
+        "student_name": "Иванов Иван Иванович",
+        "university": "МГУ",
+        "program": "Прикладная математика",
+        "study_form": "очная",
+        "study_period": "02.09.2022",
+        "document_number": "12345",
+        "issue_date": "10.10.2025",
+        "signature": true,
+        "stamp": true
+      },
+      "got_fields": {
+        "student_name": "Иванов Иван Иванович",
+        "university": "МГУ",
+        "program": "Прикладная математика и информатика",
+        "study_form": "очная",
+        "study_period": "не найдено",
+        "document_number": "12345",
+        "issue_date": "не найдено",
+        "signature": false,
+        "stamp": null
+      },
+      "field_results": {
+        "student_name": {
+          "expected": "Иванов Иван Иванович",
+          "actual": "Иванов Иван Иванович",
+          "ok": true
+        },
+        "university": {
+          "expected": "МГУ",
+          "actual": "МГУ",
+          "ok": true
+        },
+        "program": {
+          "expected": "Прикладная математика",
+          "actual": "Прикладная математика и информатика",
+          "ok": true
+        },
+        "study_form": {
+          "expected": "очная",
+          "actual": "очная",
+          "ok": true
+        },
+        "study_period": {
+          "expected": "02.09.2022",
+          "actual": "не найдено",
+          "ok": false
+        },
+        "document_number": {
+          "expected": "12345",
+          "actual": "12345",
+          "ok": true
+        },
+        "issue_date": {
+          "expected": "10.10.2025",
+          "actual": "не найдено",
+          "ok": false
+        },
+        "signature": {
+          "expected": false,
+          "actual": false,
+          "ok": true
+        },
+        "stamp": {
+          "expected": false,
+          "actual": null,
+          "ok": false
+        }
+      },
+      "verification": {
+        "status": "incomplete",
+        "missing_fields": [
+          "study_period",
+          "issue_date",
+          "stamp"
+        ],
+        "issues": [
+          "Подпись: отсутствует."
+        ]
+      },
+      "answer": "Чего-то не хватает или есть ошибки в полях документа. Не найдены обязательные поля: Период обучения, Дата выдачи, Печать. Подпись: отсутствует.\n\nНастоящее Положение заказчик не предоставил. Проверка выполнена по стартовому списку полей из презентации кейса (п. 3.1-3.3) как по официальному источнику.",
+      "sources": [
+        {
+          "type": "описание кейса",
+          "reference": "п. 3.1 — Описание кейса «Онлайн-деканат»",
+          "url": null
+        }
+      ],
+      "elapsed": 8.74
+    },
+    {
+      "file": "study_certificate_no_marks\\study_nomarks_glare.png",
+      "expected_type": "study_certificate",
+      "got_type": "study_certificate",
+      "type_ok": true,
+      "expected_fields": {
+        "student_name": "Иванов Иван Иванович",
+        "university": "МГУ",
+        "program": "Прикладная математика",
+        "study_form": "очная",
+        "study_period": "02.09.2022",
+        "document_number": "12345",
+        "issue_date": "10.10.2025",
+        "signature": true,
+        "stamp": true
+      },
+      "got_fields": {
+        "student_name": "Иванов Иван Иванович",
+        "university": "МГУ",
+        "program": "Прикладная математика и информатика",
+        "study_form": "очная",
+        "study_period": "не найдено",
+        "document_number": "12345",
+        "issue_date": "не найдено",
+        "signature": false,
+        "stamp": null
+      },
+      "field_results": {
+        "student_name": {
+          "expected": "Иванов Иван Иванович",
+          "actual": "Иванов Иван Иванович",
+          "ok": true
+        },
+        "university": {
+          "expected": "МГУ",
+          "actual": "МГУ",
+          "ok": true
+        },
+        "program": {
+          "expected": "Прикладная математика",
+          "actual": "Прикладная математика и информатика",
+          "ok": true
+        },
+        "study_form": {
+          "expected": "очная",
+          "actual": "очная",
+          "ok": true
+        },
+        "study_period": {
+          "expected": "02.09.2022",
+          "actual": "не найдено",
+          "ok": false
+        },
+        "document_number": {
+          "expected": "12345",
+          "actual": "12345",
+          "ok": true
+        },
+        "issue_date": {
+          "expected": "10.10.2025",
+          "actual": "не найдено",
+          "ok": false
+        },
+        "signature": {
+          "expected": false,
+          "actual": false,
+          "ok": true
+        },
+        "stamp": {
+          "expected": false,
+          "actual": null,
+          "ok": false
+        }
+      },
+      "verification": {
+        "status": "incomplete",
+        "missing_fields": [
+          "study_period",
+          "issue_date",
+          "stamp"
+        ],
+        "issues": [
+          "Подпись: отсутствует."
+        ]
+      },
+      "answer": "Чего-то не хватает или есть ошибки в полях документа. Не найдены обязательные поля: Период обучения, Дата выдачи, Печать. Подпись: отсутствует.\n\nНастоящее Положение заказчик не предоставил. Проверка выполнена по стартовому списку полей из презентации кейса (п. 3.1-3.3) как по официальному источнику.",
+      "sources": [
+        {
+          "type": "описание кейса",
+          "reference": "п. 3.1 — Описание кейса «Онлайн-деканат»",
+          "url": null
+        }
+      ],
+      "elapsed": 9.51
+    },
+    {
+      "file": "study_certificate_no_marks\\study_nomarks_lowres.png",
+      "expected_type": "study_certificate",
+      "got_type": "study_certificate",
+      "type_ok": true,
+      "expected_fields": {
+        "student_name": "Иванов Иван Иванович",
+        "university": "МГУ",
+        "program": "Прикладная математика",
+        "study_form": "очная",
+        "study_period": "02.09.2022",
+        "document_number": "12345",
+        "issue_date": "10.10.2025",
+        "signature": true,
+        "stamp": true
+      },
+      "got_fields": {
+        "student_name": "Иванов Иван Иванович",
+        "university": "МГУ",
+        "program": "Прикладная математика и информатика",
+        "study_form": "очная",
+        "study_period": "не найдено",
+        "document_number": "12345",
+        "issue_date": "10.10.2025",
+        "signature": false,
+        "stamp": null
+      },
+      "field_results": {
+        "student_name": {
+          "expected": "Иванов Иван Иванович",
+          "actual": "Иванов Иван Иванович",
+          "ok": true
+        },
+        "university": {
+          "expected": "МГУ",
+          "actual": "МГУ",
+          "ok": true
+        },
+        "program": {
+          "expected": "Прикладная математика",
+          "actual": "Прикладная математика и информатика",
+          "ok": true
+        },
+        "study_form": {
+          "expected": "очная",
+          "actual": "очная",
+          "ok": true
+        },
+        "study_period": {
+          "expected": "02.09.2022",
+          "actual": "не найдено",
+          "ok": false
+        },
+        "document_number": {
+          "expected": "12345",
+          "actual": "12345",
+          "ok": true
+        },
+        "issue_date": {
+          "expected": "10.10.2025",
+          "actual": "10.10.2025",
+          "ok": true
+        },
+        "signature": {
+          "expected": false,
+          "actual": false,
+          "ok": true
+        },
+        "stamp": {
+          "expected": false,
+          "actual": null,
+          "ok": false
+        }
+      },
+      "verification": {
+        "status": "incomplete",
+        "missing_fields": [
+          "study_period",
+          "stamp"
+        ],
+        "issues": [
+          "Подпись: отсутствует."
+        ]
+      },
+      "answer": "Чего-то не хватает или есть ошибки в полях документа. Не найдены обязательные поля: Период обучения, Печать. Подпись: отсутствует.\n\nНастоящее Положение заказчик не предоставил. Проверка выполнена по стартовому списку полей из презентации кейса (п. 3.1-3.3) как по официальному источнику. Подпись и пе",
+      "sources": [
+        {
+          "type": "описание кейса",
+          "reference": "п. 3.1 — Описание кейса «Онлайн-деканат»",
+          "url": null
+        }
+      ],
+      "elapsed": 9.37
+    },
+    {
+      "file": "study_certificate_no_marks\\study_nomarks_rot180.png",
+      "expected_type": "study_certificate",
+      "got_type": "study_certificate",
+      "type_ok": true,
+      "expected_fields": {
+        "student_name": "Иванов Иван Иванович",
+        "university": "МГУ",
+        "program": "Прикладная математика",
+        "study_form": "очная",
+        "study_period": "02.09.2022",
+        "document_number": "12345",
+        "issue_date": "10.10.2025",
+        "signature": true,
+        "stamp": true
+      },
+      "got_fields": {
+        "student_name": "Иванов Иван Иванович",
+        "university": "МГУ",
+        "program": "Прикладная математика и информатика",
+        "study_form": "очная",
+        "study_period": "не найдено",
+        "document_number": "12345",
+        "issue_date": "не найдено",
+        "signature": false,
+        "stamp": null
+      },
+      "field_results": {
+        "student_name": {
+          "expected": "Иванов Иван Иванович",
+          "actual": "Иванов Иван Иванович",
+          "ok": true
+        },
+        "university": {
+          "expected": "МГУ",
+          "actual": "МГУ",
+          "ok": true
+        },
+        "program": {
+          "expected": "Прикладная математика",
+          "actual": "Прикладная математика и информатика",
+          "ok": true
+        },
+        "study_form": {
+          "expected": "очная",
+          "actual": "очная",
+          "ok": true
+        },
+        "study_period": {
+          "expected": "02.09.2022",
+          "actual": "не найдено",
+          "ok": false
+        },
+        "document_number": {
+          "expected": "12345",
+          "actual": "12345",
+          "ok": true
+        },
+        "issue_date": {
+          "expected": "10.10.2025",
+          "actual": "не найдено",
+          "ok": false
+        },
+        "signature": {
+          "expected": false,
+          "actual": false,
+          "ok": true
+        },
+        "stamp": {
+          "expected": false,
+          "actual": null,
+          "ok": false
+        }
+      },
+      "verification": {
+        "status": "incomplete",
+        "missing_fields": [
+          "study_period",
+          "issue_date",
+          "stamp"
+        ],
+        "issues": [
+          "Подпись: отсутствует."
+        ]
+      },
+      "answer": "Чего-то не хватает или есть ошибки в полях документа. Не найдены обязательные поля: Период обучения, Дата выдачи, Печать. Подпись: отсутствует.\n\nНастоящее Положение заказчик не предоставил. Проверка выполнена по стартовому списку полей из презентации кейса (п. 3.1-3.3) как по официальному источнику.",
+      "sources": [
+        {
+          "type": "описание кейса",
+          "reference": "п. 3.1 — Описание кейса «Онлайн-деканат»",
+          "url": null
+        }
+      ],
+      "elapsed": 9.26
+    },
+    {
+      "file": "study_certificate_no_marks\\study_nomarks_rot90.png",
+      "expected_type": "study_certificate",
+      "got_type": "study_certificate",
+      "type_ok": true,
+      "expected_fields": {
+        "student_name": "Иванов Иван Иванович",
+        "university": "МГУ",
+        "program": "Прикладная математика",
+        "study_form": "очная",
+        "study_period": "02.09.2022",
+        "document_number": "12345",
+        "issue_date": "10.10.2025",
+        "signature": true,
+        "stamp": true
+      },
+      "got_fields": {
+        "student_name": "Иванов Иван Иванович",
+        "university": "МГУ",
+        "program": "Прикладная математика и информатика",
+        "study_form": "очная",
+        "study_period": "не найдено",
+        "document_number": "12345",
+        "issue_date": "не найдено",
+        "signature": false,
+        "stamp": null
+      },
+      "field_results": {
+        "student_name": {
+          "expected": "Иванов Иван Иванович",
+          "actual": "Иванов Иван Иванович",
+          "ok": true
+        },
+        "university": {
+          "expected": "МГУ",
+          "actual": "МГУ",
+          "ok": true
+        },
+        "program": {
+          "expected": "Прикладная математика",
+          "actual": "Прикладная математика и информатика",
+          "ok": true
+        },
+        "study_form": {
+          "expected": "очная",
+          "actual": "очная",
+          "ok": true
+        },
+        "study_period": {
+          "expected": "02.09.2022",
+          "actual": "не найдено",
+          "ok": false
+        },
+        "document_number": {
+          "expected": "12345",
+          "actual": "12345",
+          "ok": true
+        },
+        "issue_date": {
+          "expected": "10.10.2025",
+          "actual": "не найдено",
+          "ok": false
+        },
+        "signature": {
+          "expected": false,
+          "actual": false,
+          "ok": true
+        },
+        "stamp": {
+          "expected": false,
+          "actual": null,
+          "ok": false
+        }
+      },
+      "verification": {
+        "status": "incomplete",
+        "missing_fields": [
+          "study_period",
+          "issue_date",
+          "stamp"
+        ],
+        "issues": [
+          "Подпись: отсутствует."
+        ]
+      },
+      "answer": "Чего-то не хватает или есть ошибки в полях документа. Не найдены обязательные поля: Период обучения, Дата выдачи, Печать. Подпись: отсутствует.\n\nНастоящее Положение заказчик не предоставил. Проверка выполнена по стартовому списку полей из презентации кейса (п. 3.1-3.3) как по официальному источнику.",
+      "sources": [
+        {
+          "type": "описание кейса",
+          "reference": "п. 3.1 — Описание кейса «Онлайн-деканат»",
+          "url": null
+        }
+      ],
+      "elapsed": 8.32
+    },
+    {
+      "file": "study_certificate_no_marks\\study_nomarks_shadow.png",
+      "expected_type": "study_certificate",
+      "got_type": "study_certificate",
+      "type_ok": true,
+      "expected_fields": {
+        "student_name": "Иванов Иван Иванович",
+        "university": "МГУ",
+        "program": "Прикладная математика",
+        "study_form": "очная",
+        "study_period": "02.09.2022",
+        "document_number": "12345",
+        "issue_date": "10.10.2025",
+        "signature": true,
+        "stamp": true
+      },
+      "got_fields": {
+        "student_name": "Иванов Иван Иванович",
+        "university": "МГУ",
+        "program": "Прикладная математика и информатика",
+        "study_form": "очная",
+        "study_period": "не найдено",
+        "document_number": "12345",
+        "issue_date": "не найдено",
+        "signature": false,
+        "stamp": null
+      },
+      "field_results": {
+        "student_name": {
+          "expected": "Иванов Иван Иванович",
+          "actual": "Иванов Иван Иванович",
+          "ok": true
+        },
+        "university": {
+          "expected": "МГУ",
+          "actual": "МГУ",
+          "ok": true
+        },
+        "program": {
+          "expected": "Прикладная математика",
+          "actual": "Прикладная математика и информатика",
+          "ok": true
+        },
+        "study_form": {
+          "expected": "очная",
+          "actual": "очная",
+          "ok": true
+        },
+        "study_period": {
+          "expected": "02.09.2022",
+          "actual": "не найдено",
+          "ok": false
+        },
+        "document_number": {
+          "expected": "12345",
+          "actual": "12345",
+          "ok": true
+        },
+        "issue_date": {
+          "expected": "10.10.2025",
+          "actual": "не найдено",
+          "ok": false
+        },
+        "signature": {
+          "expected": false,
+          "actual": false,
+          "ok": true
+        },
+        "stamp": {
+          "expected": false,
+          "actual": null,
+          "ok": false
+        }
+      },
+      "verification": {
+        "status": "incomplete",
+        "missing_fields": [
+          "study_period",
+          "issue_date",
+          "stamp"
+        ],
+        "issues": [
+          "Подпись: отсутствует."
+        ]
+      },
+      "answer": "Чего-то не хватает или есть ошибки в полях документа. Не найдены обязательные поля: Период обучения, Дата выдачи, Печать. Подпись: отсутствует.\n\nНастоящее Положение заказчик не предоставил. Проверка выполнена по стартовому списку полей из презентации кейса (п. 3.1-3.3) как по официальному источнику.",
+      "sources": [
+        {
+          "type": "описание кейса",
+          "reference": "п. 3.1 — Описание кейса «Онлайн-деканат»",
+          "url": null
+        }
+      ],
+      "elapsed": 10.07
+    },
+    {
+      "file": "study_certificate_no_marks\\study_nomarks_skew15.png",
+      "expected_type": "study_certificate",
+      "got_type": "study_certificate",
+      "type_ok": true,
+      "expected_fields": {
+        "student_name": "Иванов Иван Иванович",
+        "university": "МГУ",
+        "program": "Прикладная математика",
+        "study_form": "очная",
+        "study_period": "02.09.2022",
+        "document_number": "12345",
+        "issue_date": "10.10.2025",
+        "signature": true,
+        "stamp": true
+      },
+      "got_fields": {
+        "student_name": "Иванов Иван Иванович",
+        "university": "МГУ",
+        "program": "Прикладная математика и информатика",
+        "study_form": "очная",
+        "study_period": "не найдено",
+        "document_number": "12345",
+        "issue_date": "не найдено",
+        "signature": false,
+        "stamp": null
+      },
+      "field_results": {
+        "student_name": {
+          "expected": "Иванов Иван Иванович",
+          "actual": "Иванов Иван Иванович",
+          "ok": true
+        },
+        "university": {
+          "expected": "МГУ",
+          "actual": "МГУ",
+          "ok": true
+        },
+        "program": {
+          "expected": "Прикладная математика",
+          "actual": "Прикладная математика и информатика",
+          "ok": true
+        },
+        "study_form": {
+          "expected": "очная",
+          "actual": "очная",
+          "ok": true
+        },
+        "study_period": {
+          "expected": "02.09.2022",
+          "actual": "не найдено",
+          "ok": false
+        },
+        "document_number": {
+          "expected": "12345",
+          "actual": "12345",
+          "ok": true
+        },
+        "issue_date": {
+          "expected": "10.10.2025",
+          "actual": "не найдено",
+          "ok": false
+        },
+        "signature": {
+          "expected": false,
+          "actual": false,
+          "ok": true
+        },
+        "stamp": {
+          "expected": false,
+          "actual": null,
+          "ok": false
+        }
+      },
+      "verification": {
+        "status": "incomplete",
+        "missing_fields": [
+          "study_period",
+          "issue_date",
+          "stamp"
+        ],
+        "issues": [
+          "Подпись: отсутствует."
+        ]
+      },
+      "answer": "Чего-то не хватает или есть ошибки в полях документа. Не найдены обязательные поля: Период обучения, Дата выдачи, Печать. Подпись: отсутствует.\n\nНастоящее Положение заказчик не предоставил. Проверка выполнена по стартовому списку полей из презентации кейса (п. 3.1-3.3) как по официальному источнику.",
+      "sources": [
+        {
+          "type": "описание кейса",
+          "reference": "п. 3.1 — Описание кейса «Онлайн-деканат»",
+          "url": null
+        }
+      ],
+      "elapsed": 8.12
+    },
+    {
+      "file": "study_certificate_no_marks\\study_nomarks_skew30.png",
+      "expected_type": "study_certificate",
+      "got_type": "study_certificate",
+      "type_ok": true,
+      "expected_fields": {
+        "student_name": "Иванов Иван Иванович",
+        "university": "МГУ",
+        "program": "Прикладная математика",
+        "study_form": "очная",
+        "study_period": "02.09.2022",
+        "document_number": "12345",
+        "issue_date": "10.10.2025",
+        "signature": true,
+        "stamp": true
+      },
+      "got_fields": {
+        "student_name": "Иванов Иван Иванович",
+        "university": "МГУ",
+        "program": "Прикладная математика и информатика",
+        "study_form": "очная",
+        "study_period": "не найдено",
+        "document_number": "12345",
+        "issue_date": "не найдено",
+        "signature": false,
+        "stamp": null
+      },
+      "field_results": {
+        "student_name": {
+          "expected": "Иванов Иван Иванович",
+          "actual": "Иванов Иван Иванович",
+          "ok": true
+        },
+        "university": {
+          "expected": "МГУ",
+          "actual": "МГУ",
+          "ok": true
+        },
+        "program": {
+          "expected": "Прикладная математика",
+          "actual": "Прикладная математика и информатика",
+          "ok": true
+        },
+        "study_form": {
+          "expected": "очная",
+          "actual": "очная",
+          "ok": true
+        },
+        "study_period": {
+          "expected": "02.09.2022",
+          "actual": "не найдено",
+          "ok": false
+        },
+        "document_number": {
+          "expected": "12345",
+          "actual": "12345",
+          "ok": true
+        },
+        "issue_date": {
+          "expected": "10.10.2025",
+          "actual": "не найдено",
+          "ok": false
+        },
+        "signature": {
+          "expected": false,
+          "actual": false,
+          "ok": true
+        },
+        "stamp": {
+          "expected": false,
+          "actual": null,
+          "ok": false
+        }
+      },
+      "verification": {
+        "status": "incomplete",
+        "missing_fields": [
+          "study_period",
+          "issue_date",
+          "stamp"
+        ],
+        "issues": [
+          "Подпись: отсутствует."
+        ]
+      },
+      "answer": "Чего-то не хватает или есть ошибки в полях документа. Не найдены обязательные поля: Период обучения, Дата выдачи, Печать. Подпись: отсутствует.\n\nНастоящее Положение заказчик не предоставил. Проверка выполнена по стартовому списку полей из презентации кейса (п. 3.1-3.3) как по официальному источнику.",
+      "sources": [
+        {
+          "type": "описание кейса",
+          "reference": "п. 3.1 — Описание кейса «Онлайн-деканат»",
+          "url": null
+        }
+      ],
+      "elapsed": 7.93
+    }
+  ]
+}

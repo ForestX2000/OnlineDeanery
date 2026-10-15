@@ -109,7 +109,7 @@ def detect_blue_seal(image):
                         improved = True
         if not improved:
             break
-    if score < 0.6 or radius <= 0:
+    if score < 0.3 or radius <= 0:
         return None
     box = [(cx - radius) / scale, (cy - radius) / scale,
            (cx + radius) / scale, (cy + radius) / scale]
