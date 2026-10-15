@@ -18,7 +18,7 @@ class ExtractRequest(BaseModel):
 class ExtractResponse(BaseModel):
     document_type: str | None = None
     fields: dict[str, JsonValue]
-    coordinates: list[JsonValue] = []
+    coordinates: list[JsonValue] = Field(default_factory=list)
 
 
 app = FastAPI(title="ML 2: Extract")

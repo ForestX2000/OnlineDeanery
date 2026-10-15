@@ -1,6 +1,7 @@
+import json
 import unittest
 from io import BytesIO
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 from fastapi.testclient import TestClient
@@ -80,6 +81,18 @@ class ApiTests(unittest.TestCase):
         follow_up = self.client.post("/chat", json={"message": "Чего не хватает?", "conversation_id": data["conversation_id"]})
         self.assertEqual(follow_up.json()["document"], data["document"])
         self.assertEqual(self.calls[-1][1]["json"]["document"], data["document"])
+
+    def test_streamed_analyze_completes_without_database(self):
+        with patch.object(api, "SessionLocal", None):
+            response = self.client.post(
+                "/analyze/stream",
+                data={"question": "Подходит?"},
+                files={"file": ("scan.png", self.image(), "image/png")},
+            )
+        self.assertEqual(response.status_code, 200, response.text)
+        events = [json.loads(line) for line in response.text.splitlines()]
+        self.assertEqual(events[-1]["type"], "result")
+        self.assertEqual(events[-1]["result"]["document"]["fields"]["name"], "Иванов")
 
     def test_valid_jpeg_and_pdf(self):
         writer = PdfWriter()
@@ -175,6 +188,32 @@ class TransportTests(unittest.IsolatedAsyncioTestCase):
                     with self.assertRaises(api.HTTPException) as caught:
                         await api.send_request("http://service/answer", json={})
                     self.assertEqual(caught.exception.status_code, status)
+
+
+class PasswordRecoveryTests(unittest.IsolatedAsyncioTestCase):
+    async def test_failed_email_keeps_existing_password(self):
+        from types import SimpleNamespace
+
+        user = SimpleNamespace(
+            email="student@example.edu", username="Студент", password_hash="old-hash"
+        )
+        result = MagicMock()
+        result.scalars.return_value.first.return_value = user
+        db = AsyncMock()
+        db.execute.return_value = result
+
+        async def rollback():
+            user.password_hash = "old-hash"
+
+        db.rollback.side_effect = rollback
+        with patch.object(api, "run_in_threadpool", new=AsyncMock(return_value=False)):
+            with self.assertRaises(api.HTTPException) as caught:
+                await api.forgot_password(api.ForgotPasswordRequest(email=user.email), db)
+
+        self.assertEqual(caught.exception.status_code, 503)
+        self.assertEqual(user.password_hash, "old-hash")
+        db.rollback.assert_awaited_once()
+        db.commit.assert_not_awaited()
 
 
 if __name__ == "__main__":

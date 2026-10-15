@@ -8,7 +8,6 @@ import ProfilePage from "./pages/ProfilePage";
 import { DocumentResult } from "./components/DocumentResult";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
-import DocumentDetailsPage from "./pages/DocumentDetailsPage";
 import { ThemeProvider } from "./context/ThemeProvider";
 
 function ResultPage() {
@@ -52,14 +51,6 @@ export default function App() {
               </ProtectedRoute>
             } 
           />
-           <Route
-  path="/documents/:documentId"
-  element={
-    <ProtectedRoute>
-      <DocumentDetailsPage />
-    </ProtectedRoute>
-  }
-/>
           
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

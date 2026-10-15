@@ -8,6 +8,7 @@ coverage/
 !.env.example
 
 __pycache__/
+.pytest_cache/
 *.py[cod]
 .venv/
 venv/
@@ -34,4 +35,6 @@ Thumbs.db
 weights/
 runs/
 
-.venv\
+# Run artefacts (regenerate via tools/make_results), not source data.
+results.json
+demo_results.json
