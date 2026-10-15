@@ -52,7 +52,8 @@ python -m tools.make_results --input ./demo_docs --output results.json --api-url
 curl.exe -s -X POST http://localhost:8000/api/auth/login -H 'Content-Type: application/json' -d '{\"email\":\"nobody@x.ru\",\"password\":\"x\"}'
 ```
 
-Неизвестный email — `401` с русским текстом: связка API с PostgreSQL жива.
+Неизвестный email — такой же `401` «Неверный email или пароль», как и неверный пароль.
+11-я попытка за 15 минут с одного IP получает `429` с `Retry-After`.
 
 ## 6. Если что-то красное
 

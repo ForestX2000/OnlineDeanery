@@ -23,10 +23,10 @@ class SecurityTests(unittest.TestCase):
         self.assertEqual(verify_password("correct horse", stored), "ok")
         self.assertEqual(verify_password("wrong", stored), "invalid")
 
-    def test_legacy_plaintext_detected_once(self):
-        self.assertEqual(verify_password("123456", "123456"), "legacy")
+    def test_legacy_plaintext_is_never_accepted_by_verifier(self):
+        self.assertEqual(verify_password("123456", "123456"), "invalid")
         self.assertEqual(verify_password("other", "123456"), "invalid")
-        self.assertEqual(verify_password("пароль", "пароль"), "legacy")
+        self.assertEqual(verify_password("пароль", "пароль"), "invalid")
 
     def test_tampered_hash_rejected(self):
         stored = hash_password("secret")
@@ -58,7 +58,7 @@ class SecurityTests(unittest.TestCase):
             CreateUserRequest(email="evil@x.ru", password="123",
                               username="Evil", role="superadmin")
         with self.assertRaises(ValidationError):
-            CreateUserRequest(email="evil@x.ru", password="x" * 11,
+            CreateUserRequest(email="evil@x.ru", password="x" * 7,
                               username="Evil", role="student")
         with self.assertRaises(ValidationError):
             CreateUserRequest(email="not-an-email", password="longenoughpassword",

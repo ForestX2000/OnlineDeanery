@@ -1,317 +1,819 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  AlertTriangle,
+  AlertCircle,
   CheckCircle2,
   ChevronDown,
   FileText,
-  GraduationCap,
   LoaderCircle,
   Mail,
   RefreshCw,
   Search,
   ShieldCheck,
-  UploadCloud,
+  UserPlus,
+  Pencil,
+  Trash2,
 } from "lucide-react";
-import { ApiError, getDocumentTypes, getRequestHistory } from "../../api";
-import type { DocumentTypeOption, RequestHistoryItem } from "../../api";
+
+import {
+  getDocumentTypes,
+  getRequestHistory,
+  getUsers,
+  updateUser,
+  deleteUser,
+} from "../../api";
+import type {
+  AdminUser,
+  DocumentTypeOption,
+  RequestHistoryItem,
+  UpdateUserRequest,
+} from "../../api";
 import { useAppStore } from "@/store/useAppStore";
 
-type StatusFilter = "all" | "resolved" | "failed" | "processing";
+import EditUserModal from "../components/admin/EditUserModal";
+import DeleteUserDialog from "../components/admin/DeleteUserDialog";
 
-function requestStatus(status: string) {
-  if (status === "resolved") {
-    return { label: "Завершено", style: "bg-emerald-50 text-emerald-700", icon: CheckCircle2 };
-  }
-  if (status === "processing") {
-    return { label: "В обработке", style: "bg-amber-50 text-amber-700", icon: LoaderCircle };
-  }
-  return { label: "Ошибка", style: "bg-red-50 text-red-700", icon: AlertTriangle };
+type StatusFilter = "all" | "resolved" | "failed";
+type UserRole = "student" | "admin";
+
+interface CreatedUser {
+  user_id: number;
+  username: string;
+  email: string;
+  role: string;
+  created_at: string;
 }
 
-function formatDate(value: string) {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime())
-    ? value
-    : new Intl.DateTimeFormat("ru-RU", { dateStyle: "medium", timeStyle: "short" }).format(date);
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  return "Произошла непредвиденная ошибка.";
+}
+
+function formatDate(date: string): string {
+  const parsedDate = new Date(date);
+  if (Number.isNaN(parsedDate.getTime())) return date;
+  return parsedDate.toLocaleString("ru-RU", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
 }
 
 export default function ProfilePage() {
+  const navigate = useNavigate();
   const user = useAppStore((state) => state.user);
   const token = useAppStore((state) => state.authToken);
-  const navigate = useNavigate();
-  const [items, setItems] = useState<RequestHistoryItem[]>([]);
-  const [documentTypes, setDocumentTypes] = useState<DocumentTypeOption[]>([]);
-  const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("all");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [reloadKey, setReloadKey] = useState(0);
-  const [expandedItems, setExpandedItems] = useState<Set<number>>(() => new Set());
 
-  const sessionExpired = user !== null && token === null;
-  const visibleError = error ?? (sessionExpired ? "Сессия истекла. Войдите в аккаунт, чтобы открыть историю." : null);
+  const [history, setHistory] = useState<RequestHistoryItem[]>([]);
+  const [documentTypes, setDocumentTypes] = useState<DocumentTypeOption[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [expandedRequest, setExpandedRequest] = useState<number | null>(null);
+
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [usersLoading, setUsersLoading] = useState(true);
+  const [usersError, setUsersError] = useState("");
+
+  const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
+  const [deletingUser, setDeletingUser] = useState<AdminUser | null>(null);
+
+  const [username, setUsername] = useState("");
+  const [newEmail, setNewEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [newRole, setNewRole] = useState<UserRole>("student");
+  const [creatingUser, setCreatingUser] = useState(false);
+  const [createError, setCreateError] = useState("");
+  const [createSuccess, setCreateSuccess] = useState<CreatedUser | null>(null);
+
+  const isAdmin = user?.role === "admin";
+  const currentUserEmail = user?.email;
+  const visibleUsers = users.filter((u) => u.email !== currentUserEmail);
+  const currentUserId = users.find(
+    (u) => u.email === currentUserEmail,
+  )?.user_id;
+
+  const displayName =
+    [user?.firstName, user?.lastName].filter(Boolean).join(" ") ||
+    user?.email ||
+    "Пользователь";
 
   useEffect(() => {
-    if (!user || !token) {
-      if (!user) navigate("/login", { replace: true });
+    if (!user) navigate("/login", { replace: true });
+  }, [user, navigate]);
+
+  useEffect(() => {
+    if (!user || !token) return;
+    const authToken = token;
+    let cancelled = false;
+
+    async function loadHistory() {
+      try {
+        const result = await getRequestHistory(authToken);
+        if (!cancelled) {
+          setHistory(result);
+          setError("");
+        }
+      } catch (err) {
+        if (!cancelled) setError(getErrorMessage(err));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    void loadHistory();
+    return () => {
+      cancelled = true;
+    };
+  }, [user, token]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadDocumentTypes() {
+      try {
+        const result = await getDocumentTypes();
+        if (!cancelled) setDocumentTypes(result);
+      } catch {
+        /* История останется доступной */
+      }
+    }
+    void loadDocumentTypes();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isAdmin || !token) return;
+    const authToken = token;
+    let cancelled = false;
+
+    async function loadUsers() {
+      try {
+        setUsersLoading(true);
+        const result = await getUsers(authToken);
+        if (!cancelled) {
+          setUsers(result);
+          setUsersError("");
+        }
+      } catch (err) {
+        if (!cancelled) setUsersError(getErrorMessage(err));
+      } finally {
+        if (!cancelled) setUsersLoading(false);
+      }
+    }
+    void loadUsers();
+    return () => {
+      cancelled = true;
+    };
+  }, [isAdmin, token]);
+
+  const filteredHistory = useMemo(() => {
+    const normalizedSearch = search.trim().toLowerCase();
+    return history.filter((item) => {
+      const matchesStatus =
+        statusFilter === "all" || item.status === statusFilter;
+      const matchesCategory =
+        categoryFilter === "all" || item.document_type === categoryFilter;
+      const searchableText = [
+        item.question,
+        item.answer,
+        item.document_type,
+        item.user_name,
+        item.user_email,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      const matchesSearch =
+        !normalizedSearch || searchableText.includes(normalizedSearch);
+      return matchesStatus && matchesCategory && matchesSearch;
+    });
+  }, [history, search, statusFilter, categoryFilter]);
+
+  const stats = useMemo(() => {
+    const resolved = history.filter(
+      (item) => item.status === "resolved",
+    ).length;
+    const failed = history.filter((item) => item.status === "failed").length;
+    return { total: history.length, resolved, failed };
+  }, [history]);
+
+  async function handleCreateUser(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setCreatingUser(true);
+    setCreateError("");
+    setCreateSuccess(null);
+
+    if (!token) {
+      setCreateError("Нет токена авторизации. Войдите в аккаунт заново.");
+      setCreatingUser(false);
       return;
     }
 
-    let active = true;
-    // Флаги загрузки перед fetch в эффекте: штатный паттерн загрузки по [user, token, reloadKey],
-    // каскадных рендеров нет — эффект не зависит от loading/error.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setLoading(true);
-    setError(null);
-    getRequestHistory(token)
-      .then((history) => { if (active) setItems(history); })
-      .catch((reason: unknown) => {
-        if (!active) return;
-        if (reason instanceof ApiError && reason.status === 401) {
-          setError("Сессия истекла. Войдите в аккаунт заново.");
-        } else {
-          setError(reason instanceof Error ? reason.message : "Не удалось загрузить историю запросов.");
+    try {
+      const response = await fetch(
+        `${(import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/+$/, "")}/api/admin/users`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            username: username.trim(),
+            email: newEmail.trim(),
+            password,
+            role: newRole,
+          }),
+        },
+      );
+
+      const responseText = await response.text();
+      let responseData: unknown = null;
+      if (responseText) {
+        try {
+          responseData = JSON.parse(responseText);
+        } catch {
+          responseData = responseText;
         }
-      })
-      .finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
-  }, [user, token, navigate, reloadKey]);
+      }
 
-  useEffect(() => {
-    let active = true;
-    getDocumentTypes()
-      .then((types) => { if (active) setDocumentTypes(types); })
-      .catch(() => { if (active) setDocumentTypes([]); });
-    return () => { active = false; };
-  }, []);
+      if (!response.ok) {
+        const message =
+          typeof responseData === "object" &&
+          responseData !== null &&
+          "detail" in responseData
+            ? String(responseData.detail)
+            : typeof responseData === "string" && responseData
+              ? responseData
+              : `Не удалось создать пользователя (${response.status}).`;
+        throw new Error(message);
+      }
 
-  const isAdmin = user?.role === "admin";
-  const visibleItems = useMemo(() => {
-    const term = search.trim().toLocaleLowerCase("ru-RU");
-    const labels = new Map(documentTypes.map((item) => [item.id, item.label]));
-    return items
-      .filter((item) => statusFilter === "all" || item.status === statusFilter)
-      .filter((item) => category === "all"
-        || (category === "no-file" ? !item.document_type : item.document_type === category))
-      .filter((item) => !term || [
-        item.question,
-        item.answer ?? "",
-        item.user_name,
-        item.user_email,
-        item.document_type ? (labels.get(item.document_type) ?? item.document_type) : "Вопрос без файла",
-      ].some((value) => value.toLocaleLowerCase("ru-RU").includes(term)));
-  }, [items, search, category, statusFilter, documentTypes]);
+      const createdUser = responseData as CreatedUser;
+      setCreateSuccess(createdUser);
+      setUsers((prev) => [
+        ...prev,
+        {
+          user_id: createdUser.user_id,
+          username: createdUser.username,
+          email: createdUser.email,
+          role: createdUser.role,
+          created_at: createdUser.created_at,
+        },
+      ]);
 
-  const categories = useMemo(() => {
-    const labels = new Map(documentTypes.map((item) => [item.id, item.label]));
-    for (const item of items) {
-      if (item.document_type && !labels.has(item.document_type)) labels.set(item.document_type, item.document_type);
+      setUsername("");
+      setNewEmail("");
+      setPassword("");
+      setNewRole("student");
+    } catch (err) {
+      setCreateError(getErrorMessage(err));
+    } finally {
+      setCreatingUser(false);
     }
-    return Array.from(labels, ([id, label]) => ({ id, label }));
-  }, [documentTypes, items]);
+  }
+
+  async function handleUpdateUser(userId: number, data: UpdateUserRequest) {
+    if (!token) throw new Error("Нет токена авторизации");
+    const updated = await updateUser(userId, data, token);
+    setUsers((prev) => prev.map((u) => (u.user_id === userId ? updated : u)));
+    setEditingUser(null);
+  }
+
+  async function handleDeleteUser(userId: number) {
+    if (!token) throw new Error("Нет токена авторизации");
+    await deleteUser(userId, token);
+    setUsers((prev) => prev.filter((u) => u.user_id !== userId));
+    setDeletingUser(null);
+  }
 
   if (!user) return null;
 
-  const resolvedCount = items.filter((item) => item.status === "resolved").length;
-  const failedCount = items.filter((item) => item.status === "failed").length;
-  const processingCount = items.filter((item) => item.status === "processing").length;
-  const toggleExpanded = (requestId: number) => setExpandedItems((current) => {
-    const next = new Set(current);
-    if (next.has(requestId)) next.delete(requestId);
-    else next.add(requestId);
-    return next;
-  });
+  if (!token) {
+    return (
+      <main className="mx-auto max-w-5xl px-4 py-10">
+        <div className="flex items-start gap-3 rounded-xl border border-(--accent)/20 bg-(--accent)/10 p-4 text-(--accent)">
+          <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
+          <div>
+            <h2 className="font-semibold">Требуется авторизация</h2>
+            <p className="mt-1 text-sm">
+              Сессия отсутствует или истекла. Войдите в аккаунт.
+            </p>
+            <button
+              type="button"
+              onClick={() => navigate("/login")}
+              className="mt-3 rounded-lg bg-(--accent) px-4 py-2 text-sm font-medium text-white transition hover:bg-(--accent-hover)"
+            >
+              Перейти ко входу
+            </button>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   return (
-    <main className="min-h-screen bg-[#f4f7f4] px-4 py-8 text-slate-800 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-6xl space-y-7">
-        <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-slate-900">{isAdmin ? "История запросов" : "Мои запросы"}</h1>
-            <p className="mt-2 text-sm text-slate-500">
-              {isAdmin ? "Запросы пользователей и результаты обработки" : "История обработки документов и ответов"}
-            </p>
-          </div>
-          <button type="button" onClick={() => navigate("/upload")}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#087b45] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#075c36]">
-            <UploadCloud size={18} /> Загрузить документ
-          </button>
-        </header>
-
-        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-          <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
-            <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-[#087b45] text-2xl font-bold text-white">
-              {user.firstName?.[0] ?? ""}{user.lastName?.[0] ?? ""}
+    <main className="mx-auto max-w-6xl space-y-8 px-4 py-8 sm:px-6 lg:px-8">
+      <section className="rounded-2xl border border-(--border-color) bg-(--surface) p-6 shadow-sm">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-4">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-(--accent)/10 text-(--accent)">
+              <ShieldCheck className="h-7 w-7" />
             </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-3">
-                <h2 className="text-2xl font-bold text-slate-900">{user.lastName} {user.firstName}</h2>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-sm font-medium text-[#087b45]">
-                  {isAdmin ? <ShieldCheck size={16} /> : <GraduationCap size={16} />}
-                  {isAdmin ? "Администратор" : "Студент"}
-                </span>
-              </div>
-              <p className="mt-2 flex items-center gap-2 break-all text-sm text-slate-500"><Mail size={16} />{user.email}</p>
-            </div>
-          </div>
-        </section>
-
-        {isAdmin && (
-          <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" aria-label="Статистика запросов">
-            <div className="rounded-2xl border border-slate-200 bg-white p-5">
-              <p className="text-sm text-slate-500">Всего обработанных запросов</p>
-              <p className="mt-3 text-3xl font-bold text-slate-900">{resolvedCount + failedCount + processingCount}</p>
-            </div>
-            <div className="rounded-2xl border border-slate-200 bg-white p-5">
-              <p className="text-sm text-slate-500">В обработке</p>
-              <p className="mt-3 text-3xl font-bold text-amber-700">{processingCount}</p>
-            </div>
-            <div className="rounded-2xl border border-slate-200 bg-white p-5">
-              <p className="text-sm text-slate-500">Успешно</p>
-              <p className="mt-3 text-3xl font-bold text-emerald-700">{resolvedCount}</p>
-            </div>
-            <div className="rounded-2xl border border-slate-200 bg-white p-5">
-              <p className="text-sm text-slate-500">С ошибкой</p>
-              <p className="mt-3 text-3xl font-bold text-red-700">{failedCount}</p>
-            </div>
-          </section>
-        )}
-
-        <section>
-          <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h2 className="text-2xl font-bold text-slate-900">{isAdmin ? "Запросы пользователей" : "История обработки"}</h2>
-              <p className="mt-1 text-sm text-slate-500">
-                {isAdmin ? "Нажмите на запись, чтобы открыть вопрос и ответ" : "Запросы в обработке, завершённые проверки и обработки с ошибками"}
+              <h1 className="text-2xl font-bold text-(--text-primary)">
+                Личный кабинет
+              </h1>
+              <p className="mt-1 text-(--text-secondary)">{displayName}</p>
+              <p className="mt-1 flex items-center gap-2 text-sm text-(--text-secondary)">
+                <Mail className="h-4 w-4" />
+                {user.email}
               </p>
             </div>
-            <div className="flex items-center gap-3 text-sm text-slate-500">
-              <span>Найдено: {visibleItems.length}</span>
-              <button type="button" onClick={() => setReloadKey((key) => key + 1)} disabled={loading}
-                aria-label="Обновить историю" className="rounded-lg p-2 text-[#087b45] transition hover:bg-emerald-50 disabled:opacity-50">
-                <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
-              </button>
+          </div>
+          <span className="inline-flex w-fit items-center rounded-full bg-(--accent)/10 px-3 py-1.5 text-sm font-medium text-(--accent)">
+            {isAdmin ? "Администратор" : "Студент"}
+          </span>
+        </div>
+      </section>
+      {isAdmin && (
+        <section>
+          <h2 className="mb-4 text-xl font-semibold text-(--text-primary)">
+            Статистика запросов
+          </h2>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <StatCard
+              title="Всего запросов"
+              value={stats.total}
+              className="bg-(--accent)/10 text-(--accent)"
+            />
+            <StatCard
+              title="Успешных"
+              value={stats.resolved}
+              className="bg-(--accent)/10 text-(--accent)"
+            />
+            <StatCard
+              title="С ошибками"
+              value={stats.failed}
+              className="bg-rose-50 text-rose-700 dark:bg-rose-900/20 dark:text-rose-400"
+            />
+          </div>
+        </section>
+      )}
+      {isAdmin && (
+        <section className="rounded-2xl border border-[var(--border-color)] bg-[var(--surface)] p-6 shadow-sm">
+          <div className="mb-5 flex items-center gap-3">
+            <div className="rounded-xl bg-[var(--accent)]/10 p-2 text-[var(--accent)]">
+              <UserPlus className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-xl font-semibold text-[var(--text-primary)]">
+                Управление пользователями
+              </h2>
+              <p className="mt-1 text-sm text-[var(--text-secondary)]">
+                Добавление, редактирование и удаление пользователей
+              </p>
             </div>
           </div>
 
-          <div className="mb-5 grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(12rem,0.55fr)_minmax(10rem,0.4fr)]">
-            <label className="relative block">
-              <span className="sr-only">Поиск по истории</span>
-              <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input value={search} onChange={(event) => setSearch(event.target.value)}
-                placeholder={isAdmin ? "Поиск по вопросу, ответу или пользователю…" : "Поиск по вопросу или ответу…"}
-                className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-10 pr-3 text-sm outline-none transition focus:border-[#159957] focus:ring-4 focus:ring-emerald-50" />
-            </label>
-            <label>
-              <span className="sr-only">Категория файла</span>
-              <select value={category} onChange={(event) => setCategory(event.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none focus:border-[#159957] focus:ring-4 focus:ring-emerald-50">
-                <option value="all">Все категории файлов</option>
-                <option value="no-file">Вопросы без файла</option>
-                {categories.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
-              </select>
-            </label>
-            <label>
-              <span className="sr-only">Результат обработки</span>
-              <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none focus:border-[#159957] focus:ring-4 focus:ring-emerald-50">
-                <option value="all">Все статусы</option>
-                <option value="processing">В обработке</option>
-                <option value="resolved">Завершено</option>
-                <option value="failed">Ошибка</option>
-              </select>
-            </label>
+          <form onSubmit={handleCreateUser} className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField label="Имя пользователя">
+                <input
+                  required
+                  minLength={2}
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="Например, ivan_ivanov"
+                  autoComplete="username"
+                  className="w-full rounded-lg border border-(--border-color) bg-(--surface) px-3 py-2.5 text-(--text-primary) outline-none transition focus:border-(--accent) focus:ring-2 focus:ring-(--accent)/20 dark:bg-(--surface-muted)"
+                />
+              </FormField>
+
+              <FormField label="Электронная почта">
+                <input
+                  required
+                  type="email"
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  placeholder="student@example.com"
+                  autoComplete="email"
+                  className="w-full rounded-lg border border-(--border-color) bg-(--surface) px-3 py-2.5 text-(--text-primary) outline-none transition focus:border-(--accent) focus:ring-2 focus:ring-(--accent)/20 dark:bg-(--surface-muted)"
+                />
+              </FormField>
+
+              <FormField label="Пароль">
+                <input
+                  required
+                  minLength={8}
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Не менее 8 символов"
+                  autoComplete="new-password"
+                  className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--surface)] px-3 py-2.5 text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20 dark:bg-[var(--surface-muted)]"
+                />
+              </FormField>
+
+              <FormField label="Роль">
+                <select
+                  value={newRole}
+                  onChange={(e) => setNewRole(e.target.value as UserRole)}
+                  className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--surface)] px-3 py-2.5 text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20 dark:bg-[var(--surface-muted)]"
+                >
+                  <option value="student">Студент</option>
+                  <option value="admin">Администратор</option>
+                </select>
+              </FormField>
+            </div>
+
+            {createError && (
+              <div
+                role="alert"
+                className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700 dark:border-rose-800 dark:bg-rose-900/20 dark:text-rose-400"
+              >
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>{createError}</span>
+              </div>
+            )}
+
+            {createSuccess && (
+              <div
+                role="status"
+                className="flex items-start gap-2 rounded-lg border border-[var(--accent)]/20 bg-[var(--accent)]/10 p-3 text-sm text-[var(--accent)]"
+              >
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+                <div>
+                  <p className="font-semibold">Пользователь создан</p>
+                  <p className="mt-1">
+                    {createSuccess.username} — {createSuccess.email}
+                  </p>
+                  <p className="mt-1">
+                    Роль: {createSuccess.role}. ID: {createSuccess.user_id}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={creatingUser}
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--accent)] px-5 py-2.5 font-medium text-white transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {creatingUser ? (
+                <LoaderCircle className="h-4 w-4 animate-spin" />
+              ) : (
+                <UserPlus className="h-4 w-4" />
+              )}
+              {creatingUser ? "Создание..." : "Создать пользователя"}
+            </button>
+          </form>
+
+          {/* Таблица пользователей */}
+          {/* Таблица пользователей */}
+          <div className="mt-8 border-t border-[var(--border-color)] pt-6">
+            <h3 className="mb-4 text-lg font-semibold text-[var(--text-primary)]">
+              Зарегистрированные пользователи
+            </h3>
+
+            {usersLoading ? (
+              <div className="flex items-center justify-center gap-2 rounded-xl border border-[var(--border-color)] bg-[var(--surface-muted)] p-6 text-[var(--text-secondary)]">
+                <LoaderCircle className="h-5 w-5 animate-spin" />
+                Загрузка списка...
+              </div>
+            ) : usersError ? (
+              <div className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700 dark:border-rose-800 dark:bg-rose-900/20 dark:text-rose-400">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>Не удалось загрузить список: {usersError}</span>
+              </div>
+            ) : users.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-[var(--border-color)] bg-[var(--surface-muted)] p-6 text-center text-[var(--text-secondary)]">
+                Пользователи пока не созданы
+              </div>
+            ) : (
+              <div className="overflow-hidden rounded-xl border border-[var(--border-color)]">
+                <table className="min-w-full divide-y divide-[var(--border-color)]">
+                  <thead className="bg-[var(--surface-muted)]">
+                    <tr>
+                      {/* 👇 ИЗМЕНЕНИЕ 1: Заменили "ID" на "№" */}
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+                        №
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+                        Имя
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+                        Email
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+                        Роль
+                      </th>
+                      <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+                        Действия
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[var(--border-color)] bg-[var(--surface)]">
+                    {/* 👇 ИЗМЕНЕНИЕ 2: Добавили index в map и выводим index + 1 */}
+                    {visibleUsers.map((u, index) => (
+                      <tr
+                        key={u.user_id}
+                        className="transition-colors hover:bg-[var(--surface-muted)]"
+                      >
+                        <td className="whitespace-nowrap px-4 py-3 text-sm text-[var(--text-secondary)]">
+                          {index + 1}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-[var(--text-primary)]">
+                          {u.username}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3 text-sm text-[var(--text-secondary)]">
+                          {u.email}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3 text-sm">
+                          <span
+                            className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                              u.role === "admin"
+                                ? "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400"
+                                : "bg-[var(--accent)]/10 text-[var(--accent)]"
+                            }`}
+                          >
+                            {u.role === "admin" ? "Админ" : "Студент"}
+                          </span>
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3 text-right">
+                          <div className="inline-flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => setEditingUser(u)}
+                              className="rounded-lg p-2 text-[var(--text-secondary)] transition hover:bg-[var(--accent)]/10 hover:text-[var(--accent)]"
+                              title="Редактировать"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => setDeletingUser(u)}
+                              className="rounded-lg p-2 text-[var(--text-secondary)] transition hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-900/30 dark:hover:text-rose-400"
+                              title="Удалить"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* История запросов */}
+      <section className="space-y-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-xl font-semibold text-[var(--text-primary)]">
+              История запросов
+            </h2>
+            <p className="mt-1 text-sm text-[var(--text-secondary)]">
+              Все ваши обращения и результаты обработки документов
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--border-color)] bg-[var(--surface)] px-3 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-[var(--surface-muted)]"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Обновить страницу
+          </button>
+        </div>
+
+        <div className="grid gap-3 rounded-2xl border border-[var(--border-color)] bg-[var(--surface)] p-4 shadow-sm sm:grid-cols-3">
+          <div className="relative sm:col-span-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-secondary)]" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Поиск по запросам..."
+              className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--surface)] py-2.5 pl-9 pr-3 text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20 dark:bg-[var(--surface-muted)]"
+            />
           </div>
 
-          {visibleError && (
-            <div role="alert" className="mb-5 flex items-center justify-between gap-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-              <span>{visibleError}</span>
-              {visibleError.includes("Войдите") && <button type="button" onClick={() => navigate("/login")} className="shrink-0 font-semibold underline">Войти</button>}
-            </div>
-          )}
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+            aria-label="Фильтр по статусу"
+            className="rounded-lg border border-[var(--border-color)] bg-[var(--surface)] px-3 py-2.5 text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] dark:bg-[var(--surface-muted)]"
+          >
+            <option value="all">Все статусы</option>
+            <option value="resolved">Успешные</option>
+            <option value="failed">С ошибками</option>
+          </select>
 
-          {loading && items.length === 0 ? (
-            <div className="rounded-2xl border border-slate-200 bg-white px-5 py-14 text-center text-slate-500">Загружаем историю…</div>
-          ) : visibleError && items.length === 0 ? null : visibleItems.length ? (
-            <div className="space-y-4">
-              {visibleItems.map((item) => {
-                const status = requestStatus(item.status);
-                const StatusIcon = status.icon;
-                const expanded = expandedItems.has(item.request_id);
-                const typeLabel = item.document_type
-                  ? categories.find((type) => type.id === item.document_type)?.label ?? item.document_type
-                  : "Вопрос без файла";
-                return (
-                  <article key={item.request_id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:border-[#087b45]/30 hover:shadow-md">
-                    <button type="button" aria-expanded={expanded} aria-controls={"request-details-" + item.request_id}
-                      onClick={() => toggleExpanded(item.request_id)}
-                      className="flex w-full cursor-pointer flex-col gap-3 p-5 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#159957] sm:flex-row sm:items-center sm:justify-between">
-                      <span className="min-w-0 flex-1">
-                        <span className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-500">
-                          <time dateTime={item.created_at}>{formatDate(item.created_at)}</time>
-                          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs">{typeLabel}</span>
-                          {isAdmin && <span className="truncate">{item.user_name} · {item.user_email}</span>}
-                        </span>
-                        <span className="mt-3 block line-clamp-2 whitespace-pre-wrap break-words font-semibold text-slate-800">{item.question}</span>
-                      </span>
-                      <span className="flex shrink-0 items-center justify-between gap-3 sm:justify-end">
-                        <span className={"inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium " + status.style}>
-                          <StatusIcon size={14} /> {status.label}
-                        </span>
-                        <ChevronDown size={18} className={"text-slate-400 transition-transform duration-300 motion-reduce:transition-none " + (expanded ? "rotate-180" : "")} aria-hidden="true" />
-                      </span>
-                    </button>
-                    <div id={"request-details-" + item.request_id}
-                      className={"grid transition-[grid-template-rows] duration-300 ease-in-out motion-reduce:transition-none " + (expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]")}
-                      aria-hidden={!expanded}>
-                      <div className="min-h-0 overflow-hidden">
-                        <div className={"space-y-5 border-t border-slate-100 px-5 py-5 transition-opacity duration-200 motion-reduce:transition-none sm:px-6 " + (expanded ? "opacity-100" : "opacity-0")}>
-                          <dl className="grid gap-4 text-sm sm:grid-cols-2">
-                            <div>
-                              <dt className="font-medium text-slate-500">Дата запроса</dt>
-                              <dd className="mt-1 text-slate-800">{formatDate(item.created_at)}</dd>
-                            </div>
-                            <div>
-                              <dt className="font-medium text-slate-500">Тип файла</dt>
-                              <dd className="mt-1 text-slate-800">{typeLabel}</dd>
-                            </div>
-                            <div>
-                              <dt className="font-medium text-slate-500">Статус</dt>
-                              <dd className="mt-1 inline-flex items-center gap-1.5 text-slate-800"><StatusIcon size={15} />{status.label}</dd>
-                            </div>
-                            {isAdmin && <div className="sm:col-span-2">
-                              <dt className="font-medium text-slate-500">Пользователь</dt>
-                              <dd className="mt-1 break-words text-slate-800">{item.user_name} · {item.user_email}</dd>
-                            </div>}
-                          </dl>
-                          <div>
-                            <h3 className="text-sm font-semibold text-[#087b45]">Вопрос</h3>
-                            <p className="mt-2 whitespace-pre-wrap break-words text-slate-800">{item.question}</p>
-                          </div>
-                          <div>
-                            <h3 className="text-sm font-semibold text-slate-500">Ответ</h3>
-                            {item.answer
-                              ? <p className="mt-2 whitespace-pre-wrap break-words leading-7 text-slate-700">{item.answer}</p>
-                              : <p className="mt-2 text-sm text-slate-500">Ответ не сохранён.</p>}
-                          </div>
-                        </div>
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            aria-label="Фильтр по типу документа"
+            className="rounded-lg border border-[var(--border-color)] bg-[var(--surface)] px-3 py-2.5 text-[var(--text-primary)] outline-none transition focus:border-[var(--accent)] dark:bg-[var(--surface-muted)]"
+          >
+            <option value="all">Все типы документов</option>
+            {documentTypes.map((type) => (
+              <option key={type.id} value={type.label}>
+                {type.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center gap-3 rounded-2xl border border-[var(--border-color)] bg-[var(--surface)] p-10 text-[var(--text-secondary)]">
+            <LoaderCircle className="h-5 w-5 animate-spin" />
+            Загружаем историю запросов...
+          </div>
+        ) : error ? (
+          <div
+            role="alert"
+            className="flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-rose-700 dark:border-rose-800 dark:bg-rose-900/20 dark:text-rose-400"
+          >
+            <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
+            <div>
+              <p className="font-semibold">Не удалось загрузить историю</p>
+              <p className="mt-1 text-sm">{error}</p>
+            </div>
+          </div>
+        ) : filteredHistory.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-[var(--border-color)] bg-[var(--surface)] p-10 text-center">
+            <FileText className="mx-auto h-10 w-10 text-[var(--text-secondary)]" />
+            <h3 className="mt-3 font-semibold text-[var(--text-primary)]">
+              Запросы не найдены
+            </h3>
+            <p className="mt-1 text-sm text-[var(--text-secondary)]">
+              Попробуйте изменить фильтры или выполнить новый запрос.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {filteredHistory.map((item) => {
+              const expanded = expandedRequest === item.request_id;
+              const succeeded = item.status === "resolved";
+              return (
+                <article
+                  key={item.request_id}
+                  className="overflow-hidden rounded-2xl border border-[var(--border-color)] bg-[var(--surface)] shadow-sm"
+                >
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setExpandedRequest(expanded ? null : item.request_id)
+                    }
+                    aria-expanded={expanded}
+                    className="flex w-full items-center justify-between gap-4 p-4 text-left transition hover:bg-[var(--surface-muted)] sm:p-5"
+                  >
+                    <div className="flex min-w-0 items-start gap-3">
+                      <div
+                        className={`mt-0.5 rounded-xl p-2 ${succeeded ? "bg-[var(--accent)]/10 text-[var(--accent)]" : "bg-rose-50 text-rose-700 dark:bg-rose-900/20 dark:text-rose-400"}`}
+                      >
+                        {succeeded ? (
+                          <CheckCircle2 className="h-5 w-5" />
+                        ) : (
+                          <AlertCircle className="h-5 w-5" />
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="font-semibold text-[var(--text-primary)]">
+                          {item.document_type || "Запрос"}
+                        </h3>
+                        <p className="mt-1 line-clamp-2 text-sm text-[var(--text-secondary)]">
+                          {item.question || "Без текста запроса"}
+                        </p>
+                        <p className="mt-2 text-xs text-[var(--text-secondary)]">
+                          {formatDate(item.created_at)}
+                        </p>
                       </div>
                     </div>
-                  </article>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-14 text-center">
-              <FileText className="mx-auto text-slate-300" size={40} />
-              <h3 className="mt-4 font-semibold text-slate-800">{search || category !== "all" || statusFilter !== "all" ? "Запросы не найдены" : "История пока пуста"}</h3>
-              <p className="mt-2 text-sm text-slate-500">Измените фильтры или загрузите документ, чтобы начать обработку.</p>
-            </div>
-          )}
-        </section>
-      </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <span
+                        className={`hidden rounded-full px-2.5 py-1 text-xs font-medium sm:inline-flex ${
+                          succeeded
+                            ? "bg-[var(--accent)]/10 text-[var(--accent)]"
+                            : "bg-rose-50 text-rose-700 dark:bg-rose-900/20 dark:text-rose-400"
+                        }`}
+                      >
+                        {succeeded ? "Успешно" : "Ошибка"}
+                      </span>
+                      <ChevronDown
+                        className={`h-5 w-5 text-[var(--text-secondary)] transition-transform ${expanded ? "rotate-180" : ""}`}
+                      />
+                    </div>
+                  </button>
+
+                  {expanded && (
+                    <div className="space-y-4 border-t border-[var(--border-color)] bg-[var(--surface-muted)] p-4 sm:p-5">
+                      {isAdmin && (
+                        <div className="grid gap-2 text-sm sm:grid-cols-2">
+                          <p className="text-[var(--text-secondary)]">
+                            <span className="font-medium text-[var(--text-primary)]">
+                              Пользователь:
+                            </span>{" "}
+                            {item.user_name || "Не указан"}
+                          </p>
+                          <p className="text-[var(--text-secondary)]">
+                            <span className="font-medium text-[var(--text-primary)]">
+                              Email:
+                            </span>{" "}
+                            {item.user_email || "Не указан"}
+                          </p>
+                        </div>
+                      )}
+                      <div>
+                        <h4 className="text-sm font-semibold text-[var(--text-primary)]">
+                          Запрос
+                        </h4>
+                        <p className="mt-1 whitespace-pre-wrap text-sm text-[var(--text-secondary)]">
+                          {item.question || "Нет текста запроса"}
+                        </p>
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-semibold text-[var(--text-primary)]">
+                          Ответ системы
+                        </h4>
+                        <p className="mt-1 whitespace-pre-wrap text-sm text-[var(--text-secondary)]">
+                          {item.answer || "Ответ отсутствует"}
+                        </p>
+                      </div>
+                      <p className="text-xs text-[var(--text-secondary)]">
+                        ID запроса: {item.request_id}
+                      </p>
+                    </div>
+                  )}
+                </article>
+              );
+            })}
+          </div>
+        )}
+
+        {!loading && !error && filteredHistory.length > 0 && (
+          <p className="text-center text-sm text-[var(--text-secondary)]">
+            Показано запросов: {filteredHistory.length} из {history.length}
+          </p>
+        )}
+      </section>
+
+      {/* МОДАЛЬНЫЕ ОКНА */}
+      {editingUser && (
+        <EditUserModal
+          user={editingUser}
+          currentUserId={currentUserId}
+          onClose={() => setEditingUser(null)}
+          onSave={handleUpdateUser}
+        />
+      )}
+
+      {deletingUser && (
+        <DeleteUserDialog
+          user={deletingUser}
+          currentUserId={currentUserId}
+          onClose={() => setDeletingUser(null)}
+          onConfirm={handleDeleteUser}
+        />
+      )}
     </main>
+  );
+}
+
+function StatCard({
+  title,
+  value,
+  className,
+}: {
+  title: string;
+  value: number;
+  className: string;
+}) {
+  return (
+    <div
+      className={`rounded-2xl border border-(--border-color) bg-(--surface) p-5 shadow-sm ${className}`}
+    >
+      <p className="text-sm text-(--text-secondary)">{title}</p>
+      <p className="mt-2 text-3xl font-bold">{value}</p>
+    </div>
+  );
+}
+
+function FormField({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="block space-y-1.5">
+      <span className="text-sm font-medium text-(--text-primary)">{label}</span>
+      {children}
+    </label>
   );
 }

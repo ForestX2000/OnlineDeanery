@@ -5,7 +5,7 @@ import { isDocumentImage } from "./highlights.ts"
 export * from "./types.ts"
 
 const API_URL = (import.meta.env?.VITE_API_URL ?? "http://localhost:8000").replace(/\/+$/, "")
-// Два прохода OCR могут занять до 270 секунд плюс последующий анализ.
+
 const REQUEST_TIMEOUT_MS = 390_000
 
 export class ApiError extends Error {
@@ -345,13 +345,154 @@ export async function getDocumentTypes(): Promise<DocumentTypeOption[]> {
     clearTimeout(timer)
   }
 }
-
-export async function forgotPasswordRequest(email: string): Promise<string> {
-  const trimmed = email.trim()
-  if (!trimmed) throw new ApiError("Введите email")
-  const body = await authRequest("/api/auth/forgot-password", { email: trimmed })
-  if (!isRecord(body) || typeof body.message !== "string") {
-    throw new ApiError("Сервер вернул некорректный ответ", 502)
-  }
-  return body.message
+export interface AdminUser {
+  user_id: number;
+  username: string;
+  email: string;
+  role: string;
+  created_at: string;
 }
+
+//  для создания пользователя
+export interface CreateUserRequest {
+  email: string;
+  password: string;
+  username: string;
+  role: "student" | "admin";
+}
+
+// созданный пользователь
+export interface CreatedUser {
+  user_id: number;
+  username: string;
+  email: string;
+  role: string;
+  created_at: string;
+}
+
+// Функция создания пользователя
+export async function createUser(
+  data: CreateUserRequest,
+  token: string
+): Promise<CreatedUser> {
+  const response = await fetch(`${API_URL}/api/admin/users`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      ...bearerHeaders(token),
+    },
+    body: JSON.stringify(data),
+  });
+
+  const result: unknown = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new ApiError(
+      errorDetail(result) || `Ошибка сервера: ${response.status}`,
+      response.status
+    );
+  }
+
+  return result as CreatedUser;
+}
+
+// Функция получения списка пользователей
+export async function getUsers(token: string): Promise<AdminUser[]> {
+  const response = await fetch(`${API_URL}/api/admin/users`, {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+      ...bearerHeaders(token),
+    },
+  });
+
+  const result: unknown = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new ApiError(
+      errorDetail(result) || `Ошибка сервера: ${response.status}`,
+      response.status
+    );
+  }
+
+  if (!Array.isArray(result)) {
+    throw new ApiError("Сервер вернул некорректный список пользователей", 502);
+  }
+
+  return result as AdminUser[];
+}
+
+// Интерфейс для обновления пользователя
+export interface UpdateUserRequest {
+  username?: string;
+  email?: string;
+  role?: "student" | "admin";
+  password?: string;
+}
+
+// Функция обновления пользователя (PATCH)
+export async function updateUser(
+  userId: number,
+  data: UpdateUserRequest,
+  token: string
+): Promise<AdminUser> {
+  const response = await fetch(`${API_URL}/api/admin/users/${userId}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      ...bearerHeaders(token),
+    },
+    body: JSON.stringify(data),
+  });
+
+  const result: unknown = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new ApiError(
+      errorDetail(result) || `Ошибка сервера: ${response.status}`,
+      response.status
+    );
+  }
+
+  return result as AdminUser;
+}
+
+export interface DeleteUserResponse {
+  success: boolean;
+  message: string;
+}
+
+export async function deleteUser(
+  userId: number,
+  token: string
+): Promise<DeleteUserResponse> {
+  const response = await fetch(`${API_URL}/api/admin/users/${userId}`, {
+    method: "DELETE",
+    headers: {
+      Accept: "application/json",
+      ...bearerHeaders(token),
+    },
+  });
+
+  const result: unknown = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new ApiError(
+      errorDetail(result) || `Ошибка сервера: ${response.status}`,
+      response.status
+    );
+  }
+
+  if (
+    !result ||
+    typeof result !== "object" ||
+    !("success" in result) ||
+    typeof (result as Record<string, unknown>).success !== "boolean"
+  ) {
+    throw new ApiError("Сервер вернул некорректный ответ при удалении", 502);
+  }
+
+  return result as DeleteUserResponse;
+} 

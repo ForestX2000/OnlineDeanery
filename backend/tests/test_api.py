@@ -1,7 +1,7 @@
 import json
 import unittest
 from io import BytesIO
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
 
 import httpx
 from fastapi.testclient import TestClient
@@ -188,32 +188,6 @@ class TransportTests(unittest.IsolatedAsyncioTestCase):
                     with self.assertRaises(api.HTTPException) as caught:
                         await api.send_request("http://service/answer", json={})
                     self.assertEqual(caught.exception.status_code, status)
-
-
-class PasswordRecoveryTests(unittest.IsolatedAsyncioTestCase):
-    async def test_failed_email_keeps_existing_password(self):
-        from types import SimpleNamespace
-
-        user = SimpleNamespace(
-            email="student@example.edu", username="Студент", password_hash="old-hash"
-        )
-        result = MagicMock()
-        result.scalars.return_value.first.return_value = user
-        db = AsyncMock()
-        db.execute.return_value = result
-
-        async def rollback():
-            user.password_hash = "old-hash"
-
-        db.rollback.side_effect = rollback
-        with patch.object(api, "run_in_threadpool", new=AsyncMock(return_value=False)):
-            with self.assertRaises(api.HTTPException) as caught:
-                await api.forgot_password(api.ForgotPasswordRequest(email=user.email), db)
-
-        self.assertEqual(caught.exception.status_code, 503)
-        self.assertEqual(user.password_hash, "old-hash")
-        db.rollback.assert_awaited_once()
-        db.commit.assert_not_awaited()
 
 
 if __name__ == "__main__":

@@ -6,29 +6,30 @@ import json
 import hashlib
 import warnings
 import secrets
-import string
-import smtplib
-from email.message import EmailMessage
+import threading
+from collections import deque
 from contextlib import asynccontextmanager, contextmanager
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from io import BytesIO
 from pathlib import Path
 from typing import Any, Literal
 
 import httpx
-from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile, Depends, status
-from fastapi.responses import StreamingResponse
+from fastapi import FastAPI, File, Form, Header, HTTPException, Request, UploadFile, Depends, status
+from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image, UnidentifiedImageError
 from pydantic import BaseModel, EmailStr, Field, JsonValue, ValidationError
 from pypdf import PdfReader
 from pypdf.errors import PdfReadError
-from sqlalchemy import delete, func, inspect, select, text
+from sqlalchemy import delete, select, text
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from backend.models import ApiModel, ApiResponse, Document, DocumentImage, ServiceAnswer
 from backend.database import engine, Base, SessionLocal
+from backend.migrations import apply_migrations
 from backend.security import hash_password, verify_password, token_ttl_days
 from backend.models import (
     UserDB,
@@ -40,6 +41,8 @@ from backend.models import (
     AuditLogDB,
     AuthTokenDB,
 )
+
+DUMMY_PASSWORD_HASH = hash_password(secrets.token_urlsafe(32))
 
 MAX_FILE_SIZE = 10 * 1024 * 1024
 MAX_QUESTION_LENGTH = 5000
@@ -62,31 +65,57 @@ logger = logging.getLogger(__name__)
 # Даём OCR-сервису завершить распознавание и оставляем время на ответ.
 INTERNAL_TIMEOUT = float(os.getenv("INTERNAL_TIMEOUT", "300"))
 
-# Настройки SMTP для отправки реальной почты
-SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
-SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
-SMTP_USER = os.getenv("SMTP_USER", "")
-SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
-SMTP_FROM = os.getenv("SMTP_FROM", "noreply@university.ru")
+LOGIN_ATTEMPT_LIMIT = 10
+LOGIN_WINDOW_SECONDS = 15 * 60
+MAX_LOGIN_CLIENTS = 4096
+_login_attempts: dict[str, deque[float]] = {}
+_login_attempts_lock = threading.Lock()
+database_startup_error: str | None = None
+
+
+async def migrate_legacy_password_hashes() -> int:
+    """Hash legacy plaintext values before any login request can use them."""
+    if SessionLocal is None:
+        return 0
+    async with SessionLocal() as db:
+        result = await db.execute(select(UserDB).with_for_update())
+        users = result.scalars().all()
+        legacy_users = [
+            user for user in users
+            if isinstance(user.password_hash, str)
+            and user.password_hash
+            and not user.password_hash.startswith("pbkdf2$")
+        ]
+        if not legacy_users:
+            return 0
+        values = [user.password_hash for user in legacy_users]
+        hashes = await run_in_threadpool(lambda: [hash_password(value) for value in values])
+        for user, password_hash in zip(legacy_users, hashes):
+            user.password_hash = password_hash
+        await db.commit()
+        return len(legacy_users)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # БД опциональна: без DATABASE_URL/недоступного Postgres API работает на памяти сессий.
+    global database_startup_error
     if engine is None:
+        database_startup_error = None
         logger.warning("БД не настроена (DATABASE_URL пуст), работа без персистентности")
     else:
         try:
             async with engine.begin() as conn:
                 await conn.run_sync(Base.metadata.create_all)
-                def ensure_request_document_type(sync_conn):
-                    columns = {column["name"] for column in inspect(sync_conn).get_columns("requests")}
-                    if "document_type" not in columns:
-                        sync_conn.execute(text("ALTER TABLE requests ADD COLUMN document_type VARCHAR(100)"))
-                await conn.run_sync(ensure_request_document_type)
+                await conn.run_sync(apply_migrations)
+            migrated_passwords = await migrate_legacy_password_hashes()
+            if migrated_passwords:
+                logger.info("Migrated %s legacy password hashes", migrated_passwords)
+            database_startup_error = None
             logger.info("Таблицы БД готовы: %s", list(Base.metadata.tables.keys()))
         except Exception as exc:
-            logger.warning("БД недоступна, работа без персистентности: %s", exc)
+            database_startup_error = type(exc).__name__
+            logger.warning("БД недоступна или миграция не прошла (%s)", type(exc).__name__)
     async with httpx.AsyncClient(timeout=INTERNAL_TIMEOUT) as client:
         app.state.http_client = client
         yield
@@ -100,6 +129,17 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Онлайн-деканат API", lifespan=lifespan)
+
+
+@app.exception_handler(SQLAlchemyError)
+async def database_error_handler(request: Request, exc: SQLAlchemyError):
+    logger.warning("Database request failed (%s)", type(exc).__name__)
+    return JSONResponse(
+        status_code=503,
+        content={"detail": "База данных временно недоступна. Попробуйте позже."},
+    )
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[origin.strip() for origin in os.getenv(
@@ -112,7 +152,27 @@ app.add_middleware(
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "sessions": len(sessions)}
+    if SessionLocal is None:
+        return {"status": "ok", "database": "disabled", "sessions": len(sessions)}
+    if database_startup_error is not None:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "degraded",
+                "database": "startup_failed",
+                "sessions": len(sessions),
+            },
+        )
+    try:
+        async with SessionLocal() as health_db:
+            await health_db.execute(text("SELECT 1"))
+    except Exception as exc:
+        logger.warning("DB readiness check failed (%s)", type(exc).__name__)
+        return JSONResponse(
+            status_code=503,
+            content={"status": "degraded", "database": "unavailable", "sessions": len(sessions)},
+        )
+    return {"status": "ok", "database": "ok", "sessions": len(sessions)}
 
 
 # Асинхронная зависимость для получения сессии БД
@@ -163,7 +223,7 @@ def token_expired(record) -> bool:
     now = datetime.now(timezone.utc)
     if created.tzinfo is None:
         created = created.replace(tzinfo=timezone.utc)
-    return (now - created).days >= token_ttl_days()
+    return now - created >= timedelta(days=token_ttl_days())
 
 
 async def get_optional_user(
@@ -224,14 +284,14 @@ class LoginResponse(BaseModel):
 
 class CreateUserRequest(BaseModel):
     email: EmailStr
-    password: str = Field(min_length=12, max_length=256)
+    password: str = Field(min_length=8, max_length=256)
     username: str = Field(min_length=1, max_length=100)
     role: Literal["student", "admin"] = "student"
 
 
 class UpdateUserRequest(BaseModel):
     email: EmailStr | None = None
-    password: str | None = Field(default=None, min_length=12, max_length=256)
+    password: str | None = Field(default=None, min_length=8, max_length=256)
     username: str | None = Field(default=None, min_length=1, max_length=100)
     role: Literal["student", "admin"] | None = None
 
@@ -243,10 +303,12 @@ class UserListItem(BaseModel):
     role: str
     created_at: datetime
 
-class ForgotPasswordRequest(BaseModel):
-    email: EmailStr
-
 class MessageResponse(BaseModel):
+    success: bool
+    message: str
+
+
+class CreatedUserResponse(UserListItem):
     success: bool
     message: str
 
@@ -295,54 +357,65 @@ sessions: dict[str, Session] = {}
 active_sessions: set[str] = set()
 
 
-# Вспомогательная функция отправки email через SMTP
-def send_email_sync(to_email: str, subject: str, body: str):
-    msg = EmailMessage()
-    msg.set_content(body)
-    msg["Subject"] = subject
-    msg["From"] = SMTP_FROM
-    msg["To"] = to_email
+def check_login_rate_limit(client_host: str, now: float | None = None) -> None:
+    """Allow at most ten login attempts per peer IP in a rolling 15-minute window."""
+    current_time = time.monotonic() if now is None else now
+    with _login_attempts_lock:
+        for host, attempts in list(_login_attempts.items()):
+            while attempts and current_time - attempts[0] >= LOGIN_WINDOW_SECONDS:
+                attempts.popleft()
+            if not attempts:
+                del _login_attempts[host]
 
-    if not SMTP_USER or not SMTP_PASSWORD:
-        logger.warning("SMTP credentials are not set; recovery email was not sent")
-        return False
+        attempts = _login_attempts.setdefault(client_host, deque())
+        if len(attempts) >= LOGIN_ATTEMPT_LIMIT:
+            retry_after = max(1, int(LOGIN_WINDOW_SECONDS - (current_time - attempts[0])))
+            raise HTTPException(
+                status_code=429,
+                detail="Слишком много попыток входа. Попробуйте позже.",
+                headers={"Retry-After": str(retry_after)},
+            )
+        attempts.append(current_time)
 
-    try:
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as server:
-            server.starttls()
-            server.login(SMTP_USER, SMTP_PASSWORD)
-            server.send_message(msg)
-        return True
-    except Exception as exc:
-        logger.error("Failed to send email via SMTP: %s", type(exc).__name__)
-        return False
+        if len(_login_attempts) > MAX_LOGIN_CLIENTS:
+            oldest_host = min(_login_attempts, key=lambda host: _login_attempts[host][0])
+            _login_attempts.pop(oldest_host, None)
+
+
+def record_user_admin_action(
+    db,
+    admin: UserDB,
+    action_type: str,
+    target_user_id: int,
+    comment: str,
+) -> None:
+    db.add(AuditLogDB(
+        admin_id=admin.user_id,
+        admin_email=admin.email,
+        target_user_id=target_user_id,
+        action_type=action_type,
+        comment=comment,
+    ))
 
 
 # Эндпоинты входа и управления пользователями
 @app.post("/api/auth/login", response_model=LoginResponse)
-async def login(data: LoginRequest, db = Depends(get_db)):
+async def login(data: LoginRequest, request: Request, db = Depends(get_db)):
     if db is None:
         raise HTTPException(status_code=503, detail="База данных недоступна. Войдите позже.")
+    peer = request.client.host if request.client is not None else "unknown"
+    check_login_rate_limit(peer)
     normalized_email = data.email.lower().strip()
     result = await db.execute(select(UserDB).where(UserDB.email == normalized_email))
     user = result.scalars().first()
 
-    if not user:
+    stored_hash = user.password_hash if user is not None else DUMMY_PASSWORD_HASH
+    check = await run_in_threadpool(verify_password, data.password, stored_hash)
+    if user is None or check != "ok":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Пользователь с таким email не найден. Обратитесь в деканат для регистрации учетной записи."
+            detail="Неверный email или пароль."
         )
-
-    check = verify_password(data.password, user.password_hash)
-    if check == "invalid":
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Неверный пароль. Пожалуйста, проверьте правильность ввода."
-        )
-    if check == "legacy":
-        # Одноразовая миграция старых plaintext-записей на pbkdf2.
-        user.password_hash = hash_password(data.password)
-        await db.commit()
     name_parts = user.username.split(" ", 1)
     first_name = name_parts[0]
     last_name = name_parts[1] if len(name_parts) > 1 else ""
@@ -408,10 +481,10 @@ async def logout(
     return {"success": True, "message": "Вы вышли из аккаунта."}
 
 
-@app.post("/api/admin/users", response_model=MessageResponse)
+@app.post("/api/admin/users", response_model=CreatedUserResponse)
 async def admin_create_user(
     data: CreateUserRequest,
-    _: UserDB = Depends(require_admin),
+    current_admin: UserDB = Depends(require_admin),
     db=Depends(get_db),
 ):
     if db is None:
@@ -434,14 +507,28 @@ async def admin_create_user(
 
     new_user = UserDB(
         email=normalized_email,
-        password_hash=hash_password(data.password),
+        password_hash=await run_in_threadpool(hash_password, data.password),
         username=normalized_username,
         role=UserRole(data.role).value,
     )
     db.add(new_user)
-    await db.commit()
+    try:
+        await db.flush()
+    except IntegrityError as exc:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail="Email или имя пользователя уже заняты.") from exc
+    record_user_admin_action(
+        db, current_admin, "user.create", new_user.user_id,
+        f"Создан пользователь {normalized_email}.",
+    )
+    try:
+        await db.commit()
+    except IntegrityError as exc:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail="Email или имя пользователя уже заняты.") from exc
 
     return {
+        **_user_list_item(new_user).model_dump(),
         "success": True,
         "message": f"Пользователь {normalized_email} успешно создан деканатом."
     }
@@ -457,11 +544,15 @@ def _user_list_item(user: UserDB) -> UserListItem:
     )
 
 
-async def _admin_count(db) -> int:
+async def _lock_admin_count(db) -> int:
+    """Lock current admin rows in stable order before enforcing the last-admin rule."""
     result = await db.execute(
-        select(func.count()).select_from(UserDB).where(UserDB.role == UserRole.ADMIN.value)
+        select(UserDB)
+        .where(UserDB.role == UserRole.ADMIN.value)
+        .order_by(UserDB.user_id)
+        .with_for_update()
     )
-    return result.scalar_one()
+    return len(result.scalars().all())
 
 
 @app.get("/api/admin/users", response_model=list[UserListItem])
@@ -504,6 +595,7 @@ async def admin_update_user(
     if any(value is None for value in changes.values()):
         raise HTTPException(status_code=422, detail="Изменяемые поля не должны быть пустыми.")
 
+    locked_admin_count = await _lock_admin_count(db) if "role" in changes else None
     user = await db.get(UserDB, user_id)
     if user is None:
         raise HTTPException(status_code=404, detail="Пользователь не найден.")
@@ -529,16 +621,26 @@ async def admin_update_user(
         user.username = new_username
 
     if "password" in changes:
-        user.password_hash = hash_password(data.password)
+        user.password_hash = await run_in_threadpool(hash_password, data.password)
         await db.execute(delete(AuthTokenDB).where(AuthTokenDB.user_id == user_id))
 
     if data.role == UserRole.STUDENT.value and getattr(user.role, "value", user.role) == UserRole.ADMIN.value:
-        if await _admin_count(db) <= 1:
+        if locked_admin_count is not None and locked_admin_count <= 1:
             raise HTTPException(status_code=400, detail="Нельзя снять роль у последнего администратора.")
     if "role" in changes:
         user.role = data.role
 
-    await db.commit()
+    changed_fields = ", ".join(sorted(changes))
+    action = "user.password_change" if set(changes) == {"password"} else "user.update"
+    record_user_admin_action(
+        db, current_admin, action, user.user_id,
+        f"Изменены поля: {changed_fields}.",
+    )
+    try:
+        await db.commit()
+    except IntegrityError as exc:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail="Email или имя пользователя уже заняты.") from exc
     await db.refresh(user)
     return _user_list_item(user)
 
@@ -554,61 +656,21 @@ async def admin_delete_user(
     if user_id == current_admin.user_id:
         raise HTTPException(status_code=400, detail="Нельзя удалить текущую учетную запись.")
 
+    admin_count = await _lock_admin_count(db)
     user = await db.get(UserDB, user_id)
     if user is None:
         raise HTTPException(status_code=404, detail="Пользователь не найден.")
-    if getattr(user.role, "value", user.role) == UserRole.ADMIN.value and await _admin_count(db) <= 1:
+    if getattr(user.role, "value", user.role) == UserRole.ADMIN.value and admin_count <= 1:
         raise HTTPException(status_code=400, detail="Нельзя удалить последнего администратора.")
 
     email = user.email
+    record_user_admin_action(
+        db, current_admin, "user.delete", user.user_id,
+        f"Удалена учетная запись {email}.",
+    )
     await db.delete(user)
     await db.commit()
     return {"success": True, "message": f"Пользователь {email} удалён."}
-
-
-@app.post("/api/auth/forgot-password", response_model=MessageResponse)
-async def forgot_password(data: ForgotPasswordRequest, db = Depends(get_db)):
-    if db is None:
-        raise HTTPException(status_code=503, detail="База данных недоступна. Попробуйте позже.")
-    normalized_email = data.email.lower().strip()
-    result = await db.execute(select(UserDB).where(UserDB.email == normalized_email))
-    user = result.scalars().first()
-
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Указанный email не зарегистрирован в базе деканата."
-        )
-
-    # Новый временный пароль (12 символов) — только в email, в логи не пишем.
-    alphabet = string.ascii_letters + string.digits
-    new_password = ''.join(secrets.choice(alphabet) for _ in range(12))
-
-    email_body = (
-        f"Здравствуйте, {user.username}!\n\n"
-        f"Был запрошен сброс пароля для вашей учетной записи в Онлайн-деканате.\n"
-        f"Ваш новый постоянный пароль для входа: {new_password}\n\n"
-        f"Используйте его для авторизации в системе."
-    )
-
-    user.password_hash = hash_password(new_password)
-    await db.flush()
-    sent = await run_in_threadpool(
-        send_email_sync, normalized_email, "Восстановление пароля — Онлайн-деканат", email_body
-    )
-    if not sent:
-        await db.rollback()
-        raise HTTPException(
-            status_code=503,
-            detail="Не удалось отправить письмо. Текущий пароль не изменён; обратитесь в деканат.",
-        )
-    await db.commit()
-    logger.info("Сброс пароля для %s: письмо отправлено", normalized_email)
-
-    return {
-        "success": True,
-        "message": "Новый постоянный пароль успешно сгенерирован и отправлен на ваш email."
-    }
 
 
 # Вспомогательные функции логики документов

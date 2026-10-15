@@ -31,15 +31,10 @@ services:
       ML1_URL: "${ML1_URL:-http://host.docker.internal:8001/ocr}"
       ML2_URL: "${ML2_URL:-http://host.docker.internal:8003/extract}"
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
-      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-super_password}@db:5432/${POSTGRES_DB:-deanery}}
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-deanery}}
       BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-}
       BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-}
       BOOTSTRAP_ADMIN_NAME: ${BOOTSTRAP_ADMIN_NAME:-Администратор}
-      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
-      SMTP_PORT: ${SMTP_PORT:-587}
-      SMTP_USER: ${SMTP_USER:-}
-      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
-      SMTP_FROM: ${SMTP_FROM:-noreply@university.ru}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
@@ -54,7 +49,7 @@ services:
         - CMD
         - python
         - -c
-        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/docs', timeout=2)"
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)"
       interval: 5s
       timeout: 3s
       retries: 10
@@ -96,6 +91,7 @@ services:
       # YOLO-детектор подписей (Mels22 YOLO11s 4cls -> models/signature.onnx).
       # Печать без YOLO ищется классикой синего кольца (см. ml1/detector.py).
       YOLO_SIG_MODEL_PATH: ${YOLO_SIG_MODEL_PATH:-/models/signature.onnx}
+      YOLO_STAMP_HEURISTIC: ${YOLO_STAMP_HEURISTIC:-1}
       # YOLO_MODEL_PATH: ${YOLO_MODEL_PATH:-} — печать своей YOLOv8n, если обучите
       # YOLO_CONFIDENCE: ${YOLO_CONFIDENCE:-0.3} — Mels22 находит подпись от conf 0.349 (замер baton.png)
       YOLO_INTRA_OP_THREADS: ${YOLO_INTRA_OP_THREADS:-0}
@@ -121,7 +117,7 @@ services:
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-admin}
       # Не храните реальные пароли в репо: задайте POSTGRES_PASSWORD в .env (см. .env.example).
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-super_password}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: ${POSTGRES_DB:-deanery}
     ports:
       - "127.0.0.1:5433:5432"

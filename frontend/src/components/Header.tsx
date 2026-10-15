@@ -12,7 +12,15 @@ export default function Header() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const initials = user ? `${user.firstName?.[0] ?? ""}${user.lastName?.[0] ?? ""}`.toUpperCase() : "";
+
+  const getInitials = () => {
+    if (!user) return "";
+    const first = user.firstName?.[0]?.toUpperCase() || "";
+    const last = user.lastName?.[0]?.toUpperCase() || "";
+    return first + last;
+  };
+
+  const initials = getInitials();
   const isAdmin = user?.role === "admin";
 
   const handleLogout = () => {
@@ -21,28 +29,24 @@ export default function Header() {
     navigate("/login");
   };
 
-
   const hideHeaderPaths = ["/login"];
-  if (hideHeaderPaths.includes(location.pathname)) {
-    return null;
-  }
+  if (hideHeaderPaths.includes(location.pathname)) return null;
 
   return (
-    <header className="border-b border-[#1e293b]/10 bg-white px-6 py-4">
+    <header className="border-b border-[var(--border-color)] bg-[var(--surface)] px-6 py-4">
       <div className="mx-auto flex max-w-6xl items-center justify-between">
         <Link to="/" className="flex items-center gap-3">
-          <div className="rounded-xl bg-[#087b45] p-2.5 text-white">
+          <div className="rounded-xl bg-[var(--accent)] p-2.5 text-white">
             <BookOpen size={22} />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-[#1e293b]">Онлайн-деканат</h1>
-            <p className="text-xs text-[#1e293b]/60">
-              {isAdmin 
-                ? "Панель администратора" 
-                : user 
+            <h1 className="text-lg font-bold text-[var(--text-primary)]">Онлайн-деканат</h1>
+            <p className="text-xs text-[var(--text-secondary)]">
+              {isAdmin
+                ? "Панель администратора"
+                : user
                   ? "Цифровой помощник студента"
-                  : "Цифровой помощник студента"
-              }
+                  : "Цифровой помощник студента"}
             </p>
           </div>
         </Link>
@@ -53,16 +57,16 @@ export default function Header() {
             <>
               <Link
                 to="/profile"
-                className="flex items-center gap-3 rounded-xl border border-[#1e293b]/10 bg-[#f4f7f4] px-4 py-2 transition hover:bg-[#087b45]/10 hover:border-[#087b45]/30"
+                className="flex items-center gap-3 rounded-xl border border-[var(--border-color)] bg-[var(--surface-muted)] px-4 py-2 transition hover:bg-[var(--accent)]/10 hover:border-[var(--accent)]/30"
               >
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#087b45] text-sm font-bold text-white">
-                  {initials}
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--accent)] text-sm font-bold text-white">
+                  {initials || "?"}
                 </div>
                 <div className="hidden text-left sm:block">
-                  <p className="text-sm font-semibold text-[#1e293b]">
-                    {user.lastName} {user.firstName?.[0] ?? ""}.
+                  <p className="text-sm font-semibold text-[var(--text-primary)]">
+                    {user.lastName || user.firstName || user.email}
                   </p>
-                  <p className="text-xs text-[#1e293b]/60 capitalize">
+                  <p className="text-xs text-[var(--text-secondary)] capitalize">
                     {isAdmin ? "Администратор" : "Студент"}
                   </p>
                 </div>
@@ -70,28 +74,23 @@ export default function Header() {
 
               <button
                 onClick={handleLogout}
-                className="rounded-xl p-2.5 text-[#1e293b]/60 transition hover:bg-red-50 hover:text-red-600"
+                className="rounded-xl p-2.5 text-[var(--text-secondary)] transition hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-900/30"
                 title="Выйти"
               >
                 <LogOut size={20} />
               </button>
             </>
           ) : (
-            <>
-              <Link
-                to="/login"
-                className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium text-[#1e293b]/70 transition hover:bg-[#f4f7f4] hover:text-[#1e293b]"
-              >
-                <LogIn size={18} />
-                Войти
-              </Link>
-              
-            </>
+            <Link
+              to="/login"
+              className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium text-(--text-secondary) transition hover:bg-(--surface-muted) hover:text-(--text-primary)"
+            >
+              <LogIn size={18} />
+              Войти
+            </Link>
           )}
         </div>
       </div>
     </header>
   );
 }
-
-

@@ -1,8 +1,8 @@
-"""Пароли и токены без внешних зависимостей (только stdlib).
+"""Password hashing and token lifetime helpers (stdlib only).
 
-Формат хэша: ``pbkdf2$<итераций>$<salt hex>$<hash hex>`` (HMAC-SHA256).
-Старые plaintext-записи из ранних сидов принимаются один раз при логине
-и тут же мигрируют на хэш (verify_password -> "legacy").
+Password hashes use ``pbkdf2$<iterations>$<salt hex>$<hash hex>`` with
+PBKDF2-HMAC-SHA256. Legacy plaintext values must be migrated before serving
+login requests; verification never accepts plaintext.
 """
 
 from __future__ import annotations
@@ -23,26 +23,24 @@ def hash_password(password: str) -> str:
 
 
 def verify_password(password: str, stored: str) -> str:
-    """Возвращает 'ok' | 'legacy' | 'invalid'.
-
-    'legacy' — совпал старый plaintext-хэш: вызывающий должен перезаписать
-    поле свежим hash_password и закоммитить.
-    """
+    """Return ``ok`` only for a supported PBKDF2 hash, otherwise ``invalid``."""
     if not isinstance(stored, str) or not stored:
         return "invalid"
-    if stored.startswith("pbkdf2$"):
-        try:
-            _, iters, salt_hex, hash_hex = stored.split("$")
-            expected = hashlib.pbkdf2_hmac(
-                "sha256", password.encode("utf-8"),
-                bytes.fromhex(salt_hex), int(iters),
-            )
-            return "ok" if hmac.compare_digest(expected.hex(), hash_hex) else "invalid"
-        except (ValueError, TypeError):
+    try:
+        algorithm, iterations, salt_hex, hash_hex = stored.split("$")
+        if algorithm != "pbkdf2":
             return "invalid"
-    return "legacy" if hmac.compare_digest(
-        password.encode("utf-8"), stored.encode("utf-8")
-    ) else "invalid"
+        count = int(iterations)
+        salt = bytes.fromhex(salt_hex)
+        expected_hash = bytes.fromhex(hash_hex)
+        if count < 1 or count > 2_000_000 or len(salt) < 8 or len(expected_hash) != 32:
+            return "invalid"
+        actual_hash = hashlib.pbkdf2_hmac(
+            "sha256", password.encode("utf-8"), salt, count
+        )
+        return "ok" if hmac.compare_digest(actual_hash, expected_hash) else "invalid"
+    except (ValueError, TypeError):
+        return "invalid"
 
 
 def token_ttl_days() -> int:
