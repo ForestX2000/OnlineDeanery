@@ -174,8 +174,11 @@ class AuditLogDB(Base):
 
   log_id = Column(Integer, primary_key=True, index=True)
   admin_id = Column(
-      Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False
+      Integer, ForeignKey("users.user_id", ondelete="SET NULL"), nullable=True
   )
+  admin_email = Column(String(255))
+  # Keep the target id as an audit snapshot; it intentionally has no FK.
+  target_user_id = Column(Integer)
   target_document_id = Column(
       Integer, ForeignKey("documents.document_id", ondelete="SET NULL")
   )

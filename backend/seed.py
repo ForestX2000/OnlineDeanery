@@ -8,6 +8,7 @@ from sqlalchemy import select
 
 from backend.database import AsyncSessionLocal, Base, engine
 from backend.models import UserDB, UserRole
+from backend.migrations import apply_migrations
 from backend.security import hash_password
 
 
@@ -25,7 +26,7 @@ async def seed_database() -> None:
     if not email or not password:
         raise ValueError("Для создания администратора нужны BOOTSTRAP_ADMIN_EMAIL и BOOTSTRAP_ADMIN_PASSWORD.")
     if not 8 <= len(password) <= 256:
-        raise ValueError("BOOTSTRAP_ADMIN_PASSWORD должен содержать от 12 до 256 символов.")
+        raise ValueError("BOOTSTRAP_ADMIN_PASSWORD должен содержать от 8 до 256 символов.")
     if not username or len(username) > 100:
         raise ValueError("BOOTSTRAP_ADMIN_NAME должен содержать от 1 до 100 символов.")
     try:
@@ -35,6 +36,7 @@ async def seed_database() -> None:
 
     async with engine.begin() as connection:
         await connection.run_sync(Base.metadata.create_all)
+        await connection.run_sync(apply_migrations)
 
     async with AsyncSessionLocal() as session:
         result = await session.execute(select(UserDB).where(UserDB.email == email))
