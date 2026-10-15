@@ -31,7 +31,15 @@ services:
       ML1_URL: "${ML1_URL:-http://host.docker.internal:8001/ocr}"
       ML2_URL: "${ML2_URL:-http://host.docker.internal:8003/extract}"
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
-      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://admin:super_password@db:5432/deanery}
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-super_password}@db:5432/${POSTGRES_DB:-deanery}}
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-}
+      BOOTSTRAP_ADMIN_NAME: ${BOOTSTRAP_ADMIN_NAME:-Администратор}
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-noreply@university.ru}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
@@ -116,7 +124,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-super_password}
       POSTGRES_DB: ${POSTGRES_DB:-deanery}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5433:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-admin} -d $${POSTGRES_DB:-deanery}"]
       interval: 5s
@@ -136,7 +144,7 @@ services:
       - -m
       - /models/PaddleOCR-VL-1.6.Q8_0.gguf
       - --mmproj
-      - /models/PaddleOCR-VL-1.6-GGUF-mmproj.gguf
+      - /models/PaddleOCR-VL-1.6-mmproj.gguf
       - --host
       - 0.0.0.0
       - --port

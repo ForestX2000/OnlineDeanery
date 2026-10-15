@@ -2,6 +2,7 @@ import { useState } from "react"
 import type { DocumentImage } from "../../api"
 import { matchesImageDimensions } from "../../api/highlights"
 import type { HighlightBox } from "../../api/highlights"
+import { OrientedImageFrame } from "./OrientedImageFrame"
 
 interface Props {
   imageUrl: string
@@ -28,7 +29,7 @@ export function ImageHighlight({ imageUrl, name, image, highlights, activeField,
   return (
     <figure id="document-preview" className="mb-6 space-y-2">
       <div className="neon-document-frame overflow-hidden rounded-2xl bg-[#04130a]">
-        <div className="relative">
+        <OrientedImageFrame image={image} className="relative w-full">
           <img src={imageUrl} alt={`Загруженный документ: ${name}`} className="block h-auto w-full"
             style={{ imageOrientation: "from-image" }}
             onLoad={(event) => setLoaded({ url: imageUrl, width: event.currentTarget.naturalWidth, height: event.currentTarget.naturalHeight })}
@@ -40,7 +41,7 @@ export function ImageHighlight({ imageUrl, name, image, highlights, activeField,
             const activate = () => { setActiveBox(index); onHoverField(box.field) }
             const deactivate = () => { setActiveBox(null); onHoverField(null) }
             return (
-              <button key={`${box.field ?? box.text}-${box.left}-${box.top}`} type="button" aria-label={description} title={description}
+              <button key={`${index}-${box.field ?? box.text}-${box.left}-${box.top}`} type="button" aria-label={description} title={description}
                 aria-pressed={box.field ? selectedField === box.field : undefined}
                 onMouseEnter={activate} onMouseLeave={deactivate} onFocus={activate} onBlur={deactivate}
                 onClick={() => { if (box.field) onSelectField(box.field) }}
@@ -53,7 +54,7 @@ export function ImageHighlight({ imageUrl, name, image, highlights, activeField,
               </button>
             )
           })}
-        </div>
+        </OrientedImageFrame>
       </div>
       <figcaption className="text-sm text-slate-600">
         {failedUrl === imageUrl ? "Не удалось показать фото. Загрузите документ заново." :

@@ -1,4 +1,4 @@
-﻿import os
+import os
 import time
 import uuid
 import logging
@@ -8,14 +8,13 @@ import warnings
 import secrets
 import string
 import smtplib
-import bcrypt
 from email.message import EmailMessage
 from contextlib import asynccontextmanager, contextmanager
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from io import BytesIO
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import httpx
 from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile, Depends, status
@@ -23,62 +22,24 @@ from fastapi.responses import StreamingResponse
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image, UnidentifiedImageError
-from pydantic import BaseModel, Field, JsonValue, ValidationError
+from pydantic import BaseModel, EmailStr, Field, JsonValue, ValidationError
 from pypdf import PdfReader
 from pypdf.errors import PdfReadError
-from sqlalchemy import delete, inspect, select, text
+from sqlalchemy import delete, func, inspect, select, text
 
 from backend.models import ApiModel, ApiResponse, Document, DocumentImage, ServiceAnswer
 from backend.database import engine, Base, SessionLocal
-from backend.models import UserDB, DocumentDB, ExtractedFieldDB, RuleDB, RequestDB, AuditLogDB, AuthTokenDB
-
-
-# ==== Хеширование пароля ====
-def hash_password(password: str) -> str:
-    # bcrypt принимает только первые 72 байта
-    return bcrypt.hashpw(password[:72].encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
-
-
-def verify_password(password: str, password_hash: str) -> bool:
-    try:
-        return bcrypt.checkpw(password[:72].encode("utf-8"), password_hash.encode("utf-8"))
-    except (ValueError, TypeError):
-        return False
-
-
-# ==== Автосид тестовых пользователей ====
-async def auto_seed_users():
-    """Создаёт тестовых пользователей, если БД пустая."""
-    from backend.models import UserRole
-
-    async with SessionLocal() as session:
-        result = await session.execute(select(UserDB))
-        if result.scalars().first():
-            return  # пользователи уже есть
-        users = [
-            UserDB(
-                email="student@university.ru",
-                username="Иван Студентов",
-                password_hash=hash_password("123456"),
-                role=UserRole.STUDENT.value,
-            ),
-            UserDB(
-                email="admin@university.ru",
-                username="Алексей Админов",
-                password_hash=hash_password("admin123"),
-                role=UserRole.ADMIN.value,
-            ),
-            UserDB(
-                email="test@university.ru",
-                username="Мария Петрова",
-                password_hash=hash_password("test123"),
-                role=UserRole.STUDENT.value,
-            ),
-        ]
-        session.add_all(users)
-        await session.commit()
-        logger.info("Автосид: создано %d тестовых пользователей", len(users))
-
+from backend.security import hash_password, verify_password, token_ttl_days
+from backend.models import (
+    UserDB,
+    UserRole,
+    DocumentDB,
+    ExtractedFieldDB,
+    RuleDB,
+    RequestDB,
+    AuditLogDB,
+    AuthTokenDB,
+)
 
 MAX_FILE_SIZE = 10 * 1024 * 1024
 MAX_QUESTION_LENGTH = 5000
@@ -89,6 +50,7 @@ MAX_HISTORY_MESSAGES = 20
 ALLOWED_FORMATS = {".jpg": "JPEG", ".jpeg": "JPEG", ".png": "PNG", ".pdf": "PDF"}
 MIME_TYPES = {"JPEG": "image/jpeg", "PNG": "image/png", "PDF": "application/pdf"}
 
+# Настройки URL сервисов
 ML1_URL = os.getenv("ML1_URL", "http://host.docker.internal:8001/ocr")
 ML2_URL = os.getenv("ML2_URL", "http://localhost:8003/extract")
 BACKEND2_URL = os.getenv("BACKEND2_URL", "http://localhost:8002/answer")
@@ -97,8 +59,10 @@ DOCUMENT_TYPES_URL = os.getenv(
     f"{BACKEND2_URL.rsplit('/', 1)[0]}/document-types",
 )
 logger = logging.getLogger(__name__)
+# Даём OCR-сервису завершить распознавание и оставляем время на ответ.
 INTERNAL_TIMEOUT = float(os.getenv("INTERNAL_TIMEOUT", "300"))
 
+# Настройки SMTP для отправки реальной почты
 SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
 SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
 SMTP_USER = os.getenv("SMTP_USER", "")
@@ -108,30 +72,29 @@ SMTP_FROM = os.getenv("SMTP_FROM", "noreply@university.ru")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    try:
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-
-            def ensure_request_document_type(sync_conn):
-                columns = {column["name"] for column in inspect(sync_conn).get_columns("requests")}
-                if "document_type" not in columns:
-                    sync_conn.execute(text("ALTER TABLE requests ADD COLUMN document_type VARCHAR(100)"))
-
-            await conn.run_sync(ensure_request_document_type)
-        logger.info("Таблицы БД готовы: %s", list(Base.metadata.tables.keys()))
-
-        await auto_seed_users()
-
-    except Exception as exc:
-        logger.warning("БД недоступна, работа без персистентности: %s", exc)
-
+    # БД опциональна: без DATABASE_URL/недоступного Postgres API работает на памяти сессий.
+    if engine is None:
+        logger.warning("БД не настроена (DATABASE_URL пуст), работа без персистентности")
+    else:
+        try:
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+                def ensure_request_document_type(sync_conn):
+                    columns = {column["name"] for column in inspect(sync_conn).get_columns("requests")}
+                    if "document_type" not in columns:
+                        sync_conn.execute(text("ALTER TABLE requests ADD COLUMN document_type VARCHAR(100)"))
+                await conn.run_sync(ensure_request_document_type)
+            logger.info("Таблицы БД готовы: %s", list(Base.metadata.tables.keys()))
+        except Exception as exc:
+            logger.warning("БД недоступна, работа без персистентности: %s", exc)
     async with httpx.AsyncClient(timeout=INTERNAL_TIMEOUT) as client:
         app.state.http_client = client
         yield
     sessions.clear()
     active_sessions.clear()
     try:
-        await engine.dispose()
+        if engine is not None:
+            await engine.dispose()
     except Exception:
         pass
 
@@ -152,7 +115,11 @@ async def health():
     return {"status": "ok", "sessions": len(sessions)}
 
 
+# Асинхронная зависимость для получения сессии БД
 async def get_db():
+    if SessionLocal is None:
+        yield None
+        return
     async with SessionLocal() as session:
         yield session
 
@@ -163,6 +130,8 @@ async def resolve_user(authorization: str | None, db):
     scheme, _, token = authorization.partition(" ")
     if scheme.lower() != "bearer" or not token:
         raise HTTPException(status_code=401, detail="Сессия входа истекла. Войдите в аккаунт заново.")
+    if db is None:
+        raise HTTPException(status_code=503, detail="База данных недоступна. Войдите позже.")
     token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
     result = await db.execute(
         select(UserDB).join(AuthTokenDB, AuthTokenDB.user_id == UserDB.user_id)
@@ -174,39 +143,68 @@ async def resolve_user(authorization: str | None, db):
     return user
 
 
+async def resolve_token(authorization: str | None, db):
+    """Тот же разбор Bearer, но возвращает и запись токена (для проверки TTL)."""
+    user = await resolve_user(authorization, db)
+    if user is None:
+        return None, None
+    _, _, token = (authorization or "").partition(" ")
+    token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    record = await db.get(AuthTokenDB, token_hash)
+    if record is None:
+        raise HTTPException(status_code=401, detail="Сессия входа истекла. Войдите в аккаунт заново.")
+    return user, record
+
+
+def token_expired(record) -> bool:
+    created = getattr(record, "created_at", None)
+    if created is None:
+        return False
+    now = datetime.now(timezone.utc)
+    if created.tzinfo is None:
+        created = created.replace(tzinfo=timezone.utc)
+    return (now - created).days >= token_ttl_days()
+
+
 async def get_optional_user(
     authorization: str | None = Header(default=None), db=Depends(get_db)
 ):
-    return await resolve_user(authorization, db)
+    if not authorization:
+        return None
+    user, record = await resolve_token(authorization, db)
+    if user is None:
+        return None
+    if token_expired(record):
+        await db.execute(delete(AuthTokenDB).where(AuthTokenDB.token_hash == record.token_hash))
+        await db.commit()
+        raise HTTPException(status_code=401, detail="Сессия входа истекла. Войдите в аккаунт заново.")
+    return user
 
 
 async def get_required_user(
     authorization: str | None = Header(default=None), db=Depends(get_db)
 ):
-    user = await resolve_user(authorization, db)
+    user, record = await resolve_token(authorization, db)
     if user is None:
         raise HTTPException(status_code=401, detail="Войдите в аккаунт, чтобы открыть историю запросов.")
+    if token_expired(record):
+        await db.execute(delete(AuthTokenDB).where(AuthTokenDB.token_hash == record.token_hash))
+        await db.commit()
+        raise HTTPException(status_code=401, detail="Сессия входа истекла. Войдите в аккаунт заново.")
     return user
 
 
-async def require_admin(
-    current_user: UserDB = Depends(get_required_user),
-) -> UserDB:
-    """Пускает только админов."""
-    role = current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role)
-    if role != "admin":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Требуются права администратора.",
-        )
+async def require_admin(current_user: UserDB = Depends(get_required_user)) -> UserDB:
+    role = getattr(current_user.role, "value", current_user.role)
+    if role != UserRole.ADMIN.value:
+        raise HTTPException(status_code=403, detail="Требуются права администратора.")
     return current_user
 
 
-# ==== Схемы ====
+# Схемы аутентификации и управления пользователями
 class LoginRequest(BaseModel):
-    email: str
-    password: str
-
+    email: EmailStr
+    password: str = Field(min_length=1, max_length=256)
 
 class UserResponse(BaseModel):
     email: str
@@ -219,34 +217,23 @@ class UserResponse(BaseModel):
     id: int | str = 1
     user_id: int | str = 1
 
-
 class LoginResponse(BaseModel):
     success: bool
     token: str
     user: UserResponse
 
-
 class CreateUserRequest(BaseModel):
-    email: str
-    password: str
-    username: str
-    role: str = "student"
+    email: EmailStr
+    password: str = Field(min_length=8, max_length=256)
+    username: str = Field(min_length=1, max_length=100)
+    role: Literal["student", "admin"] = "student"
 
 
 class UpdateUserRequest(BaseModel):
-    username: str | None = None
-    email: str | None = None
-    password: str | None = None
-    role: str | None = None
-
-
-class ForgotPasswordRequest(BaseModel):
-    email: str
-
-
-class MessageResponse(BaseModel):
-    success: bool
-    message: str
+    email: EmailStr | None = None
+    password: str | None = Field(default=None, min_length=8, max_length=256)
+    username: str | None = Field(default=None, min_length=1, max_length=100)
+    role: Literal["student", "admin"] | None = None
 
 
 class UserListItem(BaseModel):
@@ -256,7 +243,15 @@ class UserListItem(BaseModel):
     role: str
     created_at: datetime
 
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
 
+class MessageResponse(BaseModel):
+    success: bool
+    message: str
+
+
+# Схема чата и документов
 class ChatMessage(ApiModel):
     message: str = Field(max_length=MAX_QUESTION_LENGTH)
     conversation_id: str | None = Field(default=None, min_length=1, max_length=100)
@@ -291,12 +286,16 @@ class Session:
     history: list[dict[str, str]] = field(default_factory=list)
     document: Document | None = None
     updated_at: float = field(default_factory=time.monotonic)
+    # Владелец диалога: "user:<id>" или "anon". Чужой conversation_id
+    # не открывает чужой документ/историю (см. use_session).
+    owner: str = "anon"
 
 
 sessions: dict[str, Session] = {}
 active_sessions: set[str] = set()
 
 
+# Вспомогательная функция отправки email через SMTP
 def send_email_sync(to_email: str, subject: str, body: str):
     msg = EmailMessage()
     msg.set_content(body)
@@ -305,23 +304,25 @@ def send_email_sync(to_email: str, subject: str, body: str):
     msg["To"] = to_email
 
     if not SMTP_USER or not SMTP_PASSWORD:
-        logger.warning("SMTP credentials not set. Email simulation active (see logs).")
+        logger.warning("SMTP credentials are not set; recovery email was not sent")
         return False
 
     try:
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as server:
             server.starttls()
             server.login(SMTP_USER, SMTP_PASSWORD)
             server.send_message(msg)
         return True
     except Exception as exc:
-        logger.error(f"Failed to send email via SMTP: {exc}")
+        logger.error("Failed to send email via SMTP: %s", type(exc).__name__)
         return False
 
 
-# ==== Auth ====
+# Эндпоинты входа и управления пользователями
 @app.post("/api/auth/login", response_model=LoginResponse)
-async def login(data: LoginRequest, db=Depends(get_db)):
+async def login(data: LoginRequest, db = Depends(get_db)):
+    if db is None:
+        raise HTTPException(status_code=503, detail="База данных недоступна. Войдите позже.")
     normalized_email = data.email.lower().strip()
     result = await db.execute(select(UserDB).where(UserDB.email == normalized_email))
     user = result.scalars().first()
@@ -332,12 +333,16 @@ async def login(data: LoginRequest, db=Depends(get_db)):
             detail="Пользователь с таким email не найден. Обратитесь в деканат для регистрации учетной записи."
         )
 
-    if not verify_password(data.password, user.password_hash):
+    check = verify_password(data.password, user.password_hash)
+    if check == "invalid":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Неверный пароль. Пожалуйста, проверьте правильность ввода."
         )
-
+    if check == "legacy":
+        # Одноразовая миграция старых plaintext-записей на pbkdf2.
+        user.password_hash = hash_password(data.password)
+        await db.commit()
     name_parts = user.username.split(" ", 1)
     first_name = name_parts[0]
     last_name = name_parts[1] if len(name_parts) > 1 else ""
@@ -403,8 +408,168 @@ async def logout(
     return {"success": True, "message": "Вы вышли из аккаунта."}
 
 
+@app.post("/api/admin/users", response_model=MessageResponse)
+async def admin_create_user(
+    data: CreateUserRequest,
+    _: UserDB = Depends(require_admin),
+    db=Depends(get_db),
+):
+    if db is None:
+        raise HTTPException(status_code=503, detail="База данных недоступна. Попробуйте позже.")
+    normalized_email = data.email.lower().strip()
+    normalized_username = data.username.strip()
+    if not normalized_username:
+        raise HTTPException(status_code=422, detail="Имя пользователя не должно быть пустым.")
+
+    existing = await db.execute(select(UserDB).where(UserDB.email == normalized_email))
+    if existing.scalars().first():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Пользователь с таким email уже существует в базе деканата."
+        )
+
+    existing = await db.execute(select(UserDB).where(UserDB.username == normalized_username))
+    if existing.scalars().first():
+        raise HTTPException(status_code=400, detail="Имя пользователя уже занято.")
+
+    new_user = UserDB(
+        email=normalized_email,
+        password_hash=hash_password(data.password),
+        username=normalized_username,
+        role=UserRole(data.role).value,
+    )
+    db.add(new_user)
+    await db.commit()
+
+    return {
+        "success": True,
+        "message": f"Пользователь {normalized_email} успешно создан деканатом."
+    }
+
+
+def _user_list_item(user: UserDB) -> UserListItem:
+    return UserListItem(
+        user_id=user.user_id,
+        username=user.username,
+        email=user.email,
+        role=getattr(user.role, "value", user.role),
+        created_at=user.created_at,
+    )
+
+
+async def _admin_count(db) -> int:
+    result = await db.execute(
+        select(func.count()).select_from(UserDB).where(UserDB.role == UserRole.ADMIN.value)
+    )
+    return result.scalar_one()
+
+
+@app.get("/api/admin/users", response_model=list[UserListItem])
+async def admin_list_users(
+    _: UserDB = Depends(require_admin),
+    db=Depends(get_db),
+):
+    if db is None:
+        raise HTTPException(status_code=503, detail="База данных недоступна. Попробуйте позже.")
+    result = await db.execute(select(UserDB).order_by(UserDB.user_id))
+    return [_user_list_item(user) for user in result.scalars().all()]
+
+
+@app.get("/api/admin/users/{user_id}", response_model=UserListItem)
+async def admin_get_user(
+    user_id: int,
+    _: UserDB = Depends(require_admin),
+    db=Depends(get_db),
+):
+    if db is None:
+        raise HTTPException(status_code=503, detail="База данных недоступна. Попробуйте позже.")
+    user = await db.get(UserDB, user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="Пользователь не найден.")
+    return _user_list_item(user)
+
+
+@app.patch("/api/admin/users/{user_id}", response_model=UserListItem)
+async def admin_update_user(
+    user_id: int,
+    data: UpdateUserRequest,
+    current_admin: UserDB = Depends(require_admin),
+    db=Depends(get_db),
+):
+    if db is None:
+        raise HTTPException(status_code=503, detail="База данных недоступна. Попробуйте позже.")
+    changes = data.model_dump(exclude_unset=True)
+    if not changes:
+        raise HTTPException(status_code=400, detail="Укажите хотя бы одно поле для изменения.")
+    if any(value is None for value in changes.values()):
+        raise HTTPException(status_code=422, detail="Изменяемые поля не должны быть пустыми.")
+
+    user = await db.get(UserDB, user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="Пользователь не найден.")
+
+    if "email" in changes:
+        new_email = str(data.email).strip().lower()
+        duplicate = await db.execute(
+            select(UserDB).where(UserDB.email == new_email, UserDB.user_id != user_id)
+        )
+        if duplicate.scalars().first():
+            raise HTTPException(status_code=400, detail="Email уже занят.")
+        user.email = new_email
+
+    if "username" in changes:
+        new_username = data.username.strip()
+        if not new_username:
+            raise HTTPException(status_code=422, detail="Имя пользователя не должно быть пустым.")
+        duplicate = await db.execute(
+            select(UserDB).where(UserDB.username == new_username, UserDB.user_id != user_id)
+        )
+        if duplicate.scalars().first():
+            raise HTTPException(status_code=400, detail="Имя пользователя уже занято.")
+        user.username = new_username
+
+    if "password" in changes:
+        user.password_hash = hash_password(data.password)
+        await db.execute(delete(AuthTokenDB).where(AuthTokenDB.user_id == user_id))
+
+    if data.role == UserRole.STUDENT.value and getattr(user.role, "value", user.role) == UserRole.ADMIN.value:
+        if await _admin_count(db) <= 1:
+            raise HTTPException(status_code=400, detail="Нельзя снять роль у последнего администратора.")
+    if "role" in changes:
+        user.role = data.role
+
+    await db.commit()
+    await db.refresh(user)
+    return _user_list_item(user)
+
+
+@app.delete("/api/admin/users/{user_id}", response_model=MessageResponse)
+async def admin_delete_user(
+    user_id: int,
+    current_admin: UserDB = Depends(require_admin),
+    db=Depends(get_db),
+):
+    if db is None:
+        raise HTTPException(status_code=503, detail="База данных недоступна. Попробуйте позже.")
+    if user_id == current_admin.user_id:
+        raise HTTPException(status_code=400, detail="Нельзя удалить текущую учетную запись.")
+
+    user = await db.get(UserDB, user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="Пользователь не найден.")
+    if getattr(user.role, "value", user.role) == UserRole.ADMIN.value and await _admin_count(db) <= 1:
+        raise HTTPException(status_code=400, detail="Нельзя удалить последнего администратора.")
+
+    email = user.email
+    await db.delete(user)
+    await db.commit()
+    return {"success": True, "message": f"Пользователь {email} удалён."}
+
+
 @app.post("/api/auth/forgot-password", response_model=MessageResponse)
-async def forgot_password(data: ForgotPasswordRequest, db=Depends(get_db)):
+async def forgot_password(data: ForgotPasswordRequest, db = Depends(get_db)):
+    if db is None:
+        raise HTTPException(status_code=503, detail="База данных недоступна. Попробуйте позже.")
     normalized_email = data.email.lower().strip()
     result = await db.execute(select(UserDB).where(UserDB.email == normalized_email))
     user = result.scalars().first()
@@ -415,10 +580,9 @@ async def forgot_password(data: ForgotPasswordRequest, db=Depends(get_db)):
             detail="Указанный email не зарегистрирован в базе деканата."
         )
 
+    # Новый временный пароль (12 символов) — только в email, в логи не пишем.
     alphabet = string.ascii_letters + string.digits
-    new_password = ''.join(secrets.choice(alphabet) for _ in range(8))
-    user.password_hash = hash_password(new_password)
-    await db.commit()
+    new_password = ''.join(secrets.choice(alphabet) for _ in range(12))
 
     email_body = (
         f"Здравствуйте, {user.username}!\n\n"
@@ -427,8 +591,19 @@ async def forgot_password(data: ForgotPasswordRequest, db=Depends(get_db)):
         f"Используйте его для авторизации в системе."
     )
 
-    await run_in_threadpool(send_email_sync, normalized_email, "Восстановление пароля — Онлайн-деканат", email_body)
-    print(f"\n[NEW PERMANENT PASSWORD for {normalized_email}]: {new_password}\n")
+    user.password_hash = hash_password(new_password)
+    await db.flush()
+    sent = await run_in_threadpool(
+        send_email_sync, normalized_email, "Восстановление пароля — Онлайн-деканат", email_body
+    )
+    if not sent:
+        await db.rollback()
+        raise HTTPException(
+            status_code=503,
+            detail="Не удалось отправить письмо. Текущий пароль не изменён; обратитесь в деканат.",
+        )
+    await db.commit()
+    logger.info("Сброс пароля для %s: письмо отправлено", normalized_email)
 
     return {
         "success": True,
@@ -436,156 +611,7 @@ async def forgot_password(data: ForgotPasswordRequest, db=Depends(get_db)):
     }
 
 
-# ==== Admin: users CRUD ====
-@app.get("/api/admin/users", response_model=list[UserListItem])
-async def admin_list_users(
-    _: UserDB = Depends(require_admin),
-    db=Depends(get_db),
-):
-    result = await db.execute(select(UserDB).order_by(UserDB.user_id))
-    users = result.scalars().all()
-    return [
-        UserListItem(
-            user_id=u.user_id,
-            username=u.username,
-            email=u.email,
-            role=u.role.value if hasattr(u.role, "value") else str(u.role),
-            created_at=u.created_at,
-        )
-        for u in users
-    ]
-
-
-@app.get("/api/admin/users/{user_id}", response_model=UserListItem)
-async def admin_get_user(
-    user_id: int,
-    _: UserDB = Depends(require_admin),
-    db=Depends(get_db),
-):
-    user = await db.get(UserDB, user_id)
-    if user is None:
-        raise HTTPException(status_code=404, detail="Пользователь не найден.")
-    return UserListItem(
-        user_id=user.user_id,
-        username=user.username,
-        email=user.email,
-        role=user.role.value if hasattr(user.role, "value") else str(user.role),
-        created_at=user.created_at,
-    )
-
-
-@app.post("/api/admin/users", response_model=UserListItem, status_code=201)
-async def admin_create_user(
-    data: CreateUserRequest,
-    _: UserDB = Depends(require_admin),
-    db=Depends(get_db),
-):
-    normalized_email = data.email.lower().strip()
-    normalized_username = data.username.strip()
-
-    existing = await db.execute(select(UserDB).where(UserDB.email == normalized_email))
-    if existing.scalars().first():
-        raise HTTPException(status_code=400, detail="Email уже занят.")
-
-    existing = await db.execute(select(UserDB).where(UserDB.username == normalized_username))
-    if existing.scalars().first():
-        raise HTTPException(status_code=400, detail="Username уже занят.")
-
-    from backend.models import UserRole
-    try:
-        role_val = UserRole(data.role).value
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Недопустимая роль. Допустимо: student, admin.")
-
-    new_user = UserDB(
-        email=normalized_email,
-        username=normalized_username,
-        password_hash=hash_password(data.password),
-        role=role_val,
-    )
-
-    db.add(new_user)
-    await db.commit()
-    await db.refresh(new_user)
-
-    return UserListItem(
-        user_id=new_user.user_id,
-        username=new_user.username,
-        email=new_user.email,
-        role=new_user.role.value if hasattr(new_user.role, "value") else str(new_user.role),
-        created_at=new_user.created_at,
-    )
-
-
-@app.patch("/api/admin/users/{user_id}", response_model=UserListItem)
-async def admin_update_user(
-    user_id: int,
-    data: UpdateUserRequest,
-    _: UserDB = Depends(require_admin),
-    db=Depends(get_db),
-):
-    user = await db.get(UserDB, user_id)
-    if user is None:
-        raise HTTPException(status_code=404, detail="Пользователь не найден.")
-
-    if data.email is not None:
-        new_email = data.email.lower().strip()
-        if new_email != user.email:
-            existing = await db.execute(select(UserDB).where(UserDB.email == new_email))
-            if existing.scalars().first():
-                raise HTTPException(status_code=400, detail="Email уже занят.")
-            user.email = new_email
-
-    if data.username is not None:
-        new_username = data.username.strip()
-        if new_username != user.username:
-            existing = await db.execute(select(UserDB).where(UserDB.username == new_username))
-            if existing.scalars().first():
-                raise HTTPException(status_code=400, detail="Username уже занят.")
-            user.username = new_username
-
-    if data.password:
-        user.password_hash = hash_password(data.password)
-
-    if data.role is not None:
-        from backend.models import UserRole
-        try:
-            user.role = UserRole(data.role).value
-        except ValueError:
-            raise HTTPException(status_code=400, detail="Недопустимая роль.")
-
-    await db.commit()
-    await db.refresh(user)
-
-    return UserListItem(
-        user_id=user.user_id,
-        username=user.username,
-        email=user.email,
-        role=user.role.value if hasattr(user.role, "value") else str(user.role),
-        created_at=user.created_at,
-    )
-
-
-@app.delete("/api/admin/users/{user_id}", response_model=MessageResponse)
-async def admin_delete_user(
-    user_id: int,
-    current_user: UserDB = Depends(require_admin),
-    db=Depends(get_db),
-):
-    if user_id == current_user.user_id:
-        raise HTTPException(status_code=400, detail="Нельзя удалить самого себя.")
-
-    user = await db.get(UserDB, user_id)
-    if user is None:
-        raise HTTPException(status_code=404, detail="Пользователь не найден.")
-
-    await db.delete(user)
-    await db.commit()
-
-    return {"success": True, "message": f"Пользователь {user.email} удалён."}
-
-
-# ==== Документы ====
+# Вспомогательные функции логики документов
 def validate_question(question: str) -> str:
     question = question.strip()
     if not question:
@@ -596,7 +622,7 @@ def validate_question(question: str) -> str:
 
 
 @contextmanager
-def use_session(conversation_id: str | None):
+def use_session(conversation_id: str | None, owner: str = "anon"):
     now = time.monotonic()
     for key, session in list(sessions.items()):
         if key not in active_sessions and now - session.updated_at > SESSION_TTL_SECONDS:
@@ -605,10 +631,13 @@ def use_session(conversation_id: str | None):
         if conversation_id not in sessions:
             raise HTTPException(status_code=404, detail="Диалог не найден или срок его хранения истёк")
         session = sessions[conversation_id]
+        if session.owner != owner:
+            # Чужой диалог: отвечаем как об истёкшем, не раскрывая факта.
+            raise HTTPException(status_code=404, detail="Диалог не найден или срок его хранения истёк")
     else:
         if len(set(sessions) | active_sessions) >= MAX_SESSIONS:
             raise HTTPException(status_code=503, detail="Слишком много активных диалогов. Попробуйте позже")
-        conversation_id, session = str(uuid.uuid4()), Session()
+        conversation_id, session = str(uuid.uuid4()), Session(owner=owner)
     if conversation_id in active_sessions:
         raise HTTPException(status_code=409, detail="Дождитесь ответа на предыдущий вопрос")
     active_sessions.add(conversation_id)
@@ -641,6 +670,8 @@ def inspect_file(content: bytes, file_format: str) -> None:
             reader = PdfReader(BytesIO(content))
             if reader.is_encrypted or not reader.pages:
                 raise HTTPException(status_code=400, detail="PDF защищён или не содержит страниц")
+            if len(reader.pages) > 30:
+                raise HTTPException(status_code=400, detail="Слишком много страниц в PDF: максимум 30")
         except (PdfReadError, ValueError, OSError) as exc:
             raise HTTPException(status_code=400, detail="PDF повреждён") from exc
 
@@ -669,6 +700,8 @@ async def send_request(url: str, *, method: str = "POST", **kwargs) -> dict:
         except httpx.HTTPStatusError as exc:
             if response.status_code == 504:
                 raise HTTPException(status_code=504, detail=f"Превышено время ожидания сервиса {service}") from exc
+            # Тело upstream не пробрасываем клиенту (внутренности сервисов),
+            # только код; детали остаются в серверном логе.
             try:
                 detail = response.text[:500]
             except Exception:
@@ -676,7 +709,7 @@ async def send_request(url: str, *, method: str = "POST", **kwargs) -> dict:
             logger.warning("Сервис %s вернул %s: %s", service, response.status_code, detail)
             raise HTTPException(
                 status_code=502,
-                detail=f"{service} вернул ошибку {response.status_code}" + (f": {detail}" if detail else ""),
+                detail=f"{service} вернул ошибку {response.status_code}",
             ) from exc
         result = response.json()
     except httpx.TimeoutException as exc:
@@ -754,7 +787,7 @@ async def get_answer(question: str, conversation_id: str, session: Session,
 async def begin_request_record(
     db, user: UserDB | None, question: str, document_type: str | None = None
 ) -> int | None:
-    if user is None:
+    if user is None or db is None:
         return None
     record = RequestDB(user_id=user.user_id, question_text=question,
                        document_type=document_type, status="processing")
@@ -768,7 +801,7 @@ async def finish_request_record(
     db, request_id: int | None, status_value: str, answer: str | None = None,
     document_type: str | None = None,
 ) -> None:
-    if request_id is None:
+    if request_id is None or db is None:
         return
     record = await db.get(RequestDB, request_id)
     if record is None:
@@ -784,8 +817,14 @@ async def finish_request_record_in_new_session(
     request_id: int | None, status_value: str, answer: str | None = None,
     document_type: str | None = None,
 ) -> None:
+    if request_id is None or SessionLocal is None:
+        return
     async with SessionLocal() as history_db:
         await finish_request_record(history_db, request_id, status_value, answer, document_type)
+
+# Эндпоинты чата и анализа
+def session_owner(user: UserDB | None) -> str:
+    return f"user:{user.user_id}" if user is not None else "anon"
 
 
 @app.post("/chat", response_model=ApiResponse)
@@ -797,7 +836,7 @@ async def chat(
     question = validate_question(data.message)
     request_id = await begin_request_record(db, current_user, question)
     try:
-        with use_session(data.conversation_id) as (conversation_id, session):
+        with use_session(data.conversation_id, session_owner(current_user)) as (conversation_id, session):
             result = await get_answer(question, conversation_id, session, session.document)
         await finish_request_record(db, request_id, "resolved", result.answer)
         return result
@@ -821,7 +860,7 @@ async def analyze(
         type_definition = await get_document_type_definition(document_type)
         request_id = await begin_request_record(db, current_user, question, document_type)
         try:
-            with use_session(conversation_id) as (conversation_id, session):
+            with use_session(conversation_id, session_owner(current_user)) as (conversation_id, session):
                 content, mime = await validate_file(file)
                 ocr_options = {"files": {
                     "file": (Path(file.filename).name, content, mime),
@@ -875,7 +914,7 @@ async def analyze_stream(
 
     async def event_stream():
         try:
-            with use_session(conversation_id) as (active_conversation_id, session):
+            with use_session(conversation_id, session_owner(current_user)) as (active_conversation_id, session):
                 yield encode_event({"type": "progress", "stage": "ocr"})
                 content, mime = await validate_file(file)
                 ocr_options = {"files": {

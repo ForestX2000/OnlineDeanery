@@ -1,8 +1,11 @@
 import json
+import logging
 import os
 import re
 
 import requests
+
+logger = logging.getLogger(__name__)
 
 LLM_URL = os.getenv("LLM_URL", "")
 # CPU LLM (Qwen 1-2 мин/запрос) вешает /analyze: короткий таймаут + fallback на regex.
@@ -62,6 +65,6 @@ def fix_fields_with_llm(ocr_text: str, doc_type: str, fields: dict) -> dict | No
         result = json.loads(m.group(0))
         # оставляем только те поля, которые просили исправить
         return {k: v for k, v in result.items() if k in fields}
-    except Exception as e:
-        print(f"[WARN] LLM недоступна ({e}), fallback на regex")
+    except Exception as exc:
+        logger.warning("LLM недоступна (%s), используем regex", type(exc).__name__)
         return None
