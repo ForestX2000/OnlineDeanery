@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 from sqlalchemy import (
+    Boolean,
     JSON,
     TIMESTAMP,
     Column,
@@ -13,6 +14,7 @@ from sqlalchemy import (
     String,
     Text,
     func,
+    text,
 )
 from sqlalchemy.orm import relationship
 from backend.database import Base
@@ -72,6 +74,9 @@ class UserDB(Base):
   username = Column(String(100), unique=True, nullable=False)
   email = Column(String(255), unique=True, nullable=False)
   password_hash = Column(String(255), nullable=False)
+  is_bootstrap_admin = Column(
+      Boolean, default=False, server_default=text("false"), nullable=False
+  )
   role = Column(
       String(50), default="student", nullable=False
   )  # 'student', 'admin'

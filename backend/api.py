@@ -660,6 +660,8 @@ async def admin_delete_user(
     user = await db.get(UserDB, user_id)
     if user is None:
         raise HTTPException(status_code=404, detail="Пользователь не найден.")
+    if user.is_bootstrap_admin:
+        raise HTTPException(status_code=400, detail="Нельзя удалить первоначального администратора.")
     if getattr(user.role, "value", user.role) == UserRole.ADMIN.value and admin_count <= 1:
         raise HTTPException(status_code=400, detail="Нельзя удалить последнего администратора.")
 
