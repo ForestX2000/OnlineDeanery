@@ -1,4 +1,3 @@
-
 export interface LoginResponse {
   success: boolean;
   token: string;
@@ -106,14 +105,14 @@ export const mockApi = {
         email: data.email,
         firstName: data.firstName,
         lastName: data.lastName,
-        role: "student", // Новые пользователи по умолчанию получают роль студента
+        role: "student", 
       },
     };
   },
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async analyzeDocument(_file: File, docType: string, _question: string): Promise<AnalyzeResponse> {
-    await delay(2500); // Имитируем "тяжелую" обработку ИИ
+    await delay(2500); 
 
     if (docType === "study_certificate") {
       return {
