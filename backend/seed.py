@@ -24,7 +24,7 @@ async def seed_database() -> None:
         return
     if not email or not password:
         raise ValueError("Для создания администратора нужны BOOTSTRAP_ADMIN_EMAIL и BOOTSTRAP_ADMIN_PASSWORD.")
-    if not 12 <= len(password) <= 256:
+    if not 8 <= len(password) <= 256:
         raise ValueError("BOOTSTRAP_ADMIN_PASSWORD должен содержать от 12 до 256 символов.")
     if not username or len(username) > 100:
         raise ValueError("BOOTSTRAP_ADMIN_NAME должен содержать от 1 до 100 символов.")

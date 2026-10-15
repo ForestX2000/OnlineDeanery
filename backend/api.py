@@ -224,14 +224,14 @@ class LoginResponse(BaseModel):
 
 class CreateUserRequest(BaseModel):
     email: EmailStr
-    password: str = Field(min_length=12, max_length=256)
+    password: str = Field(min_length=8, max_length=256)
     username: str = Field(min_length=1, max_length=100)
     role: Literal["student", "admin"] = "student"
 
 
 class UpdateUserRequest(BaseModel):
     email: EmailStr | None = None
-    password: str | None = Field(default=None, min_length=12, max_length=256)
+    password: str | None = Field(default=None, min_length=8, max_length=256)
     username: str | None = Field(default=None, min_length=1, max_length=100)
     role: Literal["student", "admin"] | None = None
 
