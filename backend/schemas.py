@@ -15,9 +15,6 @@ class LoginResponse(BaseModel):
     token: str
     user: UserResponse
 
-class ForgotPasswordRequest(BaseModel):
-    email: EmailStr
-
 class MessageResponse(BaseModel):
     success: bool
     message: str
