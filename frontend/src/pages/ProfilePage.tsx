@@ -470,9 +470,6 @@ export default function ProfilePage() {
               {creatingUser ? "Создание..." : "Создать пользователя"}
             </button>
           </form>
-
-          {/* Таблица пользователей */}
-          {/* Таблица пользователей */}
           <div className="mt-8 border-t border-[var(--border-color)] pt-6">
             <h3 className="mb-4 text-lg font-semibold text-[var(--text-primary)]">
               Зарегистрированные пользователи
@@ -497,7 +494,6 @@ export default function ProfilePage() {
                 <table className="min-w-full divide-y divide-[var(--border-color)]">
                   <thead className="bg-[var(--surface-muted)]">
                     <tr>
-                      {/* 👇 ИЗМЕНЕНИЕ 1: Заменили "ID" на "№" */}
                       <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
                         №
                       </th>
@@ -516,7 +512,6 @@ export default function ProfilePage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[var(--border-color)] bg-[var(--surface)]">
-                    {/* 👇 ИЗМЕНЕНИЕ 2: Добавили index в map и выводим index + 1 */}
                     {visibleUsers.map((u, index) => (
                       <tr
                         key={u.user_id}
@@ -570,7 +565,6 @@ export default function ProfilePage() {
         </section>
       )}
 
-      {/* История запросов */}
       <section className="space-y-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -762,7 +756,6 @@ export default function ProfilePage() {
         )}
       </section>
 
-      {/* МОДАЛЬНЫЕ ОКНА */}
       {editingUser && (
         <EditUserModal
           user={editingUser}
