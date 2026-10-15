@@ -5,7 +5,7 @@ import { isDocumentImage } from "./highlights.ts"
 export * from "./types.ts"
 
 const API_URL = (import.meta.env?.VITE_API_URL ?? "http://localhost:8000").replace(/\/+$/, "")
-// Два прохода OCR могут занять до 270 секунд плюс последующий анализ.
+
 const REQUEST_TIMEOUT_MS = 390_000
 
 export class ApiError extends Error {
@@ -345,25 +345,6 @@ export async function getDocumentTypes(): Promise<DocumentTypeOption[]> {
     clearTimeout(timer)
   }
 }
-
-export async function forgotPasswordRequest(email: string): Promise<string> {
-  const trimmed = email.trim()
-  if (!trimmed) throw new ApiError("Введите email")
-  const body = await authRequest("/api/auth/forgot-password", { email: trimmed })
-  if (!isRecord(body) || typeof body.message !== "string") {
-    throw new ApiError("Сервер вернул некорректный ответ", 502)
-  }
-  return body.message
-}
-// ==========================================
-// РЕДАКТИРОВАНИЕ И УДАЛЕНИЕ ПОЛЬЗОВАТЕЛЕЙ
-// ==========================================
-
-// ==========================================
-// АДМИНСКИЕ ФУНКЦИИ
-// ==========================================
-
-// Интерфейс пользователя (должен быть ПЕРЕД функциями)
 export interface AdminUser {
   user_id: number;
   username: string;
@@ -372,7 +353,7 @@ export interface AdminUser {
   created_at: string;
 }
 
-// Интерфейс для создания пользователя
+//  для создания пользователя
 export interface CreateUserRequest {
   email: string;
   password: string;
@@ -380,7 +361,7 @@ export interface CreateUserRequest {
   role: "student" | "admin";
 }
 
-// Интерфейс созданного пользователя
+// созданный пользователь
 export interface CreatedUser {
   user_id: number;
   username: string;
@@ -478,13 +459,11 @@ export async function updateUser(
   return result as AdminUser;
 }
 
-// Интерфейс ответа при удалении
 export interface DeleteUserResponse {
   success: boolean;
   message: string;
 }
 
-// Функция удаления пользователя
 export async function deleteUser(
   userId: number,
   token: string

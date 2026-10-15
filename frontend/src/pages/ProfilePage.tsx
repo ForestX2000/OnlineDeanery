@@ -90,7 +90,9 @@ export default function ProfilePage() {
   const isAdmin = user?.role === "admin";
   const currentUserEmail = user?.email;
   const visibleUsers = users.filter((u) => u.email !== currentUserEmail);
-  const currentUserId = users.find((u) => u.email === currentUserEmail)?.user_id;
+  const currentUserId = users.find(
+    (u) => u.email === currentUserEmail,
+  )?.user_id;
 
   const displayName =
     [user?.firstName, user?.lastName].filter(Boolean).join(" ") ||
@@ -120,7 +122,9 @@ export default function ProfilePage() {
       }
     }
     void loadHistory();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [user, token]);
 
   useEffect(() => {
@@ -129,10 +133,14 @@ export default function ProfilePage() {
       try {
         const result = await getDocumentTypes();
         if (!cancelled) setDocumentTypes(result);
-      } catch { /* История останется доступной */ }
+      } catch {
+        /* История останется доступной */
+      }
     }
     void loadDocumentTypes();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -155,24 +163,38 @@ export default function ProfilePage() {
       }
     }
     void loadUsers();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [isAdmin, token]);
 
   const filteredHistory = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
     return history.filter((item) => {
-      const matchesStatus = statusFilter === "all" || item.status === statusFilter;
-      const matchesCategory = categoryFilter === "all" || item.document_type === categoryFilter;
+      const matchesStatus =
+        statusFilter === "all" || item.status === statusFilter;
+      const matchesCategory =
+        categoryFilter === "all" || item.document_type === categoryFilter;
       const searchableText = [
-        item.question, item.answer, item.document_type, item.user_name, item.user_email,
-      ].filter(Boolean).join(" ").toLowerCase();
-      const matchesSearch = !normalizedSearch || searchableText.includes(normalizedSearch);
+        item.question,
+        item.answer,
+        item.document_type,
+        item.user_name,
+        item.user_email,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      const matchesSearch =
+        !normalizedSearch || searchableText.includes(normalizedSearch);
       return matchesStatus && matchesCategory && matchesSearch;
     });
   }, [history, search, statusFilter, categoryFilter]);
 
   const stats = useMemo(() => {
-    const resolved = history.filter((item) => item.status === "resolved").length;
+    const resolved = history.filter(
+      (item) => item.status === "resolved",
+    ).length;
     const failed = history.filter((item) => item.status === "failed").length;
     return { total: history.length, resolved, failed };
   }, [history]);
@@ -204,19 +226,24 @@ export default function ProfilePage() {
             password,
             role: newRole,
           }),
-        }
+        },
       );
 
       const responseText = await response.text();
       let responseData: unknown = null;
       if (responseText) {
-        try { responseData = JSON.parse(responseText); }
-        catch { responseData = responseText; }
+        try {
+          responseData = JSON.parse(responseText);
+        } catch {
+          responseData = responseText;
+        }
       }
 
       if (!response.ok) {
         const message =
-          typeof responseData === "object" && responseData !== null && "detail" in responseData
+          typeof responseData === "object" &&
+          responseData !== null &&
+          "detail" in responseData
             ? String(responseData.detail)
             : typeof responseData === "string" && responseData
               ? responseData
@@ -271,7 +298,9 @@ export default function ProfilePage() {
           <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
           <div>
             <h2 className="font-semibold">Требуется авторизация</h2>
-            <p className="mt-1 text-sm">Сессия отсутствует или истекла. Войдите в аккаунт.</p>
+            <p className="mt-1 text-sm">
+              Сессия отсутствует или истекла. Войдите в аккаунт.
+            </p>
             <button
               type="button"
               onClick={() => navigate("/login")}
@@ -287,7 +316,6 @@ export default function ProfilePage() {
 
   return (
     <main className="mx-auto max-w-6xl space-y-8 px-4 py-8 sm:px-6 lg:px-8">
-      {/* Заголовок профиля */}
       <section className="rounded-2xl border border-(--border-color) bg-(--surface) p-6 shadow-sm">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">
@@ -295,7 +323,9 @@ export default function ProfilePage() {
               <ShieldCheck className="h-7 w-7" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-(--text-primary)">Личный кабинет</h1>
+              <h1 className="text-2xl font-bold text-(--text-primary)">
+                Личный кабинет
+              </h1>
               <p className="mt-1 text-(--text-secondary)">{displayName}</p>
               <p className="mt-1 flex items-center gap-2 text-sm text-(--text-secondary)">
                 <Mail className="h-4 w-4" />
@@ -308,20 +338,30 @@ export default function ProfilePage() {
           </span>
         </div>
       </section>
-
-      {/* Статистика (только для админа) */}
       {isAdmin && (
         <section>
-          <h2 className="mb-4 text-xl font-semibold text-(--text-primary)">Статистика запросов</h2>
+          <h2 className="mb-4 text-xl font-semibold text-(--text-primary)">
+            Статистика запросов
+          </h2>
           <div className="grid gap-4 sm:grid-cols-3">
-            <StatCard title="Всего запросов" value={stats.total} className="bg-(--accent)/10 text-(--accent)" />
-            <StatCard title="Успешных" value={stats.resolved} className="bg-(--accent)/10 text-(--accent)" />
-            <StatCard title="С ошибками" value={stats.failed} className="bg-rose-50 text-rose-700 dark:bg-rose-900/20 dark:text-rose-400" />
+            <StatCard
+              title="Всего запросов"
+              value={stats.total}
+              className="bg-(--accent)/10 text-(--accent)"
+            />
+            <StatCard
+              title="Успешных"
+              value={stats.resolved}
+              className="bg-(--accent)/10 text-(--accent)"
+            />
+            <StatCard
+              title="С ошибками"
+              value={stats.failed}
+              className="bg-rose-50 text-rose-700 dark:bg-rose-900/20 dark:text-rose-400"
+            />
           </div>
         </section>
       )}
-
-      {/* Управление пользователями (только для админа) */}
       {isAdmin && (
         <section className="rounded-2xl border border-[var(--border-color)] bg-[var(--surface)] p-6 shadow-sm">
           <div className="mb-5 flex items-center gap-3">
@@ -329,8 +369,12 @@ export default function ProfilePage() {
               <UserPlus className="h-5 w-5" />
             </div>
             <div>
-              <h2 className="text-xl font-semibold text-[var(--text-primary)]">Управление пользователями</h2>
-              <p className="mt-1 text-sm text-[var(--text-secondary)]">Добавление, редактирование и удаление пользователей</p>
+              <h2 className="text-xl font-semibold text-[var(--text-primary)]">
+                Управление пользователями
+              </h2>
+              <p className="mt-1 text-sm text-[var(--text-secondary)]">
+                Добавление, редактирование и удаление пользователей
+              </p>
             </div>
           </div>
 
@@ -386,19 +430,29 @@ export default function ProfilePage() {
             </div>
 
             {createError && (
-              <div role="alert" className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700 dark:border-rose-800 dark:bg-rose-900/20 dark:text-rose-400">
+              <div
+                role="alert"
+                className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700 dark:border-rose-800 dark:bg-rose-900/20 dark:text-rose-400"
+              >
                 <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                 <span>{createError}</span>
               </div>
             )}
 
             {createSuccess && (
-              <div role="status" className="flex items-start gap-2 rounded-lg border border-[var(--accent)]/20 bg-[var(--accent)]/10 p-3 text-sm text-[var(--accent)]">
+              <div
+                role="status"
+                className="flex items-start gap-2 rounded-lg border border-[var(--accent)]/20 bg-[var(--accent)]/10 p-3 text-sm text-[var(--accent)]"
+              >
                 <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
                 <div>
                   <p className="font-semibold">Пользователь создан</p>
-                  <p className="mt-1">{createSuccess.username} — {createSuccess.email}</p>
-                  <p className="mt-1">Роль: {createSuccess.role}. ID: {createSuccess.user_id}</p>
+                  <p className="mt-1">
+                    {createSuccess.username} — {createSuccess.email}
+                  </p>
+                  <p className="mt-1">
+                    Роль: {createSuccess.role}. ID: {createSuccess.user_id}
+                  </p>
                 </div>
               </div>
             )}
@@ -408,14 +462,21 @@ export default function ProfilePage() {
               disabled={creatingUser}
               className="inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--accent)] px-5 py-2.5 font-medium text-white transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {creatingUser ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
+              {creatingUser ? (
+                <LoaderCircle className="h-4 w-4 animate-spin" />
+              ) : (
+                <UserPlus className="h-4 w-4" />
+              )}
               {creatingUser ? "Создание..." : "Создать пользователя"}
             </button>
           </form>
 
           {/* Таблица пользователей */}
+          {/* Таблица пользователей */}
           <div className="mt-8 border-t border-[var(--border-color)] pt-6">
-            <h3 className="mb-4 text-lg font-semibold text-[var(--text-primary)]">Зарегистрированные пользователи</h3>
+            <h3 className="mb-4 text-lg font-semibold text-[var(--text-primary)]">
+              Зарегистрированные пользователи
+            </h3>
 
             {usersLoading ? (
               <div className="flex items-center justify-center gap-2 rounded-xl border border-[var(--border-color)] bg-[var(--surface-muted)] p-6 text-[var(--text-secondary)]">
@@ -436,25 +497,48 @@ export default function ProfilePage() {
                 <table className="min-w-full divide-y divide-[var(--border-color)]">
                   <thead className="bg-[var(--surface-muted)]">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">ID</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">Имя</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">Email</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">Роль</th>
-                      <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">Действия</th>
+                      {/* 👇 ИЗМЕНЕНИЕ 1: Заменили "ID" на "№" */}
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+                        №
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+                        Имя
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+                        Email
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+                        Роль
+                      </th>
+                      <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+                        Действия
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[var(--border-color)] bg-[var(--surface)]">
-                    {visibleUsers.map((u) => (
-                      <tr key={u.user_id} className="transition-colors hover:bg-[var(--surface-muted)]">
-                        <td className="whitespace-nowrap px-4 py-3 text-sm text-[var(--text-secondary)]">#{u.user_id}</td>
-                        <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-[var(--text-primary)]">{u.username}</td>
-                        <td className="whitespace-nowrap px-4 py-3 text-sm text-[var(--text-secondary)]">{u.email}</td>
+                    {/* 👇 ИЗМЕНЕНИЕ 2: Добавили index в map и выводим index + 1 */}
+                    {visibleUsers.map((u, index) => (
+                      <tr
+                        key={u.user_id}
+                        className="transition-colors hover:bg-[var(--surface-muted)]"
+                      >
+                        <td className="whitespace-nowrap px-4 py-3 text-sm text-[var(--text-secondary)]">
+                          {index + 1}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-[var(--text-primary)]">
+                          {u.username}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3 text-sm text-[var(--text-secondary)]">
+                          {u.email}
+                        </td>
                         <td className="whitespace-nowrap px-4 py-3 text-sm">
-                          <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                            u.role === "admin" 
-                              ? "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400" 
-                              : "bg-[var(--accent)]/10 text-[var(--accent)]"
-                          }`}>
+                          <span
+                            className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                              u.role === "admin"
+                                ? "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400"
+                                : "bg-[var(--accent)]/10 text-[var(--accent)]"
+                            }`}
+                          >
                             {u.role === "admin" ? "Админ" : "Студент"}
                           </span>
                         </td>
@@ -490,8 +574,12 @@ export default function ProfilePage() {
       <section className="space-y-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-xl font-semibold text-[var(--text-primary)]">История запросов</h2>
-            <p className="mt-1 text-sm text-[var(--text-secondary)]">Все ваши обращения и результаты обработки документов</p>
+            <h2 className="text-xl font-semibold text-[var(--text-primary)]">
+              История запросов
+            </h2>
+            <p className="mt-1 text-sm text-[var(--text-secondary)]">
+              Все ваши обращения и результаты обработки документов
+            </p>
           </div>
           <button
             type="button"
@@ -533,7 +621,9 @@ export default function ProfilePage() {
           >
             <option value="all">Все типы документов</option>
             {documentTypes.map((type) => (
-              <option key={type.id} value={type.label}>{type.label}</option>
+              <option key={type.id} value={type.label}>
+                {type.label}
+              </option>
             ))}
           </select>
         </div>
@@ -544,7 +634,10 @@ export default function ProfilePage() {
             Загружаем историю запросов...
           </div>
         ) : error ? (
-          <div role="alert" className="flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-rose-700 dark:border-rose-800 dark:bg-rose-900/20 dark:text-rose-400">
+          <div
+            role="alert"
+            className="flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-rose-700 dark:border-rose-800 dark:bg-rose-900/20 dark:text-rose-400"
+          >
             <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
             <div>
               <p className="font-semibold">Не удалось загрузить историю</p>
@@ -554,8 +647,12 @@ export default function ProfilePage() {
         ) : filteredHistory.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-[var(--border-color)] bg-[var(--surface)] p-10 text-center">
             <FileText className="mx-auto h-10 w-10 text-[var(--text-secondary)]" />
-            <h3 className="mt-3 font-semibold text-[var(--text-primary)]">Запросы не найдены</h3>
-            <p className="mt-1 text-sm text-[var(--text-secondary)]">Попробуйте изменить фильтры или выполнить новый запрос.</p>
+            <h3 className="mt-3 font-semibold text-[var(--text-primary)]">
+              Запросы не найдены
+            </h3>
+            <p className="mt-1 text-sm text-[var(--text-secondary)]">
+              Попробуйте изменить фильтры или выполнить новый запрос.
+            </p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -563,30 +660,53 @@ export default function ProfilePage() {
               const expanded = expandedRequest === item.request_id;
               const succeeded = item.status === "resolved";
               return (
-                <article key={item.request_id} className="overflow-hidden rounded-2xl border border-[var(--border-color)] bg-[var(--surface)] shadow-sm">
+                <article
+                  key={item.request_id}
+                  className="overflow-hidden rounded-2xl border border-[var(--border-color)] bg-[var(--surface)] shadow-sm"
+                >
                   <button
                     type="button"
-                    onClick={() => setExpandedRequest(expanded ? null : item.request_id)}
+                    onClick={() =>
+                      setExpandedRequest(expanded ? null : item.request_id)
+                    }
                     aria-expanded={expanded}
                     className="flex w-full items-center justify-between gap-4 p-4 text-left transition hover:bg-[var(--surface-muted)] sm:p-5"
                   >
                     <div className="flex min-w-0 items-start gap-3">
-                      <div className={`mt-0.5 rounded-xl p-2 ${succeeded ? "bg-[var(--accent)]/10 text-[var(--accent)]" : "bg-rose-50 text-rose-700 dark:bg-rose-900/20 dark:text-rose-400"}`}>
-                        {succeeded ? <CheckCircle2 className="h-5 w-5" /> : <AlertCircle className="h-5 w-5" />}
+                      <div
+                        className={`mt-0.5 rounded-xl p-2 ${succeeded ? "bg-[var(--accent)]/10 text-[var(--accent)]" : "bg-rose-50 text-rose-700 dark:bg-rose-900/20 dark:text-rose-400"}`}
+                      >
+                        {succeeded ? (
+                          <CheckCircle2 className="h-5 w-5" />
+                        ) : (
+                          <AlertCircle className="h-5 w-5" />
+                        )}
                       </div>
                       <div className="min-w-0">
-                        <h3 className="font-semibold text-[var(--text-primary)]">{item.document_type || "Запрос"}</h3>
-                        <p className="mt-1 line-clamp-2 text-sm text-[var(--text-secondary)]">{item.question || "Без текста запроса"}</p>
-                        <p className="mt-2 text-xs text-[var(--text-secondary)]">{formatDate(item.created_at)}</p>
+                        <h3 className="font-semibold text-[var(--text-primary)]">
+                          {item.document_type || "Запрос"}
+                        </h3>
+                        <p className="mt-1 line-clamp-2 text-sm text-[var(--text-secondary)]">
+                          {item.question || "Без текста запроса"}
+                        </p>
+                        <p className="mt-2 text-xs text-[var(--text-secondary)]">
+                          {formatDate(item.created_at)}
+                        </p>
                       </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
-                      <span className={`hidden rounded-full px-2.5 py-1 text-xs font-medium sm:inline-flex ${
-                        succeeded ? "bg-[var(--accent)]/10 text-[var(--accent)]" : "bg-rose-50 text-rose-700 dark:bg-rose-900/20 dark:text-rose-400"
-                      }`}>
+                      <span
+                        className={`hidden rounded-full px-2.5 py-1 text-xs font-medium sm:inline-flex ${
+                          succeeded
+                            ? "bg-[var(--accent)]/10 text-[var(--accent)]"
+                            : "bg-rose-50 text-rose-700 dark:bg-rose-900/20 dark:text-rose-400"
+                        }`}
+                      >
                         {succeeded ? "Успешно" : "Ошибка"}
                       </span>
-                      <ChevronDown className={`h-5 w-5 text-[var(--text-secondary)] transition-transform ${expanded ? "rotate-180" : ""}`} />
+                      <ChevronDown
+                        className={`h-5 w-5 text-[var(--text-secondary)] transition-transform ${expanded ? "rotate-180" : ""}`}
+                      />
                     </div>
                   </button>
 
@@ -595,22 +715,38 @@ export default function ProfilePage() {
                       {isAdmin && (
                         <div className="grid gap-2 text-sm sm:grid-cols-2">
                           <p className="text-[var(--text-secondary)]">
-                            <span className="font-medium text-[var(--text-primary)]">Пользователь:</span> {item.user_name || "Не указан"}
+                            <span className="font-medium text-[var(--text-primary)]">
+                              Пользователь:
+                            </span>{" "}
+                            {item.user_name || "Не указан"}
                           </p>
                           <p className="text-[var(--text-secondary)]">
-                            <span className="font-medium text-[var(--text-primary)]">Email:</span> {item.user_email || "Не указан"}
+                            <span className="font-medium text-[var(--text-primary)]">
+                              Email:
+                            </span>{" "}
+                            {item.user_email || "Не указан"}
                           </p>
                         </div>
                       )}
                       <div>
-                        <h4 className="text-sm font-semibold text-[var(--text-primary)]">Запрос</h4>
-                        <p className="mt-1 whitespace-pre-wrap text-sm text-[var(--text-secondary)]">{item.question || "Нет текста запроса"}</p>
+                        <h4 className="text-sm font-semibold text-[var(--text-primary)]">
+                          Запрос
+                        </h4>
+                        <p className="mt-1 whitespace-pre-wrap text-sm text-[var(--text-secondary)]">
+                          {item.question || "Нет текста запроса"}
+                        </p>
                       </div>
                       <div>
-                        <h4 className="text-sm font-semibold text-[var(--text-primary)]">Ответ системы</h4>
-                        <p className="mt-1 whitespace-pre-wrap text-sm text-[var(--text-secondary)]">{item.answer || "Ответ отсутствует"}</p>
+                        <h4 className="text-sm font-semibold text-[var(--text-primary)]">
+                          Ответ системы
+                        </h4>
+                        <p className="mt-1 whitespace-pre-wrap text-sm text-[var(--text-secondary)]">
+                          {item.answer || "Ответ отсутствует"}
+                        </p>
                       </div>
-                      <p className="text-xs text-[var(--text-secondary)]">ID запроса: {item.request_id}</p>
+                      <p className="text-xs text-[var(--text-secondary)]">
+                        ID запроса: {item.request_id}
+                      </p>
                     </div>
                   )}
                 </article>
@@ -648,16 +784,32 @@ export default function ProfilePage() {
   );
 }
 
-function StatCard({ title, value, className }: { title: string; value: number; className: string }) {
+function StatCard({
+  title,
+  value,
+  className,
+}: {
+  title: string;
+  value: number;
+  className: string;
+}) {
   return (
-    <div className={`rounded-2xl border border-(--border-color) bg-(--surface) p-5 shadow-sm ${className}`}>
+    <div
+      className={`rounded-2xl border border-(--border-color) bg-(--surface) p-5 shadow-sm ${className}`}
+    >
       <p className="text-sm text-(--text-secondary)">{title}</p>
       <p className="mt-2 text-3xl font-bold">{value}</p>
     </div>
   );
 }
 
-function FormField({ label, children }: { label: string; children: React.ReactNode }) {
+function FormField({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
     <label className="block space-y-1.5">
       <span className="text-sm font-medium text-(--text-primary)">{label}</span>
