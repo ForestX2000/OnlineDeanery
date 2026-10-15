@@ -5,6 +5,7 @@ tables belong in a numbered migration below and are recorded in
 ``schema_migrations`` so they run once per database.
 """
 
+import os
 from collections.abc import Callable
 
 from sqlalchemy import inspect, text
@@ -56,9 +57,26 @@ def _preserve_admin_audit(connection: Connection) -> None:
     ))
 
 
+def _protect_bootstrap_admin(connection: Connection) -> None:
+    connection.execute(text(
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS "
+        "is_bootstrap_admin BOOLEAN NOT NULL DEFAULT FALSE"
+    ))
+    bootstrap_email = os.getenv("BOOTSTRAP_ADMIN_EMAIL", "").strip().lower()
+    if bootstrap_email:
+        connection.execute(
+            text(
+                "UPDATE users SET is_bootstrap_admin = TRUE "
+                "WHERE lower(email) = :email"
+            ),
+            {"email": bootstrap_email},
+        )
+
+
 MIGRATIONS: tuple[tuple[int, Callable[[Connection], None]], ...] = (
     (1, _ensure_request_document_type),
     (2, _preserve_admin_audit),
+    (3, _protect_bootstrap_admin),
 )
 
 

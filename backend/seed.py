@@ -45,6 +45,9 @@ async def seed_database() -> None:
             role = getattr(existing.role, "value", existing.role)
             if role != UserRole.ADMIN.value:
                 raise ValueError("BOOTSTRAP_ADMIN_EMAIL уже занят пользователем без роли admin.")
+            if not existing.is_bootstrap_admin:
+                existing.is_bootstrap_admin = True
+                await session.commit()
             print("Начальный администратор уже существует; пароль не изменён.")
             return
 
@@ -53,6 +56,7 @@ async def seed_database() -> None:
             username=username,
             password_hash=hash_password(password),
             role=UserRole.ADMIN.value,
+            is_bootstrap_admin=True,
         ))
         await session.commit()
         print("Начальный администратор создан.")
