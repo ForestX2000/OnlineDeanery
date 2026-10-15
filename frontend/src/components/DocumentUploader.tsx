@@ -11,6 +11,7 @@ import {
   Trash2,
   UploadCloud,
   AlertCircle,
+ 
 } from "lucide-react";
 
 import { useAppStore } from "../store/useAppStore";
@@ -140,6 +141,7 @@ export default function DocumentUploader() {
       setIsLoading(false);
     }
   };
+
   const removeFile = () => {
     setFile(null);
     setError("");
@@ -155,16 +157,16 @@ export default function DocumentUploader() {
   return (
     <div className="mx-auto max-w-4xl px-5 py-10 sm:px-8 sm:py-14">
       <div className="mb-8">
-        <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-emerald-100 bg-white px-3 py-1.5 text-sm font-medium text-[#087b45]">
-          <span className="h-2 w-2 rounded-full bg-[#159957]" />
+        <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-(--accent)/20 bg-(--surface) px-3 py-1.5 text-sm font-medium text-(--accent)">
+          <span className="h-2 w-2 rounded-full bg-(--accent)" />
           Помощник по документам
         </div>
 
-        <h1 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
+        <h1 className="text-3xl font-bold tracking-tight text-(--text-primary) sm:text-4xl">
           Задайте вопрос
         </h1>
 
-        <p className="mt-3 max-w-2xl text-base leading-7 text-slate-600">
+        <p className="mt-3 max-w-2xl text-base leading-7 text-(--text-secondary)">
           Задайте вопрос и при необходимости приложите документ. Система поможет
           разобрать содержание документа и подготовить ответ.
         </p>
@@ -174,14 +176,14 @@ export default function DocumentUploader() {
         {/* Шаг 1: Тип документа */}
         <div>
           <div className="mb-3 flex items-center gap-3">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 font-bold text-[#087b45]">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-(--accent)/10 font-bold text-(--accent)">
               1
             </span>
             <div>
-              <h2 className="font-semibold text-slate-900">
+              <h2 className="font-semibold text-(--text-primary)">
                 Тип документа (необязательно)
               </h2>
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-(--text-secondary)">
                 Выберите категорию или оставьте автоопределение
               </p>
             </div>
@@ -190,7 +192,7 @@ export default function DocumentUploader() {
           <select
             value={docType}
             onChange={(event) => setDocType(event.target.value as DocumentType | "")}
-            className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-sm outline-none transition focus:border-[#159957] focus:ring-4 focus:ring-emerald-50"
+            className="w-full rounded-xl border border-(--border-color) bg-(--surface) px-4 py-3.5 text-sm text-(--text-primary) outline-none transition focus:border-(--accent) focus:ring-4 focus:ring-(--accent)/10 dark:bg-(--surface-muted)"
           >
             <option value="">Определить автоматически</option>
             {documentTypes.map((item) => (
@@ -199,9 +201,9 @@ export default function DocumentUploader() {
               </option>
             ))}
           </select>
-          {typeLoadError && <p role="status" className="mt-2 text-xs text-amber-700">{typeLoadError} Доступно автоопределение типа.</p>}
+          {typeLoadError && <p role="status" className="mt-2 text-xs text-amber-700 dark:text-amber-400">{typeLoadError} Доступно автоопределение типа.</p>}
           {!file && docType && (
-            <p className="mt-2 text-xs text-amber-700">
+            <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
               Тип «{documentTypes.find((item) => item.id === docType)?.label ?? docType}» применится к следующему файлу. Вопрос без файла идёт только по Положению.
             </p>
           )}
@@ -210,14 +212,14 @@ export default function DocumentUploader() {
         {/* Шаг 2: Файл документа */}
         <div>
           <div className="mb-3 flex items-center gap-3">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 font-bold text-[#087b45]">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-(--accent)/10 font-bold text-(--accent)">
               2
             </span>
             <div>
-              <h2 className="font-semibold text-slate-900">
+              <h2 className="font-semibold text-(--text-primary)">
                 Файл документа (необязательно)
               </h2>
-              <p className="text-sm text-slate-500">PDF, PNG или JPG · до 10 МБ</p>
+              <p className="text-sm text-(--text-secondary)">PDF, PNG или JPG · до 10 МБ</p>
             </div>
           </div>
 
@@ -226,48 +228,50 @@ export default function DocumentUploader() {
               {...getRootProps()}
               className={`rounded-2xl border-2 border-dashed p-7 text-center transition sm:p-10 ${
                 isDragActive
-                  ? "border-[#159957] bg-emerald-50"
-                  : "border-emerald-200 bg-[#f9fcf9] hover:border-[#159957] hover:bg-emerald-50/60"
+                  ? "border-(--accent) bg-(--accent)/10"
+                  : "border-(--accent)/30 bg-(--surface-muted) hover:border-(--accent) hover:bg-(--accent)/5"
               }`}
             >
               <input {...getInputProps()} />
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-white text-[#087b45] shadow-sm ring-1 ring-emerald-100">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-(--surface) text-(--accent) shadow-sm ring-1 ring-(--accent)/20">
                 {isDragActive ? <UploadCloud size={30} /> : <FileUp size={30} />}
               </div>
-              <p className="mt-5 font-semibold text-slate-800">
+              <p className="mt-5 font-semibold text-(--text-primary)">
                 {isDragActive ? "Отпустите файл здесь" : "Перетащите файл в эту область"}
               </p>
-              <p className="mt-2 text-sm text-slate-500">или выберите файл на устройстве</p>
+              <p className="mt-2 text-sm text-(--text-secondary)">или выберите файл на устройстве</p>
               <button
                 type="button"
                 onClick={open}
-                className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#087b45] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#075c36] focus:outline-none focus:ring-4 focus:ring-emerald-100"
+                className="mt-5 inline-flex items-center gap-2 rounded-xl bg-(--accent) px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-(--accent-hover) focus:outline-none focus:ring-4 focus:ring-(--accent)/20"
               >
                 <UploadCloud size={17} />
                 Выбрать файл
               </button>
             </div>
           ) : (
-            <div className="flex items-center gap-4 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white text-[#087b45] shadow-sm">
+            <div className="flex items-center gap-4 rounded-2xl border border-(--accent)/30 bg-(--accent)/5 p-4 dark:bg-(--accent)/10">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-(--surface) text-(--accent) shadow-sm">
                 <FileText size={24} />
               </div>
               <div className="min-w-0 flex-1">
-                {/* TypeScript теперь знает, что file не может быть null здесь */}
-                <p className="truncate font-semibold text-slate-800">{file.name}</p>
-                <p className="mt-1 text-sm text-slate-500">{formatSize(file.size)}</p>
-                <p className="mt-1 flex items-center gap-1 text-xs font-medium text-[#087b45]">
+                <p className="truncate font-semibold text-(--text-primary)">{file.name}</p>
+                <p className="mt-1 text-sm text-(--text-secondary)">{formatSize(file.size)}</p>
+                <p className="mt-1 flex items-center gap-1 text-xs font-medium text-(--accent)">
                   <CheckCircle2 size={14} />
                   Файл готов к обработке
                 </p>
               </div>
+              {/* Кнопка удаления файла — заметная и удобная */}
               <button
                 type="button"
                 onClick={removeFile}
                 aria-label="Удалить файл"
-                className="rounded-lg p-2 text-slate-400 transition hover:bg-white hover:text-red-600"
+                title="Удалить файл"
+                className="group flex items-center gap-2 rounded-xl border border-rose-200 bg-white px-3 py-2 text-sm font-medium text-rose-600 transition hover:bg-rose-50 hover:text-rose-700 dark:border-rose-800 dark:bg-rose-900/20 dark:text-rose-400 dark:hover:bg-rose-900/40 dark:hover:text-rose-300"
               >
-                <Trash2 size={19} />
+                <Trash2 size={16} className="transition group-hover:scale-110" />
+                <span className="hidden sm:inline">Удалить</span>
               </button>
             </div>
           )}
@@ -276,12 +280,12 @@ export default function DocumentUploader() {
         {/* Шаг 3: Вопрос */}
         <div>
           <div className="mb-3 flex items-center gap-3">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 font-bold text-[#087b45]">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-(--accent)/10 font-bold text-(--accent)">
               3
             </span>
             <div>
-              <h2 className="font-semibold text-slate-900">Ваш вопрос</h2>
-              <p className="text-sm text-slate-500">
+              <h2 className="font-semibold text-(--text-primary)">Ваш вопрос</h2>
+              <p className="text-sm text-(--text-secondary)">
                 Уточните, что нужно узнать из документа
               </p>
             </div>
@@ -293,9 +297,9 @@ export default function DocumentUploader() {
             placeholder="Например: какие документы нужны для оформления академического отпуска?"
             rows={4}
             maxLength={MAX_QUESTION_LENGTH}
-            className="w-full resize-y rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-sm leading-6 outline-none transition placeholder:text-slate-400 focus:border-[#159957] focus:ring-4 focus:ring-emerald-50"
+            className="w-full resize-y rounded-xl border border-(--border-color) bg-(--surface) px-4 py-3.5 text-sm leading-6 text-(--text-primary) outline-none transition placeholder:text-(--text-secondary)/50 focus:border-(--accent) focus:ring-4 focus:ring-(--accent)/10 dark:bg-(--surface-muted)"
           />
-          <p className="mt-2 text-right text-xs text-slate-400">
+          <p className="mt-2 text-right text-xs text-(--text-secondary)">
             {question.length}/{MAX_QUESTION_LENGTH}
           </p>
         </div>
@@ -304,7 +308,7 @@ export default function DocumentUploader() {
         {error && (
           <div
             role="alert"
-            className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+            className="flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700 dark:border-rose-800 dark:bg-rose-900/20 dark:text-rose-400"
           >
             <AlertCircle className="mt-0.5 shrink-0" size={19} />
             <p>{error}</p>
@@ -315,7 +319,7 @@ export default function DocumentUploader() {
         <button
           type="submit"
           disabled={isLoading}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#087b45] px-5 py-4 font-semibold text-white shadow-[0_8px_20px_rgba(8,123,69,0.18)] transition hover:bg-[#065c34] focus:outline-none focus:ring-4 focus:ring-[#087b45]/20 disabled:cursor-not-allowed disabled:opacity-60"
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-(--accent) px-5 py-4 font-semibold text-white shadow-lg shadow-(--accent)/20 transition hover:bg-(--accent-hover) focus:outline-none focus:ring-4 focus:ring-(--accent)/20 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isLoading ? (
             <>
@@ -332,10 +336,10 @@ export default function DocumentUploader() {
       </form>
 
       {/* Подсказка безопасности */}
-      <div className="mt-8 rounded-xl bg-[#f4f7f4] p-4">
+      <div className="mt-8 rounded-xl bg-(--surface-muted) p-4 border border-(--border-color)">
         <div className="flex items-start gap-3">
-          <ShieldCheck size={20} className="mt-0.5 shrink-0 text-[#087b45]" />
-          <p className="text-xs leading-5 text-[#1e293b]/60">
+          <ShieldCheck size={20} className="mt-0.5 shrink-0 text-(--accent)" />
+          <p className="text-xs leading-5 text-(--text-secondary)">
             Перед отправкой убедитесь, что загрузили нужный файл. Не добавляйте
             документы с лишними персональными данными.
           </p>
