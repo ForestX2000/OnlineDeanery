@@ -1,10 +1,9 @@
-import {  useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { BookOpen, Mail, Lock, ArrowRight, ArrowLeft, CheckCircle2 } from "lucide-react";
-import { useState } from "react";
-import { useAppStore, UserRole } from "@/store/useAppStore";
+import { useState, type FormEvent } from "react";
+import { useAppStore, type UserRole } from "@/store/useAppStore";
 import { forgotPasswordRequest, loginRequest } from "../../api";
 import ThemeToggle from "../components/ThemeToggle";
-
 
 interface LocationState {
   from?: {
@@ -26,38 +25,48 @@ export default function LoginPage() {
   const location = useLocation();
   const login = useAppStore((state) => state.login);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
     if (pending) return;
+    
     setError(null);
     setPending(true);
+    
     try {
       const result = await loginRequest(email, password);
+      
+      // Сохраняем пользователя и токен в Zustand (они автоматически сохранятся в localStorage)
       login({
         email: result.user.email,
         firstName: result.user.firstName,
         lastName: result.user.lastName,
         role: (result.user.role === "admin" ? "admin" : "student") as UserRole,
       }, result.token);
+      
+      // Перенаправляем туда, откуда пользователь пришел, или на страницу загрузки по умолчанию
       const state = location.state as LocationState | null;
       const from = state?.from?.pathname || "/upload";
       navigate(from, { replace: true });
+      
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не удалось войти. Попробуйте ещё раз.");
+      setError(err instanceof Error ? err.message : "Не удалось войти. Проверьте email и пароль.");
     } finally {
       setPending(false);
     }
   };
-  const handleForgotPassword = async (e: React.FormEvent) => {
+
+  const handleForgotPassword = async (e: FormEvent) => {
     e.preventDefault();
     if (pending) return;
+    
     setError(null);
     setPending(true);
+    
     try {
       await forgotPasswordRequest(forgotEmail);
       setIsEmailSent(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не удалось отправить письмо. Попробуйте ещё раз.");
+      setError(err instanceof Error ? err.message : "Не удалось отправить запрос. Попробуйте ещё раз.");
     } finally {
       setPending(false);
     }
@@ -66,9 +75,10 @@ export default function LoginPage() {
   return (
     <main className="relative min-h-screen bg-[#f4f7f4] flex items-center justify-center px-5 py-10">
       <ThemeToggle className="absolute right-4 top-4 sm:right-6 sm:top-6" />
+      
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <div className="inline-flex items-center justify-center rounded-2xl bg-[#087b45] p-4 text-white mb-4">
+          <div className="inline-flex items-center justify-center rounded-2xl bg-[#087b45] p-4 text-white mb-4 shadow-lg shadow-[#087b45]/20">
             <BookOpen size={32} />
           </div>
           <h1 className="text-3xl font-bold text-[#1e293b]">Онлайн-деканат</h1>
@@ -76,16 +86,15 @@ export default function LoginPage() {
         </div>
 
         <div className="rounded-3xl border border-[#1e293b]/10 bg-white p-8 shadow-sm">
-          
           {showForgotPassword ? (
             isEmailSent ? (
               <div className="text-center space-y-4 py-4">
-                <div className="inline-flex items-center justify-center rounded-full bg-[#087b45]/10 p-3 text-[#087b45]">
+                <div className="inline-flex items-center justify-center rounded-full bg-[#087b45]/10 p-3 text-[#087b45] mx-auto w-fit">
                   <CheckCircle2 size={32} />
                 </div>
-                <h2 className="text-2xl font-bold text-[#1e293b]">Письмо отправлено</h2>
+                <h2 className="text-2xl font-bold text-[#1e293b]">Запрос отправлен</h2>
                 <p className="text-[#1e293b]/70">
-                  Мы отправили новый пароль на адрес <br/>
+                  Если почта настро корректно, мы отправили новый пароль на адрес <br/>
                   <span className="font-semibold text-[#1e293b]">{forgotEmail}</span>
                 </p>
                 <button
@@ -94,7 +103,7 @@ export default function LoginPage() {
                     setIsEmailSent(false);
                     setForgotEmail("");
                   }}
-                  className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-[#087b45] hover:text-[#065c34] transition"
+                  className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-[#087b45] hover:text-[#065c34] transition mx-auto"
                 >
                   <ArrowLeft size={16} />
                   Вернуться ко входу
@@ -136,14 +145,16 @@ export default function LoginPage() {
                   <button
                     type="submit"
                     disabled={pending}
-                    className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-[#087b45] px-6 py-3 font-semibold text-white transition hover:bg-[#065c34] disabled:opacity-60"
+                    className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-[#087b45] px-6 py-3 font-semibold text-white transition hover:bg-[#065c34] disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     {pending ? "Отправляем..." : "Отправить новый пароль"}
-                    <ArrowRight size={18} />
+                    {!pending && <ArrowRight size={18} />}
                   </button>
                 </form>
                 {error && (
-                  <p role="alert" className="mt-4 text-sm text-red-700">{error}</p>
+                  <p role="alert" className="mt-4 text-sm text-red-700 bg-red-50 p-3 rounded-lg border border-red-200">
+                    {error}
+                  </p>
                 )}
               </div>
             )
@@ -201,23 +212,21 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   disabled={pending}
-                  className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-[#087b45] px-6 py-3 font-semibold text-white transition hover:bg-[#065c34] disabled:opacity-60"
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-[#087b45] px-6 py-3 font-semibold text-white transition hover:bg-[#065c34] disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {pending ? "Входим..." : "Войти"}
-                  <ArrowRight size={18} />
+                  {!pending && <ArrowRight size={18} />}
                 </button>
               </form>
 
               {error && (
-                <p role="alert" className="mt-4 text-sm text-red-700">{error}</p>
+                <p role="alert" className="mt-4 text-sm text-red-700 bg-red-50 p-3 rounded-lg border border-red-200">
+                  {error}
+                </p>
               )}
-
-              
             </div>
           )}
         </div>
-
-        
       </div>
     </main>
   );

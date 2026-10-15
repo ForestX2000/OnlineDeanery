@@ -12,7 +12,9 @@ export default function Header() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const initials = user ? `${user.firstName?.[0] ?? ""}${user.lastName?.[0] ?? ""}`.toUpperCase() : "";
+  const initials = user
+    ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
+    : "";
   const isAdmin = user?.role === "admin";
 
   const handleLogout = () => {
@@ -21,11 +23,8 @@ export default function Header() {
     navigate("/login");
   };
 
-
   const hideHeaderPaths = ["/login"];
-  if (hideHeaderPaths.includes(location.pathname)) {
-    return null;
-  }
+  if (hideHeaderPaths.includes(location.pathname)) return null;
 
   return (
     <header className="border-b border-[#1e293b]/10 bg-white px-6 py-4">
@@ -37,12 +36,11 @@ export default function Header() {
           <div>
             <h1 className="text-lg font-bold text-[#1e293b]">Онлайн-деканат</h1>
             <p className="text-xs text-[#1e293b]/60">
-              {isAdmin 
-                ? "Панель администратора" 
-                : user 
+              {isAdmin
+                ? "Панель администратора"
+                : user
                   ? "Цифровой помощник студента"
-                  : "Цифровой помощник студента"
-              }
+                  : "Цифровой помощник студента"}
             </p>
           </div>
         </Link>
@@ -77,21 +75,16 @@ export default function Header() {
               </button>
             </>
           ) : (
-            <>
-              <Link
-                to="/login"
-                className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium text-[#1e293b]/70 transition hover:bg-[#f4f7f4] hover:text-[#1e293b]"
-              >
-                <LogIn size={18} />
-                Войти
-              </Link>
-              
-            </>
+            <Link
+              to="/login"
+              className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium text-[#1e293b]/70 transition hover:bg-[#f4f7f4] hover:text-[#1e293b]"
+            >
+              <LogIn size={18} />
+              Войти
+            </Link>
           )}
         </div>
       </div>
     </header>
   );
 }
-
-
