@@ -110,6 +110,7 @@ export const mockApi = {
     };
   },
 
+  
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async analyzeDocument(_file: File, docType: string, _question: string): Promise<AnalyzeResponse> {
     await delay(2500); 
