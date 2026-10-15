@@ -308,6 +308,11 @@ class MessageResponse(BaseModel):
     message: str
 
 
+class CreatedUserResponse(UserListItem):
+    success: bool
+    message: str
+
+
 # Схема чата и документов
 class ChatMessage(ApiModel):
     message: str = Field(max_length=MAX_QUESTION_LENGTH)
@@ -476,7 +481,7 @@ async def logout(
     return {"success": True, "message": "Вы вышли из аккаунта."}
 
 
-@app.post("/api/admin/users", response_model=MessageResponse)
+@app.post("/api/admin/users", response_model=CreatedUserResponse)
 async def admin_create_user(
     data: CreateUserRequest,
     current_admin: UserDB = Depends(require_admin),
@@ -523,6 +528,7 @@ async def admin_create_user(
         raise HTTPException(status_code=409, detail="Email или имя пользователя уже заняты.") from exc
 
     return {
+        **_user_list_item(new_user).model_dump(),
         "success": True,
         "message": f"Пользователь {normalized_email} успешно создан деканатом."
     }
