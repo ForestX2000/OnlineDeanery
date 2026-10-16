@@ -178,20 +178,27 @@ class PreparedImage:
     def original_bbox(self, bbox):
         x1, y1, x2, y2 = bbox
         points = np.array([[x1, y1], [x2, y1], [x2, y2], [x1, y2]], dtype=np.float32)
-        # 1. Inverse deskew (отменяем поворот наклона)
+        # Прямой порядок в prepare_image: transpose(rotation) -> deskew(affine + crop).
+        # Обратный transform из координат prepared.pixels к исходному изображению:
+        # 1. Inverse crop — сперва возвращаем отступ обрезки, иначе инверсный affine
+        #    будет применён к координатам обрезанного холста, а не полного.
+        points[:, 0] += self.deskew_crop_offset[0]
+        points[:, 1] += self.deskew_crop_offset[1]
+        # 2. Inverse deskew (отменяем поворот наклона)
         if self.deskew_transform is not None:
             inverse = cv2.invertAffineTransform(self.deskew_transform)
             points = cv2.transform(points[None, ...], inverse)[0]
-        # 2. Inverse crop (возвращаем обрезанный offset)
-        points[:, 0] += self.deskew_crop_offset[0]
-        points[:, 1] += self.deskew_crop_offset[1]
-        # 3. Inverse rotation (отменяем поворот на 90/180/270)
+        # 3. Inverse rotation (отменяем transpose на 90/180/270).
+        #    После transpose размеры меняются местами для 90/270:
+        #    rotation=90 (ROTATE_270, 90 по часовой): (x,y)[w x h] -> (y, w-x)[h x w],
+        #    обратное: (x',y')->(w-y', x'). rotation=270 (ROTATE_90, 90 против часовой):
+        #    (x,y)->(h-y, x)[h x w], обратное: (x',y')->(y', h-x').
         if self.rotation == 90:
-            points = np.column_stack((points[:, 1], self.height - points[:, 0]))
+            points = np.column_stack((self.width - points[:, 1], points[:, 0]))
         elif self.rotation == 180:
             points = np.column_stack((self.width - points[:, 0], self.height - points[:, 1]))
         elif self.rotation == 270:
-            points = np.column_stack((self.width - points[:, 1], points[:, 0]))
+            points = np.column_stack((points[:, 1], self.height - points[:, 0]))
         box = [points[:, 0].min(), points[:, 1].min(),
             points[:, 0].max(), points[:, 1].max()]
         return [round(max(0.0, min(float(v), bound)), 2)

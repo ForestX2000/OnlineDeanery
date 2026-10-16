@@ -93,14 +93,7 @@ def link_coordinates(coordinates, fields: dict) -> list[dict]:
         {**item, "field": name, "text": value}
         for score, index, name, value, item in sorted(best_by_field.values(), key=lambda m: m[1])
     ]
-    linked_indices = {match[1] for match in best_by_field.values()}
-    # Keep OCR lines even when no structured field matched them. Otherwise a
-    # document can be classified from OCR text while the image appears to have
-    # no recognized text at all; the raw lines are useful and truthful evidence.
-    unlinked_text = [
-        item for index, item in enumerate(coordinates)
-        if (index not in linked_indices and isinstance(item, dict)
-            and item.get("source") in {"spotting", "tesseract", "tesseract_supplement"}
-            and isinstance(item.get("text"), str))
-    ]
-    return linked_text + unlinked_text + other_boxes
+    # Подсвечиваем только найденные поля и визуальные метки (подпись/печать).
+    # Любые остальные OCR-строки не добавляем в координаты, иначе на фото
+    # появляются рамки вокруг всего текста подряд.
+    return linked_text + other_boxes

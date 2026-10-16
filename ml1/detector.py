@@ -12,11 +12,14 @@ None («проверка не выполнена»), а не «печати не
 """
 
 import ast
-from functools import lru_cache
+import importlib
+import json
 import logging
 import math
 import os
+from functools import lru_cache
 from pathlib import Path
+from typing import Any
 
 import cv2
 import numpy as np
@@ -109,7 +112,7 @@ def detect_blue_seal(image):
                         improved = True
         if not improved:
             break
-    if score < 0.4 or radius <= 0:
+    if score < 0.5 or radius <= 0:
         return None
     box = [(cx - radius) / scale, (cy - radius) / scale,
            (cx + radius) / scale, (cy + radius) / scale]
@@ -206,6 +209,167 @@ def load_detector(path: str, modified: int, keep: tuple) -> SignatureStampDetect
                                   frozenset(keep))
 
 
+# ---------- RF-DETR support ----------
+
+_RFDETR_FIELD_ALIASES = {
+    "signature": "signature", "подпись": "signature", "sig": "signature",
+    "stamp": "stamp", "печать": "stamp", "seal": "stamp", "print": "stamp",
+}
+
+
+def _rfdetr_field_name(class_id: int, names: dict[int, str]) -> str | None:
+    name = str(names.get(class_id, class_id)).lower().strip()
+    return _RFDETR_FIELD_ALIASES.get(name)
+
+
+def _rfdetr_detections(boxes: np.ndarray, scores: np.ndarray, labels: np.ndarray,
+                       names: dict[int, str], threshold: float,
+                       image_h: int, image_w: int) -> list[dict]:
+    """Convert RF-DETR raw outputs to detection dicts in pixel coords [x1,y1,x2,y2]."""
+    detections: list[dict] = []
+    keep = scores >= threshold
+    boxes, scores, labels = boxes[keep], scores[keep], labels[keep]
+    if len(boxes) == 0:
+        return detections
+
+    order = np.argsort(-scores, kind="stable")
+    boxes, scores, labels = boxes[order], scores[order], labels[order]
+
+    # Simple per-class NMS
+    suppressed = np.zeros(len(boxes), dtype=bool)
+    for i in range(len(boxes)):
+        if suppressed[i]:
+            continue
+        for j in range(i + 1, len(boxes)):
+            if suppressed[j] or labels[i] != labels[j]:
+                continue
+            x1 = max(float(boxes[i][0]), float(boxes[j][0]))
+            y1 = max(float(boxes[i][1]), float(boxes[j][1]))
+            x2 = min(float(boxes[i][2]), float(boxes[j][2]))
+            y2 = min(float(boxes[i][3]), float(boxes[j][3]))
+            inter = max(0.0, x2 - x1) * max(0.0, y2 - y1)
+            area_i = max(0.0, float(boxes[i][2]) - float(boxes[i][0])) * max(
+                0.0, float(boxes[i][3]) - float(boxes[i][1]))
+            area_j = max(0.0, float(boxes[j][2]) - float(boxes[j][0])) * max(
+                0.0, float(boxes[j][3]) - float(boxes[j][1]))
+            iou = inter / max(area_i + area_j - inter, 1e-9)
+            if iou > 0.45:
+                suppressed[j] = True
+
+    for i in range(len(boxes)):
+        if suppressed[i]:
+            continue
+        x1, y1, x2, y2 = (float(v) for v in boxes[i])
+        x1 = max(0.0, min(x1, image_w))
+        y1 = max(0.0, min(y1, image_h))
+        x2 = max(0.0, min(x2, image_w))
+        y2 = max(0.0, min(y2, image_h))
+        if x2 <= x1 or y2 <= y1:
+            continue
+        field = _rfdetr_field_name(int(labels[i]), names)
+        if field is None:
+            continue
+        detections.append({
+            "field": field,
+            "text": "Подпись" if field == "signature" else "Печать",
+            "bbox": [round(x1, 2), round(y1, 2), round(x2, 2), round(y2, 2)],
+            "confidence": round(float(scores[i]), 6),
+            "source": "rfdetr", "page": 1,
+        })
+    return detections
+
+
+@lru_cache(maxsize=2)
+def load_rfdetr_detector(model_path: str, config_path: str, modified: int):
+    """Load RF-DETR model from best.pth + config.json.
+
+    Tries the rfdetr package first. Returns (predict_callable, names_dict).
+    predict(image) -> (boxes, scores, labels) with boxes in pixel coords [x1,y1,x2,y2].
+    """
+    model_file = Path(model_path)
+    config_file = Path(config_path)
+    if not model_file.exists():
+        raise FileNotFoundError(f"RF-DETR модель не найдена: {model_path}")
+    if not config_file.exists():
+        raise FileNotFoundError(f"RF-DETR конфиг не найден: {config_path}")
+
+    names: dict[int, str] = {}
+    try:
+        config = json.loads(config_file.read_text(encoding="utf-8"))
+        if isinstance(config, dict):
+            for key in ("label_map", "classes", "names", "id2label", "labels"):
+                val = config.get(key)
+                if isinstance(val, dict):
+                    names = {int(k): str(v) for k, v in val.items()}
+                    break
+            if not names and config.get("num_classes"):
+                names = {i: f"class_{i}" for i in range(int(config["num_classes"]))}
+    except Exception as exc:
+        logger.warning("RF-DETR конфиг не прочитан (%s), будут числовые классы", exc)
+
+    # Try rfdetr package
+    try:
+        rfdetr = importlib.import_module("rfdetr")
+        if hasattr(rfdetr, "RFDETR"):
+            model = rfdetr.RFDETR(pretrained_weights=str(model_file), device="cpu")
+
+            def predict(image: np.ndarray):
+                from PIL import Image
+                pil = Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+                results = model.predict(pil, threshold=0.0)
+                boxes = getattr(results, "boxes", None)
+                scores = getattr(results, "scores", None)
+                labels = getattr(results, "labels", None)
+                if boxes is None and isinstance(results, dict):
+                    boxes = results.get("boxes")
+                    scores = results.get("scores")
+                    labels = results.get("labels")
+                if boxes is None:
+                    raise ValueError("rfdetr predict не вернул boxes")
+                boxes = np.asarray(boxes, dtype=np.float32)
+                scores = np.asarray(scores, dtype=np.float32).ravel()
+                labels = np.asarray(labels, dtype=np.int64).ravel()
+                h, w = image.shape[:2]
+                if boxes.size and float(boxes.max()) <= 1.0 + 1e-6:
+                    boxes[:, [0, 2]] *= w
+                    boxes[:, [1, 3]] *= h
+                return boxes, scores, labels
+
+            return predict, names
+    except Exception as exc:
+        logger.warning("rfdetr пакет недоступен (%s)", exc)
+
+    raise RuntimeError(
+        "RF-DETR требует пакет rfdetr. Установите: pip install rfdetr "
+        "(или используйте YOLO_ONNX / цветовой поиск печати)"
+    )
+
+
+def _run_rfdetr(image: np.ndarray, env_model: str, env_config: str,
+                threshold: float) -> dict:
+    model_path = os.getenv(env_model, "").strip()
+    config_path = os.getenv(env_config, "").strip()
+    if not model_path or not config_path:
+        return unavailable("disabled")
+    try:
+        model_path_obj = Path(model_path).resolve(strict=True)
+        config_path_obj = Path(config_path).resolve(strict=True)
+        predict, names = load_rfdetr_detector(str(model_path_obj),
+                                              str(config_path_obj),
+                                              model_path_obj.stat().st_mtime_ns)
+        boxes, scores, labels = predict(image)
+        detections = _rfdetr_detections(boxes, scores, labels, names,
+                                        threshold, image.shape[0], image.shape[1])
+        present = {b["field"] for b in detections}
+        return {"status": "ready",
+                "signature": ("signature" in present),
+                "stamp": ("stamp" in present),
+                "boxes": detections}
+    except Exception as exc:
+        logger.warning("RF-DETR detection unavailable (%s): %s", env_model, exc)
+        return unavailable("error")
+
+
 def _run_source(image: np.ndarray, env_var: str, keep: frozenset, threshold: float) -> dict:
     path = os.getenv(env_var, "").strip()
     if not path:
@@ -222,7 +386,13 @@ def _run_source(image: np.ndarray, env_var: str, keep: frozenset, threshold: flo
 
 
 def detect_marks(image: np.ndarray) -> dict:
-    """Подпись — из YOLO_SIG_MODEL_PATH, печать — из YOLO_MODEL_PATH.
+    """Подпись и печать: YOLO-ONNX и/или RF-DETR, плюс цветовой поиск печати.
+
+    Источники:
+    - YOLO_SIG_MODEL_PATH — подпись (ONNX)
+    - YOLO_MODEL_PATH — печать (ONNX)
+    - RFDETR_MODEL_PATH + RFDETR_CONFIG_PATH — подпись и/или печать (RF-DETR best.pth)
+    - YOLO_STAMP_HEURISTIC=1 — печать цветом (синее кольцо), если нет весов
 
     Каждый отсутствующий/упавший источник даёт None по своему полю.
     status: ready — хоть один источник готов; disabled — оба не настроены;
@@ -235,13 +405,27 @@ def detect_marks(image: np.ndarray) -> dict:
     except Exception as exc:
         logger.warning("Signature/stamp detection unavailable: %s", exc)
         return unavailable("error")
+
     sig = _run_source(image, "YOLO_SIG_MODEL_PATH", frozenset({"signature"}), threshold)
     stamp = _run_source(image, "YOLO_MODEL_PATH", frozenset({"stamp"}), threshold)
+    rfdetr = _run_rfdetr(image, "RFDETR_MODEL_PATH", "RFDETR_CONFIG_PATH", threshold)
+
+    # RF-DETР может находить и подпись, и печать: заполняет пробелы YOLO-источников
+    if rfdetr["status"] == "ready":
+        rf_boxes = rfdetr["boxes"]
+        rf_sig_boxes = [b for b in rf_boxes if b["field"] == "signature"]
+        rf_stamp_boxes = [b for b in rf_boxes if b["field"] == "stamp"]
+
+        if sig["status"] != "ready" and rf_sig_boxes:
+            sig = {"status": "ready", "signature": True, "stamp": None,
+                   "boxes": rf_sig_boxes}
+
+        if stamp["status"] != "ready" and rf_stamp_boxes:
+            stamp = {"status": "ready", "signature": None, "stamp": True,
+                     "boxes": rf_stamp_boxes}
+
+    # Печать цветом — только если ningún источник печати не настроен
     if stamp["status"] == "disabled" and os.getenv("YOLO_STAMP_HEURISTIC", "1") == "1":
-        # YOLO-весов печати нет: классический поиск синего кольца, только True.
-        # Слабая/бледная печать (как на фото школьной справки) не должна
-        # превращаться в уверенное «печати нет»: отсутствие сильного отклика —
-        # это «не подтверждено» (None), а не False.
         try:
             seal = detect_blue_seal(image)
         except Exception as exc:
@@ -251,6 +435,7 @@ def detect_marks(image: np.ndarray) -> dict:
             stamp = {"status": "ready", "signature": None,
                      "stamp": True if seal is not None else None,
                      "boxes": [seal] if seal else []}
+
     statuses = {sig["status"], stamp["status"]}
     if statuses == {"disabled"}:
         return unavailable("disabled")

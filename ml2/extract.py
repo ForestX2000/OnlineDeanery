@@ -47,7 +47,7 @@ PATTERNS: dict[str, list[str]] = {
     ],
     "document_number": [
         r"\d{2}\.\d{2}\.\d{4}\s*(?:г\.?\s*)?(?:№|N[oо]?\.?|#)\s*([\dА-Яа-яЁё\-\./]+)",
-        r"№\s*([\dА-Яа-я\-\./]+)",
+        r"№\s*(\d{1,6})\b(?!\s*[\d./-])",
     ],
     "issue_date": [
         r"(?<!\d)(\d{2}\.\d{2}\.\d{4})\s*(?:г\.?\s*)?(?:№|N[oо]?\.?|#)",
@@ -238,8 +238,8 @@ def extract_internship_period(text: str) -> str | None:
     normalized = _normalize_spaced_full_dates(text)
     flat = re.sub(r"\s+", " ", normalized)
     pattern = re.compile(
-        rf"(?P<start>{_INTERNSHIP_DATE})\s*(?:г(?:ода)?\.?\s*)?"
-        rf"(?:\bпо\b|\bдо\b|\s+[–—-]\s+)\s*"
+        rf"(?P<start>{_INTERNSHIP_DATE})[:\s]*(?:г(?:ода)?\.?\s*)?"
+        rf"(?:\bпо\b|\bдо\b|\s+[–—-]\s+)[:\s]*"
         rf"(?P<end>{_INTERNSHIP_DATE})",
         re.IGNORECASE,
     )
@@ -329,6 +329,24 @@ def normalize_study_form(value: str | None) -> str:
 
 
 _DATE_TOKEN = r"(?<!\d)(?:\d{1,2}[./-]\d{1,2}[./-]\d{2,4}|\d{1,2}[./]\d{4}|\d{1,2}[./]\d{1,2}|\d{4})(?!\d)"
+
+# Дата прописью: «30 ноября 2010», «от «30» ноября 2010 г.» → 30.11.2010
+_WRITTEN_DATE_RE = re.compile(
+    r"(?:от\s+)?«?(\d{1,2})»?\s+(января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря)\s+(\d{4})",
+    re.IGNORECASE,
+)
+
+
+def _written_date_to_numeric(text: str) -> str | None:
+    """Преобразует дату прописью в ДД.ММ.ГГГГ."""
+    m = _WRITTEN_DATE_RE.search(text)
+    if not m:
+        return None
+    day, month_name, year = m.group(1), m.group(2).lower(), m.group(3)
+    month = _RU_MONTHS.get(month_name)
+    if not month:
+        return None
+    return f"{int(day):02d}.{month:02d}.{year}"
 
 _RU_MONTHS = {
     "января": 1, "февраля": 2, "марта": 3, "апреля": 4, "мая": 5, "июня": 6,
@@ -718,8 +736,11 @@ def extract_fields(text: str, doc_type: str,
             value = extract_document_number(source_text)
             if not value and field in configured:
                 value = extract_configured_value(source_text, configured[field])
-        elif field == "issue_date" and doc_type == "internship_certificate":
-            value = extract_internship_issue_date(source_text) or value
+        elif field == "issue_date":
+            if doc_type == "internship_certificate":
+                value = extract_internship_issue_date(source_text) or value
+            if not value:
+                value = _written_date_to_numeric(source_text)
         elif field == "reason":
             value = _academic_leave_reason(source_text) or value
         elif field in {"start_date", "end_date"} and not value and leave_date_range:
