@@ -93,4 +93,7 @@ def link_coordinates(coordinates, fields: dict) -> list[dict]:
         {**item, "field": name, "text": value}
         for score, index, name, value, item in sorted(best_by_field.values(), key=lambda m: m[1])
     ]
+    # Подсвечиваем только найденные поля и визуальные метки (подпись/печать).
+    # Любые остальные OCR-строки не добавляем в координаты, иначе на фото
+    # появляются рамки вокруг всего текста подряд.
     return linked_text + other_boxes

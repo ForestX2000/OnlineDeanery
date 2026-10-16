@@ -68,6 +68,25 @@ powershell -ExecutionPolicy Bypass -File scripts/install_llama.ps1
 
 Без этих файлов сервис `llama` будет перезапускаться, а `ml1` вернёт `503` — вопросы без файла при этом продолжают работать.
 
+#### Детектор подписи и печати (опционально)
+
+В папке `./models/` уже лежат `signature.onnx` (подпись) и `detector_yolo_4cls.pt`. Если скачали RF-DETR модель (`best.pth` + `config.json` от `ducln-business/document-signature-stamp-detector-v20`), положите их рядом:
+
+```
+models/best.pth
+models/config.json
+```
+
+И раскомментируйте в `.env`:
+
+```
+RFDETR_MODEL_PATH=/models/best.pth
+RFDETR_CONFIG_PATH=/models/config.json
+RFDETR_CONFIDENCE=0.3
+```
+
+RF-DETR требует пакет `rfdetr` (и `torch`): `pip install rfdetr torch`. Без них сервис `ml1` проигнорирует RF-DETR и использует остальные источники (YOLO ONNX / цветовой поиск печати).
+
 ### 4. Запустите все сервисы
 
 ```powershell
@@ -228,7 +247,7 @@ docker compose restart rules     # перезапуск сервиса прав�
 - Backend: Python 3.14 + FastAPI + Pydantic + httpx; PostgreSQL 15 для личного кабинета/админки (API работает и без БД).
 - OCR: PaddleOCR-VL-1.6 (VLM 0.9B) через `llama.cpp llama-server` на CPU, OpenCV-препроцессинг, PyMuPDF для PDF.
 - Извлечение полей: regex + словарь опечаток OCR + опциональная локальная LLM.
-- Подпись: YOLO11s Mels22 (`models/signature.onnx`, экспорт в `models/README.md`). Печать: классика синего кольца без весов (`YOLO_STAMP_HEURISTIC`), своя YOLO-печать через `YOLO_MODEL_PATH`.
+- Подпись и печать: YOLO11s Mels22 (`models/signature.onnx`), RF-DETR (`models/best.pth` + `models/config.json`, через `RFDETR_MODEL_PATH` / `RFDETR_CONFIG_PATH`), или классика синего кольца без весов (`YOLO_STAMP_HEURISTIC`). Координаты боксов передаются на фронт и подсвечиваются на фото.
 - Правила: детерминированный движок `backend/rules.py` по JSON-базе `backend/data/rules.json` (п. 3.1–3.3 из презентации кейса; шаблон — `backend/data/university-rules.template.json`, подключение через `RULES_PATH` без изменения кода).
 
 ## Документация

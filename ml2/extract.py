@@ -47,7 +47,7 @@ PATTERNS: dict[str, list[str]] = {
     ],
     "document_number": [
         r"\d{2}\.\d{2}\.\d{4}\s*(?:г\.?\s*)?(?:№|N[oо]?\.?|#)\s*([\dА-Яа-яЁё\-\./]+)",
-        r"№\s*([\dА-Яа-я\-\./]+)",
+        r"№\s*(\d{1,6})\b(?!\s*[\d./-])",
     ],
     "issue_date": [
         r"(?<!\d)(\d{2}\.\d{2}\.\d{4})\s*(?:г\.?\s*)?(?:№|N[oо]?\.?|#)",
@@ -61,7 +61,10 @@ PATTERNS: dict[str, list[str]] = {
         r"на\s+(\d)\s*(?:-?м|м)?\s*курс",
         r"(\d)\s*(?:-?й|й)?\s*курс",
     ],
-    "reason": [r"причин\w*[:\s]+([^\n]{3,200})"],
+    "reason": [
+        r"причин\w*[:\s]+([^\n]{3,200})",
+        r"\bв\s+связи\s+(?:с\s+)?([^\n]{3,200})",
+    ],
     "start_date": [
         r"дата\s+начала[:\s]*(\d{2}\.\d{2}\.\d{4})",
         r"дата\s+начала[^\d\n]{0,40}(\d{2}\.\d{2}\.\d{4})",
@@ -70,7 +73,10 @@ PATTERNS: dict[str, list[str]] = {
         r"дата\s+окончания[:\s]*(\d{2}\.\d{2}\.\d{4})",
         r"дата\s+окончания[^\d\n]{0,40}(\d{2}\.\d{2}\.\d{4})",
     ],
-    "application_date": [r"дата\s+заявления[:\s]*(\d{2}\.\d{2}\.\d{4})"],
+    "application_date": [
+        r"дата\s+(?:подачи\s+)?заявлени\w*[:\s]*(\d{2}\.\d{2}\.\d{4})",
+        r"дата\s+подпис[ьи][:\s]*(\d{2}\.\d{2}\.\d{4})",
+    ],
     "organization": [r"«([^»]{5,100}?)»"],
     "internship_period": [
         r"(с\s+\d{2}\.\d{2}\.\d{4}\s+по\s+\d{2}\.\d{2}\.\d{4})",
@@ -97,6 +103,11 @@ _NAME_STOP = frozenset({
     "справки", "справка", "документа", "места", "настоящая",
     "дата", "рождения", "года", "месяца",
 })
+_NAME_CONTEXT_STOP = frozenset({
+    "студента", "студентки", "курс", "курса", "факультет", "факультета",
+    "группа", "группы", "ректору", "заявление", "указать", "полностью",
+    "академический", "отпуск",
+})
 
 
 def _is_service_words(value: str) -> bool:
@@ -110,6 +121,24 @@ def extract_student_name(text: str) -> str | None:
             value = m.group(1).strip().rstrip(".,;:")
             if value and not _is_service_words(value):
                 return value
+
+    # В типовом заявлении ФИО вписано над подписью "(Ф.И.О. указать полностью)".
+    # Ищем имя в ближайших строках перед этой подписью: отдельного префикса
+    # "ФИО:" у рукописного значения обычно нет.
+    lines = text.splitlines()
+    for index, line in enumerate(lines):
+        fio_label = re.search(r"ф\s*\.?\s*и\s*\.?\s*о\.?", line, re.IGNORECASE)
+        if not fio_label:
+            continue
+        candidates = [line[:fio_label.start()]]
+        candidates.extend(lines[max(0, index - 3):index][::-1])
+        for candidate in candidates:
+            words = re.findall(r"\b[А-ЯЁ][а-яё]{2,}(?:-[А-ЯЁ][а-яё]{2,})?\b", candidate)
+            if len(words) < 2 or len(words) > 3:
+                continue
+            if any(word.casefold() in _NAME_CONTEXT_STOP for word in words):
+                continue
+            return " ".join(words)
     return None
 
 
@@ -163,7 +192,6 @@ def extract_university(text: str) -> str | None:
     return None
 
 
-_SCHOOL_NUMBER_HINT = re.compile(r"школ\w*|сош|мбоу|мбдоу|маоу|лице\w*|гимнази\w*|класс", re.IGNORECASE)
 _ORDER_NUMBER_HINT = re.compile(r"приказ|распоряжен|зачислен", re.IGNORECASE)
 
 
@@ -174,12 +202,114 @@ def extract_document_number(text: str) -> str | None:
             value = m.group(1).strip().rstrip(".,;:")
             if not value:
                 continue
-            # Контекст слева: если рядом школа/СОШ/МБОУ — это № школы,
-            # если приказ — это № приказа, а не № справки. Окно 60:
-            # «приказом от 20 августа 2019 г. №» длиннее 30 символов.
             left = text[max(0, m.start() - 60):m.start()]
-            if _SCHOOL_NUMBER_HINT.search(left) or _ORDER_NUMBER_HINT.search(left):
+            # Не отбрасываем номер справки из-за слова «школа» в шапке:
+            # OCR может склеить весь документ в один абзац. Номер школы
+            # обычно стоит непосредственно после «школа/СОШ/МБОУ».
+            school_marker_before_number = re.search(
+                r"(?:школ\w*|сош|мбоу|мбдоу|маоу|лице\w*|гимнази\w*)"
+                r"(?:\s+[\w«»\"'’-]+){0,2}\s*$",
+                left,
+                re.IGNORECASE,
+            )
+            if school_marker_before_number or _ORDER_NUMBER_HINT.search(left):
                 continue
+            return value
+    return None
+
+
+_INTERNSHIP_DATE = (
+    r"(?:\d{1,2}[./-]\d{1,2}[./-]\d{2,4}|"
+    r"\d{1,2}\s+(?:января|февраля|марта|апреля|мая|июня|июля|"
+    r"августа|сентября|октября|ноября|декабря)\s+\d{4})"
+)
+
+
+def _parse_internship_date(value: str) -> tuple[str, str, date | None] | None:
+    month = _parse_month_date(value)
+    if month:
+        return month
+    parsed = _parse_date_token(value.strip().replace("-", "."))
+    return parsed if parsed and parsed[1] == "day" else None
+
+
+def extract_internship_period(text: str) -> str | None:
+    """Извлекает явно указанный диапазон практики с учетом OCR-вариантов дат."""
+    normalized = _normalize_spaced_full_dates(text)
+    flat = re.sub(r"\s+", " ", normalized)
+    pattern = re.compile(
+        rf"(?P<start>{_INTERNSHIP_DATE})[:\s]*(?:г(?:ода)?\.?\s*)?"
+        rf"(?:\bпо\b|\bдо\b|\s+[–—-]\s+)[:\s]*"
+        rf"(?P<end>{_INTERNSHIP_DATE})",
+        re.IGNORECASE,
+    )
+    candidates: list[tuple[int, str, str]] = []
+    for match in pattern.finditer(flat):
+        start = _parse_internship_date(match.group("start"))
+        end = _parse_internship_date(match.group("end"))
+        if not start or not end:
+            continue
+        context = flat[max(0, match.start() - 140):match.end() + 40]
+        practice_context = bool(re.search(r"практик|период", context, re.IGNORECASE))
+        prefix = flat[max(0, match.start() - 12):match.start()]
+        starts_with_from = bool(re.search(r"\bс\s*$", prefix, re.IGNORECASE))
+        if not practice_context and not starts_with_from:
+            continue
+        candidates.append((2 if practice_context else 1, start[0], end[0]))
+    if not candidates:
+        return None
+    _, start_value, end_value = max(candidates, key=lambda item: item[0])
+    return f"{start_value} – {end_value}"
+
+
+_INTERNSHIP_GRADE = re.compile(
+    r"\b(?:отлично|хорошо|удовлетворительно|неудовлетворительно|"
+    r"зачтено|не\s+зачтено)\b|\b[2-5]\b",
+    re.IGNORECASE,
+)
+
+
+def extract_internship_grade(text: str) -> str | None:
+    """Ищет оценку в формулировках «оценить на отлично» и «оценка: ...»."""
+    for match in re.finditer(r"\bоцен\w*\b[^.!?\n]{0,100}", text, re.IGNORECASE):
+        grade = _INTERNSHIP_GRADE.search(match.group(0))
+        if grade:
+            return re.sub(r"\s+", " ", grade.group(0)).strip().lower()
+    return None
+
+
+def _date_in_issue_fragment(text: str) -> str | None:
+    month = _parse_month_date(text)
+    if month:
+        return month[0]
+    for match in re.finditer(r"(?<!\d)\d{1,2}[./-]\d{1,2}[./-]\d{2,4}(?!\d)", text):
+        parsed = _parse_internship_date(match.group(0))
+        if parsed:
+            return parsed[0]
+    return None
+
+
+def extract_internship_issue_date(text: str) -> str | None:
+    """Читает дату выдачи из строки номера документа, а не из текста практики."""
+    normalized = _normalize_spaced_full_dates(text)
+    flat = re.sub(r"\s+", " ", normalized)
+    number = extract_document_number(flat)
+    if number:
+        marker = re.compile(
+            rf"(?:№|N\s*[оo]?\.?|#)\s*{re.escape(number)}(?![\w./-])",
+            re.IGNORECASE,
+        )
+        for match in marker.finditer(flat):
+            tail = flat[match.end():match.end() + 120]
+            issued = re.search(r"\bот\b", tail, re.IGNORECASE)
+            if issued:
+                value = _date_in_issue_fragment(tail[issued.end():])
+                if value:
+                    return value
+
+    for match in re.finditer(r"\b(?:дата\s+выдачи|дата\s+справки)\b", flat, re.IGNORECASE):
+        value = _date_in_issue_fragment(flat[match.end():match.end() + 100])
+        if value:
             return value
     return None
 
@@ -198,7 +328,25 @@ def normalize_study_form(value: str | None) -> str:
     return value
 
 
-_DATE_TOKEN = r"(?<!\d)(?:\d{1,2}[./]\d{1,2}[./]\d{2,4}|\d{1,2}[./]\d{4}|\d{1,2}[./]\d{1,2}|\d{4})(?!\d)"
+_DATE_TOKEN = r"(?<!\d)(?:\d{1,2}[./-]\d{1,2}[./-]\d{2,4}|\d{1,2}[./]\d{4}|\d{1,2}[./]\d{1,2}|\d{4})(?!\d)"
+
+# Дата прописью: «30 ноября 2010», «от «30» ноября 2010 г.» → 30.11.2010
+_WRITTEN_DATE_RE = re.compile(
+    r"(?:от\s+)?«?(\d{1,2})»?\s+(января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря)\s+(\d{4})",
+    re.IGNORECASE,
+)
+
+
+def _written_date_to_numeric(text: str) -> str | None:
+    """Преобразует дату прописью в ДД.ММ.ГГГГ."""
+    m = _WRITTEN_DATE_RE.search(text)
+    if not m:
+        return None
+    day, month_name, year = m.group(1), m.group(2).lower(), m.group(3)
+    month = _RU_MONTHS.get(month_name)
+    if not month:
+        return None
+    return f"{int(day):02d}.{month:02d}.{year}"
 
 _RU_MONTHS = {
     "января": 1, "февраля": 2, "марта": 3, "апреля": 4, "мая": 5, "июня": 6,
@@ -224,7 +372,7 @@ def _parse_month_date(text: str) -> tuple[str, str, date | None] | None:
 
 def _parse_date_token(value: str) -> tuple[str, str, date | None] | None:
     """Нормализует полную или частично распознанную дату без выдумывания её частей."""
-    parts = re.split(r"[./]", value)
+    parts = re.split(r"[./-]", value)
     try:
         if len(parts) == 3 and len(parts[2]) in {2, 4}:
             day, month, year = map(int, parts)
@@ -248,6 +396,73 @@ def _parse_date_token(value: str) -> tuple[str, str, date | None] | None:
     except ValueError:
         return None
     return None
+
+
+_SPACED_FULL_DATE_RE = re.compile(
+    r"(?<!\d)[«\"'(\[]?\s*(\d{1,2})\s*[»\"')\]]?"
+    r"[./\s-]+(\d{1,2})[./\s-]+((?:19|20)\d{2})(?!\d)"
+)
+
+
+def _normalize_spaced_full_dates(text: str) -> str:
+    """Normalize form dates such as `с «10» 09 2018 г.` to `10.09.2018`."""
+    def normalize(match: re.Match) -> str:
+        try:
+            parsed = date(int(match.group(3)), int(match.group(2)), int(match.group(1)))
+        except ValueError:
+            return match.group(0)
+        return parsed.strftime("%d.%m.%Y")
+
+    return _SPACED_FULL_DATE_RE.sub(normalize, text)
+
+
+def _academic_leave_date_range(text: str) -> tuple[str, str] | None:
+    """Read the requested leave range, then the previously granted range."""
+    normalized = _normalize_spaced_full_dates(text)
+    flat = re.sub(r"\s+", " ", normalized)
+    pattern = re.compile(
+        rf"\bс\s*({_DATE_TOKEN})\s*(?:г(?:ода)?\.?\s*)?"
+        rf"[\s,;:–—-]{{0,20}}\bпо\s*({_DATE_TOKEN})",
+        re.IGNORECASE,
+    )
+    candidates: list[tuple[int, int, str, str]] = []
+    for match in pattern.finditer(flat):
+        start = _parse_date_token(match.group(1))
+        end = _parse_date_token(match.group(2))
+        if not start or not end or start[1] != "day" or end[1] != "day":
+            continue
+        prefix = flat[max(0, match.start() - 220):match.start()]
+        if re.search(r"\bпрошу\b.{0,180}академическ\w*\s+отпуск", prefix, re.IGNORECASE):
+            priority = 2
+        elif re.search(r"академическ\w*\s+отпуск.{0,120}предоставлен", prefix, re.IGNORECASE):
+            priority = 1
+        else:
+            priority = 0
+        candidates.append((priority, match.start(), start[0], end[0]))
+    if not candidates:
+        return None
+    _, _, start_value, end_value = max(candidates, key=lambda item: (item[0], -item[1]))
+    return start_value, end_value
+
+
+def _academic_leave_reason(text: str) -> str | None:
+    match = re.search(
+        r"\bв\s+связи\s+(?:с\s+)?([^\n]{3,200})",
+        text,
+        re.IGNORECASE,
+    )
+    if not match:
+        return None
+    value = re.split(
+        r"\(?\s*указать\s+основан|\bдата\s+подпис|\bподпис[ьи]\b",
+        match.group(1),
+        maxsplit=1,
+        flags=re.IGNORECASE,
+    )[0]
+    value = re.sub(r"[_\s]+", " ", value).strip(" \t.,;:—–-")
+    if len(re.findall(r"[А-Яа-яЁёA-Za-z]{2,}", value)) < 2:
+        return None
+    return value or None
 
 
 def _date_after_label(text: str, label: str) -> tuple[str, str, date | None] | None:
@@ -468,6 +683,14 @@ def extract_configured_value(text: str, definition: dict[str, Any]) -> str | Non
 
 def extract_fields(text: str, doc_type: str,
                    field_definitions: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    source_text = (
+        _normalize_spaced_full_dates(text)
+        if doc_type in {"academic_leave", "internship_certificate"}
+        else text
+    )
+    leave_date_range = (
+        _academic_leave_date_range(source_text) if doc_type == "academic_leave" else None
+    )
     fields: dict[str, Any] = {}
     configured = {item.get("name"): item for item in (field_definitions or [])
                   if isinstance(item, dict) and isinstance(item.get("name"), str)}
@@ -482,11 +705,11 @@ def extract_fields(text: str, doc_type: str,
             continue
 
         if not known_type and field in configured:
-            value = extract_configured_value(text, configured[field])
+            value = extract_configured_value(source_text, configured[field])
         else:
-            value = extract_field(text, PATTERNS.get(field, []))
+            value = extract_field(source_text, PATTERNS.get(field, []))
             if not value and field in configured:
-                value = extract_configured_value(text, configured[field])
+                value = extract_configured_value(source_text, configured[field])
 
         # спец-нормализация
         if field == "study_form":
@@ -497,18 +720,37 @@ def extract_fields(text: str, doc_type: str,
                 fields["study_period_note"] = note
         elif field == "program":
             value = extract_program(text)
+        elif field == "internship_period" and doc_type == "internship_certificate":
+            value = extract_internship_period(source_text)
+        elif field == "grade" and doc_type == "internship_certificate":
+            value = extract_internship_grade(source_text)
         elif field == "student_name":
-            value = extract_student_name(text)
+            value = extract_student_name(source_text)
             if not value and field in configured:
-                value = extract_configured_value(text, configured[field])
+                value = extract_configured_value(source_text, configured[field])
         elif field == "university":
-            value = extract_university(text)
+            value = extract_university(source_text)
             if not value and field in configured:
-                value = extract_configured_value(text, configured[field])
+                value = extract_configured_value(source_text, configured[field])
         elif field == "document_number":
-            value = extract_document_number(text)
+            value = extract_document_number(source_text)
             if not value and field in configured:
-                value = extract_configured_value(text, configured[field])
+                value = extract_configured_value(source_text, configured[field])
+        elif field == "issue_date":
+            if doc_type == "internship_certificate":
+                value = extract_internship_issue_date(source_text) or value
+            if not value:
+                value = _written_date_to_numeric(source_text)
+        elif field == "reason":
+            value = _academic_leave_reason(source_text) or value
+        elif field in {"start_date", "end_date"} and not value and leave_date_range:
+            value = leave_date_range[0 if field == "start_date" else 1]
+        elif field == "application_date" and not value:
+            parsed = _date_after_label(
+                source_text,
+                r"\bдата\s+(?:(?:подачи\s+)?заявлени\w*|подпис[ьи])",
+            )
+            value = parsed[0] if parsed else None
 
         fields[field] = value or "не найдено"
 
